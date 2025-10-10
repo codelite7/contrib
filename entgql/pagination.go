@@ -18,6 +18,7 @@ package entgql
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -148,8 +149,59 @@ type PageInfo[T any] struct {
 
 // Cursor of an edge type.
 type Cursor[T any] struct {
-	ID    T         `msgpack:"i"`
-	Value ent.Value `msgpack:"v,omitempty"`
+	ID    T                  `msgpack:"i"`
+	Value ent.Value          `msgpack:"v,omitempty"`
+	Meta  msgpack.RawMessage `msgpack:"m,omitempty"`
+}
+
+// ErrNoCursorMetadata is returned when attempting to access metadata that was never attached.
+var ErrNoCursorMetadata = errors.New("entgql: cursor metadata not set")
+
+// HasMetadata reports whether the cursor carries a metadata payload.
+func (c Cursor[T]) HasMetadata() bool {
+	return len(c.Meta) > 0
+}
+
+// Metadata decodes the cursor metadata into the provided target. If no metadata is present,
+// ErrNoCursorMetadata is returned.
+func (c Cursor[T]) Metadata(target any) error {
+	if len(c.Meta) == 0 {
+		return ErrNoCursorMetadata
+	}
+	if target == nil {
+		return fmt.Errorf("entgql: metadata target must not be nil")
+	}
+	return msgpack.Unmarshal(c.Meta, target)
+}
+
+// MetadataRaw returns a copy of the raw msgpack payload stored in the cursor metadata.
+func (c Cursor[T]) MetadataRaw() msgpack.RawMessage {
+	if len(c.Meta) == 0 {
+		return nil
+	}
+	dup := make(msgpack.RawMessage, len(c.Meta))
+	copy(dup, c.Meta)
+	return dup
+}
+
+// SetMetadata replaces the cursor metadata with the msgpack encoding of the provided value. A
+// nil value clears the metadata.
+func (c *Cursor[T]) SetMetadata(value any) error {
+	if value == nil {
+		c.Meta = nil
+		return nil
+	}
+	b, err := msgpack.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("entgql: encode cursor metadata: %w", err)
+	}
+	c.Meta = msgpack.RawMessage(b)
+	return nil
+}
+
+// ClearMetadata removes any metadata payload from the cursor.
+func (c *Cursor[T]) ClearMetadata() {
+	c.Meta = nil
 }
 
 // MarshalGQL implements graphql.Marshaler interface.
@@ -303,7 +355,7 @@ func multiPredicate[T any](cursor *Cursor[T], opts *MultiCursorsOptions) (func(*
 				}
 			}
 			if opts.NullsDirections[i] == "" {
-    		opts.NullsDirections[i] = NullsLast
+				opts.NullsDirections[i] = NullsLast
 			}
 			if opts.Directions[i] == OrderDirectionAsc {
 				switch {
