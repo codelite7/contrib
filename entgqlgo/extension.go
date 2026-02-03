@@ -15,8 +15,6 @@
 package entgqlgo
 
 import (
-	"os"
-
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
 )
@@ -29,26 +27,16 @@ type (
 		templates []*gen.Template
 
 		// Configuration
-		genWhereInput    bool
-		genMutations     bool
-		relaySpec        bool
-		genSchema        bool
-		path             string
-		scalarFunc       func(*gen.Field, gen.Op) string
+		genWhereInput bool
+		genMutations  bool
+		relaySpec     bool
+		scalarFunc    func(*gen.Field, gen.Op) string
 	}
 
 	// ExtensionOption allows for managing the Extension configuration
 	// using functional options.
 	ExtensionOption func(*Extension) error
 )
-
-// WithSchemaPath sets the filepath to write the generated Go GraphQL schema code.
-func WithSchemaPath(path string) ExtensionOption {
-	return func(ex *Extension) error {
-		ex.path = path
-		return nil
-	}
-}
 
 // WithTemplates overrides the default templates with specific templates.
 func WithTemplates(templates ...*gen.Template) ExtensionOption {
@@ -81,14 +69,6 @@ func WithRelaySpec(enabled bool) ExtensionOption {
 	}
 }
 
-// WithSchemaGenerator add a hook for generate GQL schema
-func WithSchemaGenerator() ExtensionOption {
-	return func(e *Extension) error {
-		e.genSchema = true
-		return nil
-	}
-}
-
 // WithMapScalarFunc allows users to provide a custom function that
 // maps an ent.Field (*gen.Field) into its GraphQL scalar type.
 func WithMapScalarFunc(scalarFunc func(*gen.Field, gen.Op) string) ExtensionOption {
@@ -101,9 +81,8 @@ func WithMapScalarFunc(scalarFunc func(*gen.Field, gen.Op) string) ExtensionOpti
 // NewExtension creates a new extension with the given configuration.
 //
 //	ex, err := entgqlgo.NewExtension(
-//		entgqlgo.WithSchemaGenerator(),
-//		entgqlgo.WithSchemaPath("./gql_schema.go"),
 //		entgqlgo.WithWhereInputs(true),
+//		entgqlgo.WithRelaySpec(true),
 //	)
 func NewExtension(opts ...ExtensionOption) (*Extension, error) {
 	ex := &Extension{
@@ -116,7 +95,6 @@ func NewExtension(opts ...ExtensionOption) (*Extension, error) {
 			return nil, err
 		}
 	}
-	ex.hooks = append(ex.hooks, ex.genSchemaHook())
 	return ex, nil
 }
 
@@ -135,36 +113,6 @@ func (e *Extension) Options() []entc.Option {
 	return []entc.Option{
 		entc.FeatureNames(gen.FeatureNamedEdges.Name),
 	}
-}
-
-// genSchemaHook returns a new hook for generating the GraphQL schema from the graph.
-func (e *Extension) genSchemaHook() gen.Hook {
-	return func(next gen.Generator) gen.Generator {
-		return gen.GenerateFunc(func(g *gen.Graph) (err error) {
-			if err = next.Generate(g); err != nil {
-				return err
-			}
-			if !(e.genSchema || e.genWhereInput || e.genMutations) {
-				return nil
-			}
-			if e.path == "" {
-				return nil
-			}
-			// Generate the graphql-go schema code
-			schemaCode, err := e.buildSchemaCode(g)
-			if err != nil {
-				return err
-			}
-			return os.WriteFile(e.path, []byte(schemaCode), 0644)
-		})
-	}
-}
-
-// buildSchemaCode generates the graphql-go/graphql schema code.
-func (e *Extension) buildSchemaCode(g *gen.Graph) (string, error) {
-	// This is a placeholder - actual implementation will generate
-	// graphql-go type definitions and schema builder code
-	return "// Generated graphql-go schema\npackage gql\n", nil
 }
 
 // hasTemplate reports if the template exists in the template list and returns its index.
