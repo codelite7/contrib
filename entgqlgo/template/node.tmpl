@@ -1,0 +1,184 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_node" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $idType := gqlIDType $gqlNodes $.IDType }}
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/graphql-go/graphql"
+)
+
+// Relay Node interface implementation for graphql-go.
+// This enables global object identification per the Relay specification.
+
+// Noder wraps the basic Node method for Relay global identification.
+type Noder interface {
+	// IsNode is a marker method for types that implement Node.
+	IsNode()
+}
+
+{{- range $n := $gqlNodes }}
+// IsNode marks {{ $n.Name }} as a Relay Node.
+func (*{{ $n.Name }}) IsNode() {}
+{{- end }}
+
+// NodeInterface is the Relay Node interface for global object identification.
+var NodeInterface = graphql.NewInterface(graphql.InterfaceConfig{
+	Name:        "Node",
+	Description: "An object with a globally unique ID.",
+	Fields: graphql.Fields{
+		"id": &graphql.Field{
+			Type:        graphql.NewNonNull(graphql.ID),
+			Description: "The globally unique identifier.",
+		},
+	},
+	ResolveType: func(p graphql.ResolveTypeParams) *graphql.Object {
+		switch p.Value.(type) {
+		{{- range $n := $gqlNodes }}
+		case *{{ $n.Name }}:
+			return {{ $n.Name }}Type
+		{{- end }}
+		default:
+			return nil
+		}
+	},
+})
+
+// NodeResolver implements the node(id: ID!) query for Relay.
+type NodeResolver struct {
+	client *Client
+}
+
+// NewNodeResolver creates a new NodeResolver.
+func NewNodeResolver(client *Client) *NodeResolver {
+	return &NodeResolver{client: client}
+}
+
+// Resolve resolves a node by its global ID.
+func (r *NodeResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	id, ok := p.Args["id"]
+	if !ok {
+		return nil, fmt.Errorf("id argument is required")
+	}
+	return r.client.Noder(p.Context, id)
+}
+
+// NodesResolver implements the nodes(ids: [ID!]!) query for Relay.
+type NodesResolver struct {
+	client *Client
+}
+
+// NewNodesResolver creates a new NodesResolver.
+func NewNodesResolver(client *Client) *NodesResolver {
+	return &NodesResolver{client: client}
+}
+
+// Resolve resolves multiple nodes by their global IDs.
+func (r *NodesResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	ids, ok := p.Args["ids"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("ids argument is required")
+	}
+
+	nodes := make([]Noder, len(ids))
+	for i, id := range ids {
+		node, err := r.client.Noder(p.Context, id)
+		if err != nil {
+			// Return nil for nodes that don't exist
+			nodes[i] = nil
+			continue
+		}
+		nodes[i] = node
+	}
+	return nodes, nil
+}
+
+// Noder returns a node by its ID.
+// The ID is decoded and the appropriate entity is fetched.
+func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
+	{{- /* Simple implementation - in production you'd want to encode type info in the ID */ -}}
+	{{- range $i, $n := $gqlNodes }}
+	{{- if eq $i 0 }}
+	// Try each type until we find a match
+	{{- end }}
+	{{- if $n.ID.IsInt }}
+	if idInt, err := toIntID(id); err == nil {
+		if node, err := c.{{ $n.Name }}.Get(ctx, idInt); err == nil {
+			return node, nil
+		}
+	}
+	{{- else }}
+	if node, err := c.{{ $n.Name }}.Get(ctx, fmt.Sprint(id)); err == nil {
+		return node, nil
+	}
+	{{- end }}
+	{{- end }}
+	return nil, fmt.Errorf("node not found: %v", id)
+}
+
+// toIntID converts various types to int for ID lookup.
+func toIntID(id interface{}) (int, error) {
+	switch v := id.(type) {
+	case int:
+		return v, nil
+	case int64:
+		return int(v), nil
+	case float64:
+		return int(v), nil
+	case string:
+		var i int
+		if _, err := fmt.Sscanf(v, "%d", &i); err != nil {
+			return 0, err
+		}
+		return i, nil
+	default:
+		return 0, fmt.Errorf("cannot convert %T to int", id)
+	}
+}
+
+// NodeField returns the GraphQL field definition for the node query.
+func NodeField(client *Client) *graphql.Field {
+	return &graphql.Field{
+		Type:        NodeInterface,
+		Description: "Fetches an object given its globally unique ID.",
+		Args: graphql.FieldConfigArgument{
+			"id": &graphql.ArgumentConfig{
+				Type:        graphql.NewNonNull(graphql.ID),
+				Description: "The globally unique ID of the object.",
+			},
+		},
+		Resolve: NewNodeResolver(client).Resolve,
+	}
+}
+
+// NodesField returns the GraphQL field definition for the nodes query.
+func NodesField(client *Client) *graphql.Field {
+	return &graphql.Field{
+		Type:        graphql.NewNonNull(graphql.NewList(NodeInterface)),
+		Description: "Fetches objects given their globally unique IDs.",
+		Args: graphql.FieldConfigArgument{
+			"ids": &graphql.ArgumentConfig{
+				Type:        graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(graphql.ID))),
+				Description: "The globally unique IDs of the objects.",
+			},
+		},
+		Resolve: NewNodesResolver(client).Resolve,
+	}
+}
+
+{{ end }}

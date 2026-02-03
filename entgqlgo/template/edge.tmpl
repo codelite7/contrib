@@ -1,0 +1,97 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_edge" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+
+import (
+	"context"
+
+	"github.com/graphql-go/graphql"
+)
+
+// Edge resolution helpers for graphql-go.
+// These provide optimized edge resolution that checks for eager-loaded data first.
+
+{{- range $n := $gqlNodes }}
+{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+
+// {{ $n.Name }}{{ $e.StructField }}Resolver resolves the {{ $e.Name }} edge for {{ $n.Name }}.
+// It first checks if the edge was already loaded via eager loading.
+// If not, it falls back to querying the database.
+type {{ $n.Name }}{{ $e.StructField }}Resolver struct {
+	client *Client
+}
+
+// New{{ $n.Name }}{{ $e.StructField }}Resolver creates a new resolver for the {{ $e.Name }} edge.
+func New{{ $n.Name }}{{ $e.StructField }}Resolver(client *Client) *{{ $n.Name }}{{ $e.StructField }}Resolver {
+	return &{{ $n.Name }}{{ $e.StructField }}Resolver{client: client}
+}
+
+// Resolve implements the edge resolution for {{ $n.Name }}.{{ $e.Name }}.
+func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*{{ $n.Name }})
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	{{- if $e.Unique }}
+	if edge := source.Edges.{{ $e.StructField }}; edge != nil {
+		return edge, nil
+	}
+
+	// Fall back to query
+	{{- if $e.Optional }}
+	return source.Query{{ $e.StructField }}().Only(p.Context)
+	{{- else }}
+	edge, err := source.Query{{ $e.StructField }}().Only(p.Context)
+	if err != nil {
+		return nil, err
+	}
+	return edge, nil
+	{{- end }}
+	{{- else }}
+	if edges := source.Edges.{{ $e.StructField }}; edges != nil {
+		return edges, nil
+	}
+
+	// Fall back to query
+	return source.Query{{ $e.StructField }}().All(p.Context)
+	{{- end }}
+}
+{{- end }}
+{{- end }}
+
+// EdgeResolverMap provides a map of edge resolvers for all types.
+type EdgeResolverMap struct {
+	client *Client
+}
+
+// NewEdgeResolverMap creates a new EdgeResolverMap.
+func NewEdgeResolverMap(client *Client) *EdgeResolverMap {
+	return &EdgeResolverMap{client: client}
+}
+
+{{- range $n := $gqlNodes }}
+{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+
+// {{ $n.Name }}{{ $e.StructField }} returns the resolver for {{ $n.Name }}.{{ $e.Name }}.
+func (m *EdgeResolverMap) {{ $n.Name }}{{ $e.StructField }}() graphql.FieldResolveFn {
+	return New{{ $n.Name }}{{ $e.StructField }}Resolver(m.client).Resolve
+}
+{{- end }}
+{{- end }}
+
+{{ end }}

@@ -1,0 +1,230 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_resolvers" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/graphql-go/graphql"
+	"entgo.io/contrib/entgqlgo"
+)
+
+// Resolvers contains resolver methods for the GraphQL schema.
+type Resolvers struct {
+	client *Client
+}
+
+// NewResolvers creates a new Resolvers instance.
+func NewResolvers(client *Client) *Resolvers {
+	return &Resolvers{client: client}
+}
+
+{{- range $n := $gqlNodes }}
+
+// Query{{ plural $n.Name }} resolves the query for listing {{ plural $n.Name }}.
+func (r *Resolvers) Query{{ plural $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
+	query := r.client.{{ $n.Name }}.Query()
+
+	// Apply eager loading based on GraphQL field selection
+	{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+	if entgqlgo.HasField(p.Info, "{{ camel $e.Name }}") {
+		query = query.With{{ $e.StructField }}()
+	}
+	{{- end }}
+
+	// Apply pagination arguments
+	if first, ok := p.Args["first"].(int); ok && first > 0 {
+		query = query.Limit(first)
+	}
+	if offset, ok := p.Args["offset"].(int); ok && offset > 0 {
+		query = query.Offset(offset)
+	}
+
+	return query.All(p.Context)
+}
+
+// Query{{ $n.Name }} resolves the query for a single {{ $n.Name }} by ID.
+func (r *Resolvers) Query{{ $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
+	id, ok := p.Args["id"]
+	if !ok {
+		return nil, fmt.Errorf("id argument is required")
+	}
+
+	query := r.client.{{ $n.Name }}.Query()
+
+	// Apply eager loading based on GraphQL field selection
+	{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+	if entgqlgo.HasField(p.Info, "{{ camel $e.Name }}") {
+		query = query.With{{ $e.StructField }}()
+	}
+	{{- end }}
+
+	{{- if $n.ID.IsInt }}
+	idInt, err := toInt(id)
+	if err != nil {
+		return nil, err
+	}
+	return query.Where({{ $n.Package }}.ID(idInt)).Only(p.Context)
+	{{- else }}
+	return query.Where({{ $n.Package }}.ID(fmt.Sprint(id))).Only(p.Context)
+	{{- end }}
+}
+
+// Create{{ $n.Name }} resolves the mutation for creating a {{ $n.Name }}.
+func (r *Resolvers) Create{{ $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
+	create := r.client.{{ $n.Name }}.Create()
+
+	{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+	{{- if not $f.Sensitive }}
+	{{- if not $f.Immutable }}
+	{{- if not $f.Default }}
+	if v, ok := p.Args["{{ camel $f.Name }}"]; ok && v != nil {
+		{{- if $f.Type.Numeric }}
+		val, err := toInt(v)
+		if err != nil {
+			return nil, err
+		}
+		create = create.Set{{ $f.StructField }}({{ $f.Type }}(val))
+		{{- else if eq $f.Type.String "string" }}
+		create = create.Set{{ $f.StructField }}(v.(string))
+		{{- else if eq $f.Type.String "bool" }}
+		create = create.Set{{ $f.StructField }}(v.(bool))
+		{{- else }}
+		create = create.Set{{ $f.StructField }}(v.({{ $f.Type }}))
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
+	return create.Save(p.Context)
+}
+
+// Update{{ $n.Name }} resolves the mutation for updating a {{ $n.Name }}.
+func (r *Resolvers) Update{{ $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
+	id, ok := p.Args["id"]
+	if !ok {
+		return nil, fmt.Errorf("id argument is required")
+	}
+
+	{{- if $n.ID.IsInt }}
+	idInt, err := toInt(id)
+	if err != nil {
+		return nil, err
+	}
+	update := r.client.{{ $n.Name }}.UpdateOneID(idInt)
+	{{- else }}
+	update := r.client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
+	{{- end }}
+
+	{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+	{{- if not $f.Sensitive }}
+	{{- if not $f.Immutable }}
+	if v, ok := p.Args["{{ camel $f.Name }}"]; ok && v != nil {
+		{{- if $f.Type.Numeric }}
+		val, err := toInt(v)
+		if err != nil {
+			return nil, err
+		}
+		update = update.Set{{ $f.StructField }}({{ $f.Type }}(val))
+		{{- else if eq $f.Type.String "string" }}
+		update = update.Set{{ $f.StructField }}(v.(string))
+		{{- else if eq $f.Type.String "bool" }}
+		update = update.Set{{ $f.StructField }}(v.(bool))
+		{{- else }}
+		update = update.Set{{ $f.StructField }}(v.({{ $f.Type }}))
+		{{- end }}
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+
+	return update.Save(p.Context)
+}
+
+// Delete{{ $n.Name }} resolves the mutation for deleting a {{ $n.Name }}.
+func (r *Resolvers) Delete{{ $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
+	id, ok := p.Args["id"]
+	if !ok {
+		return false, fmt.Errorf("id argument is required")
+	}
+
+	{{- if $n.ID.IsInt }}
+	idInt, err := toInt(id)
+	if err != nil {
+		return false, err
+	}
+	err = r.client.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
+	{{- else }}
+	err := r.client.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
+	{{- end }}
+	return err == nil, err
+}
+
+{{- /* Edge resolvers */ -}}
+{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+
+// Resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
+func (r *Resolvers) Resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*{{ $n.Name }})
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	{{- if $e.Unique }}
+	if edge := source.Edges.{{ $e.StructField }}; edge != nil {
+		return edge, nil
+	}
+	{{- else }}
+	if edges := source.Edges.{{ $e.StructField }}; edges != nil {
+		return edges, nil
+	}
+	{{- end }}
+
+	// Fall back to query
+	{{- if $e.Unique }}
+	return source.Query{{ $e.StructField }}().Only(p.Context)
+	{{- else }}
+	return source.Query{{ $e.StructField }}().All(p.Context)
+	{{- end }}
+}
+{{- end }}
+{{- end }}
+
+// Helper functions
+
+// toInt converts various types to int.
+func toInt(v interface{}) (int, error) {
+	switch val := v.(type) {
+	case int:
+		return val, nil
+	case int64:
+		return int(val), nil
+	case float64:
+		return int(val), nil
+	case string:
+		var i int
+		_, err := fmt.Sscanf(val, "%d", &i)
+		return i, err
+	default:
+		return 0, fmt.Errorf("cannot convert %T to int", v)
+	}
+}
+
+{{ end }}

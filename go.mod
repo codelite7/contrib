@@ -50,6 +50,8 @@ require (
 	github.com/go-faster/yamlx v0.4.1 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/graphql-go/graphql v0.8.1 // indirect
+	github.com/graphql-go/handler v0.2.4 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl/v2 v2.18.1 // indirect

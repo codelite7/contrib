@@ -1,0 +1,259 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_schema" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+
+import (
+	"context"
+
+	"github.com/graphql-go/graphql"
+	"entgo.io/contrib/entgqlgo"
+)
+
+// NewSchema creates a new GraphQL schema with Query and Mutation types.
+// The client is used for database operations in resolvers.
+func NewSchema(client *Client) (graphql.Schema, error) {
+	return graphql.NewSchema(graphql.SchemaConfig{
+		Query:    newQueryType(client),
+		Mutation: newMutationType(client),
+	})
+}
+
+// newQueryType creates the root Query type.
+func newQueryType(client *Client) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: "Query",
+		Fields: graphql.Fields{
+			{{- range $n := $gqlNodes }}
+			{{- $names := nodePaginationNames $n }}
+			"{{ plural (camel $n.Name) }}": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.NewList({{ $n.Name }}Type)),
+				Args: graphql.FieldConfigArgument{
+					"first": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the first n elements.",
+					},
+					"offset": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Skip the first n elements.",
+					},
+				},
+				Description: "Query all {{ plural $n.Name }}.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					query := client.{{ $n.Name }}.Query()
+					// Apply eager loading based on selection
+					fields := entgqlgo.CollectFields(p.Info)
+					{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+					if contains(fields, "{{ camel $e.Name }}") {
+						query = query.With{{ $e.StructField }}()
+					}
+					{{- end }}
+					// Apply pagination
+					if first, ok := p.Args["first"].(int); ok && first > 0 {
+						query = query.Limit(first)
+					}
+					if offset, ok := p.Args["offset"].(int); ok && offset > 0 {
+						query = query.Offset(offset)
+					}
+					return query.All(p.Context)
+				},
+			},
+			"{{ camel $n.Name }}": &graphql.Field{
+				Type: {{ $n.Name }}Type,
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(graphql.ID),
+						Description: "The ID of the {{ $n.Name }}.",
+					},
+				},
+				Description: "Query a single {{ $n.Name }} by ID.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, ok := p.Args["id"]
+					if !ok {
+						return nil, nil
+					}
+					// Convert ID based on type
+					{{- if $n.ID.IsInt }}
+					idInt, err := strconv.Atoi(fmt.Sprint(id))
+					if err != nil {
+						return nil, err
+					}
+					return client.{{ $n.Name }}.Get(p.Context, idInt)
+					{{- else }}
+					return client.{{ $n.Name }}.Get(p.Context, fmt.Sprint(id))
+					{{- end }}
+				},
+			},
+			{{- end }}
+			{{- /* Relay Node interface */ -}}
+			"node": &graphql.Field{
+				Type: NodeInterface,
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(graphql.ID),
+						Description: "The ID of the node.",
+					},
+				},
+				Description: "Fetches an object given its ID.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, ok := p.Args["id"]
+					if !ok {
+						return nil, nil
+					}
+					return client.Noder(p.Context, fmt.Sprint(id))
+				},
+			},
+		},
+	})
+}
+
+// newMutationType creates the root Mutation type.
+func newMutationType(client *Client) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: "Mutation",
+		Fields: graphql.Fields{
+			{{- range $n := $gqlNodes }}
+			"create{{ $n.Name }}": &graphql.Field{
+				Type: {{ $n.Name }}Type,
+				Args: create{{ $n.Name }}Args(),
+				Description: "Create a new {{ $n.Name }}.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					create := client.{{ $n.Name }}.Create()
+					{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+					{{- if not $f.Sensitive }}
+					{{- if not $f.Immutable }}
+					if v, ok := p.Args["{{ camel $f.Name }}"]; ok {
+						create = create.Set{{ $f.StructField }}(v.({{ $f.Type }}))
+					}
+					{{- end }}
+					{{- end }}
+					{{- end }}
+					return create.Save(p.Context)
+				},
+			},
+			"update{{ $n.Name }}": &graphql.Field{
+				Type: {{ $n.Name }}Type,
+				Args: update{{ $n.Name }}Args(),
+				Description: "Update an existing {{ $n.Name }}.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, ok := p.Args["id"]
+					if !ok {
+						return nil, fmt.Errorf("id is required")
+					}
+					{{- if $n.ID.IsInt }}
+					idInt, err := strconv.Atoi(fmt.Sprint(id))
+					if err != nil {
+						return nil, err
+					}
+					update := client.{{ $n.Name }}.UpdateOneID(idInt)
+					{{- else }}
+					update := client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
+					{{- end }}
+					{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+					{{- if not $f.Sensitive }}
+					{{- if not $f.Immutable }}
+					if v, ok := p.Args["{{ camel $f.Name }}"]; ok {
+						update = update.Set{{ $f.StructField }}(v.({{ $f.Type }}))
+					}
+					{{- end }}
+					{{- end }}
+					{{- end }}
+					return update.Save(p.Context)
+				},
+			},
+			"delete{{ $n.Name }}": &graphql.Field{
+				Type: graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(graphql.ID),
+						Description: "The ID of the {{ $n.Name }} to delete.",
+					},
+				},
+				Description: "Delete a {{ $n.Name }}.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					id, ok := p.Args["id"]
+					if !ok {
+						return false, fmt.Errorf("id is required")
+					}
+					{{- if $n.ID.IsInt }}
+					idInt, err := strconv.Atoi(fmt.Sprint(id))
+					if err != nil {
+						return false, err
+					}
+					err = client.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
+					{{- else }}
+					err := client.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
+					{{- end }}
+					return err == nil, err
+				},
+			},
+			{{- end }}
+		},
+	})
+}
+
+{{- /* Generate mutation argument helpers */ -}}
+{{- range $n := $gqlNodes }}
+
+func create{{ $n.Name }}Args() graphql.FieldConfigArgument {
+	return graphql.FieldConfigArgument{
+		{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+		{{- if not $f.Sensitive }}
+		{{- if not $f.Immutable }}
+		"{{ camel $f.Name }}": &graphql.ArgumentConfig{
+			Type: {{ if not $f.Optional }}graphql.NewNonNull({{ end }}{{ gqlgoType $f }}{{ if not $f.Optional }}){{ end }},
+			{{- if $f.Comment }}
+			Description: "{{ $f.Comment }}",
+			{{- end }}
+		},
+		{{- end }}
+		{{- end }}
+		{{- end }}
+	}
+}
+
+func update{{ $n.Name }}Args() graphql.FieldConfigArgument {
+	return graphql.FieldConfigArgument{
+		"id": &graphql.ArgumentConfig{
+			Type:        graphql.NewNonNull(graphql.ID),
+			Description: "The ID of the {{ $n.Name }} to update.",
+		},
+		{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+		{{- if not $f.Sensitive }}
+		{{- if not $f.Immutable }}
+		"{{ camel $f.Name }}": &graphql.ArgumentConfig{
+			Type: {{ gqlgoType $f }},
+			{{- if $f.Comment }}
+			Description: "{{ $f.Comment }}",
+			{{- end }}
+		},
+		{{- end }}
+		{{- end }}
+		{{- end }}
+	}
+}
+{{- end }}
+
+// contains checks if a slice contains a string.
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+{{ end }}

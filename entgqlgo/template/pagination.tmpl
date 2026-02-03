@@ -1,0 +1,228 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_pagination" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $idType := gqlIDType $gqlNodes $.IDType }}
+
+import (
+	"context"
+	"errors"
+
+	"github.com/graphql-go/graphql"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/contrib/entgqlgo"
+	{{- range $n := $gqlNodes }}
+	"{{ $.Config.Package }}/{{ $n.Package }}"
+	{{- end }}
+)
+
+// Pagination types for Relay-style connections.
+// These implement the Relay Cursor Connections Specification.
+
+// PaginationArgs represents the standard Relay pagination arguments.
+type PaginationArgs struct {
+	First  *int
+	After  *entgqlgo.Cursor[{{ $idType }}]
+	Last   *int
+	Before *entgqlgo.Cursor[{{ $idType }}]
+}
+
+// ParsePaginationArgs extracts pagination arguments from GraphQL ResolveParams.
+func ParsePaginationArgs(p graphql.ResolveParams) (*PaginationArgs, error) {
+	args := &PaginationArgs{}
+
+	if first, ok := p.Args["first"].(int); ok {
+		args.First = &first
+	}
+	if last, ok := p.Args["last"].(int); ok {
+		args.Last = &last
+	}
+	if after, ok := p.Args["after"].(string); ok {
+		c := &entgqlgo.Cursor[{{ $idType }}]{}
+		if err := c.UnmarshalText([]byte(after)); err != nil {
+			return nil, err
+		}
+		args.After = c
+	}
+	if before, ok := p.Args["before"].(string); ok {
+		c := &entgqlgo.Cursor[{{ $idType }}]{}
+		if err := c.UnmarshalText([]byte(before)); err != nil {
+			return nil, err
+		}
+		args.Before = c
+	}
+
+	// Validate arguments
+	if err := validatePaginationArgs(args); err != nil {
+		return nil, err
+	}
+
+	return args, nil
+}
+
+// validatePaginationArgs validates that pagination arguments are valid.
+func validatePaginationArgs(args *PaginationArgs) error {
+	if args.First != nil && args.Last != nil {
+		return errors.New("passing both first and last is not supported")
+	}
+	if args.First != nil && *args.First < 0 {
+		return errors.New("first must be a non-negative integer")
+	}
+	if args.Last != nil && *args.Last < 0 {
+		return errors.New("last must be a non-negative integer")
+	}
+	if args.After != nil && args.Before != nil {
+		return errors.New("passing both after and before is not supported")
+	}
+	return nil
+}
+
+{{- range $n := $gqlNodes }}
+{{- $names := nodePaginationNames $n }}
+
+// {{ $names.Edge }} represents an edge in a {{ $n.Name }} connection.
+type {{ $names.Edge }} struct {
+	Node   *{{ $n.Name }} `json:"node,omitempty"`
+	Cursor entgqlgo.Cursor[{{ $idType }}] `json:"cursor"`
+}
+
+// {{ $names.Connection }} represents a connection to a list of {{ plural $n.Name }}.
+type {{ $names.Connection }} struct {
+	Edges      []*{{ $names.Edge }}                   `json:"edges,omitempty"`
+	PageInfo   entgqlgo.PageInfo[{{ $idType }}]       `json:"pageInfo"`
+	TotalCount int                                    `json:"totalCount"`
+}
+
+// {{ $names.Edge }}Type is the GraphQL type for {{ $names.Edge }}.
+var {{ $names.Edge }}Type = graphql.NewObject(graphql.ObjectConfig{
+	Name:        "{{ $names.Edge }}",
+	Description: "An edge in a {{ $n.Name }} connection.",
+	Fields: graphql.Fields{
+		"node": &graphql.Field{
+			Type:        {{ $n.Name }}Type,
+			Description: "The item at the end of the edge.",
+		},
+		"cursor": &graphql.Field{
+			Type:        graphql.NewNonNull(CursorScalar),
+			Description: "A cursor for use in pagination.",
+		},
+	},
+})
+
+// {{ $names.Connection }}Type is the GraphQL type for {{ $names.Connection }}.
+var {{ $names.Connection }}Type = graphql.NewObject(graphql.ObjectConfig{
+	Name:        "{{ $names.Connection }}",
+	Description: "A connection to a list of {{ plural $n.Name }}.",
+	Fields: graphql.Fields{
+		"edges": &graphql.Field{
+			Type:        graphql.NewList({{ $names.Edge }}Type),
+			Description: "A list of edges.",
+		},
+		"pageInfo": &graphql.Field{
+			Type:        graphql.NewNonNull(PageInfoType),
+			Description: "Information to aid in pagination.",
+		},
+		"totalCount": &graphql.Field{
+			Type:        graphql.NewNonNull(graphql.Int),
+			Description: "Identifies the total count of items in the connection.",
+		},
+	},
+})
+
+// Paginate{{ plural $n.Name }} returns a paginated list of {{ plural $n.Name }}.
+func (c *Client) Paginate{{ plural $n.Name }}(
+	ctx context.Context,
+	after, before *entgqlgo.Cursor[{{ $idType }}],
+	first, last *int,
+	opts ...{{ $n.QueryName }}Option,
+) (*{{ $names.Connection }}, error) {
+	query := c.{{ $n.Name }}.Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+
+	// Get total count
+	totalCount, err := query.Clone().Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply cursor pagination
+	if after != nil {
+		query = query.Where({{ $n.Package }}.IDGT(after.ID))
+	}
+	if before != nil {
+		query = query.Where({{ $n.Package }}.IDLT(before.ID))
+	}
+
+	// Apply limit
+	limit := 0
+	if first != nil {
+		limit = *first + 1 // +1 to check if there are more items
+		query = query.Limit(limit)
+	} else if last != nil {
+		limit = *last + 1
+		query = query.Order({{ $n.Package }}.ByID(sql.OrderDesc()))
+		query = query.Limit(limit)
+	}
+
+	nodes, err := query.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build connection
+	conn := &{{ $names.Connection }}{
+		TotalCount: totalCount,
+	}
+
+	// Check for more pages
+	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
+	if hasMore {
+		nodes = nodes[:len(nodes)-1]
+	}
+
+	// Reverse if paginating backwards
+	if last != nil {
+		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		}
+	}
+
+	// Build edges
+	conn.Edges = make([]*{{ $names.Edge }}, len(nodes))
+	for i, node := range nodes {
+		conn.Edges[i] = &{{ $names.Edge }}{
+			Node: node,
+			Cursor: entgqlgo.Cursor[{{ $idType }}]{ID: node.ID},
+		}
+	}
+
+	// Build page info
+	if len(conn.Edges) > 0 {
+		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
+		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
+	}
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && after != nil)
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && before != nil)
+
+	return conn, nil
+}
+
+// {{ $n.QueryName }}Option is a function that modifies a {{ $n.QueryName }}.
+type {{ $n.QueryName }}Option func(*{{ $n.QueryName }})
+{{- end }}
+
+{{ end }}

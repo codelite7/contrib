@@ -1,0 +1,46 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_enum" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "enum_field") }}
+
+import (
+	"github.com/graphql-go/graphql"
+)
+
+// Enum type definitions for graphql-go.
+// These map ent enum fields to GraphQL enum types.
+
+{{- range $n := $gqlNodes }}
+{{- range $f := $n.Fields }}
+{{- if $f.IsEnum }}
+{{- $enumName := print $n.Name (pascal $f.Name) }}
+
+// {{ $enumName }}Enum is the GraphQL enum for {{ $n.Name }}.{{ $f.Name }}.
+var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
+	Name:        "{{ $enumName }}",
+	Description: "{{ $enumName }} is enum for the field {{ $f.Name }}",
+	Values: graphql.EnumValueConfigMap{
+		{{- range $e := $f.Enums }}
+		"{{ $e.Value }}": &graphql.EnumValueConfig{
+			Value: "{{ $e.Value }}",
+		},
+		{{- end }}
+	},
+})
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{ end }}

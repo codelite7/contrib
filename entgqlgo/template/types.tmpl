@@ -1,0 +1,95 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_types" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+
+import (
+	"github.com/graphql-go/graphql"
+)
+
+// GraphQL type definitions for ent types.
+// These are generated to work with github.com/graphql-go/graphql.
+
+var (
+	{{- range $n := $gqlNodes }}
+	// {{ $n.Name }}Type is the GraphQL type for {{ $n.Name }}.
+	{{ $n.Name }}Type *graphql.Object
+	{{- end }}
+)
+
+func init() {
+	{{- range $n := $gqlNodes }}
+	{{ $n.Name }}Type = graphql.NewObject(graphql.ObjectConfig{
+		Name: "{{ $n.Name }}",
+		Fields: graphql.FieldsThunk(func() graphql.Fields {
+			return graphql.Fields{
+				{{- $fields := filterFields $n.Fields (skipMode "type") }}
+				{{- range $f := $fields }}
+				{{- if not $f.Sensitive }}
+				"{{ camel $f.Name }}": &graphql.Field{
+					Type: {{ gqlgoType $f }},
+					{{- if $f.Comment }}
+					Description: "{{ $f.Comment }}",
+					{{- end }}
+				},
+				{{- end }}
+				{{- end }}
+				{{- /* ID field */ -}}
+				{{- if $n.HasOneFieldID }}
+				"id": &graphql.Field{
+					Type: graphql.NewNonNull(graphql.ID),
+					Description: "The unique identifier of the {{ $n.Name }}.",
+				},
+				{{- end }}
+				{{- /* Edge fields */ -}}
+				{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+				"{{ camel $e.Name }}": &graphql.Field{
+					{{- if $e.Unique }}
+					Type: {{ $e.Type.Name }}Type,
+					{{- else }}
+					Type: graphql.NewList({{ $e.Type.Name }}Type),
+					{{- end }}
+					{{- if $e.Comment }}
+					Description: "{{ $e.Comment }}",
+					{{- end }}
+					Resolve: resolve{{ $n.Name }}{{ $e.StructField }},
+				},
+				{{- end }}
+			}
+		}),
+	})
+	{{- end }}
+}
+
+{{- /* Generate edge resolvers */ -}}
+{{- range $n := $gqlNodes }}
+{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+
+// resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
+func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*{{ $n.Name }})
+	if !ok {
+		return nil, nil
+	}
+	{{- if $e.Unique }}
+	return source.Query{{ $e.StructField }}().Only(p.Context)
+	{{- else }}
+	return source.Query{{ $e.StructField }}().All(p.Context)
+	{{- end }}
+}
+{{- end }}
+{{- end }}
+
+{{ end }}
