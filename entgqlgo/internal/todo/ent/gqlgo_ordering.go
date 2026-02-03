@@ -50,6 +50,10 @@ var CategoryOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},
+		"nulls": &graphql.InputObjectFieldConfig{
+			Type:        NullsDirectionEnum,
+			Description: "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
+		},
 	},
 })
 
@@ -57,6 +61,7 @@ var CategoryOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 type CategoryOrder struct {
 	Field     string
 	Direction entgqlgo.OrderDirection
+	Nulls     *entgqlgo.NullsDirection
 }
 
 // ParseCategoryOrder parses a GraphQL order input map into a CategoryOrder.
@@ -75,6 +80,15 @@ func ParseCategoryOrder(m map[string]interface{}) (*CategoryOrder, error) {
 			order.Direction = entgqlgo.OrderDirection(v)
 		}
 	}
+	if nulls, ok := m["nulls"]; ok && nulls != nil {
+		switch v := nulls.(type) {
+		case entgqlgo.NullsDirection:
+			order.Nulls = &v
+		case string:
+			nd := entgqlgo.NullsDirection(v)
+			order.Nulls = &nd
+		}
+	}
 	return order, nil
 }
 
@@ -84,6 +98,9 @@ func (o *CategoryOrder) ToOrderOption() category.OrderOption {
 		return category.ByID()
 	}
 	opts := []sql.OrderTermOption{o.Direction.OrderTermOption()}
+	if o.Nulls != nil {
+		opts = append(opts, o.Nulls.OrderTermOption())
+	}
 	switch o.Field {
 	case "TEXT":
 		return category.ByText(opts...)
@@ -130,6 +147,10 @@ var TodoOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},
+		"nulls": &graphql.InputObjectFieldConfig{
+			Type:        NullsDirectionEnum,
+			Description: "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
+		},
 	},
 })
 
@@ -137,6 +158,7 @@ var TodoOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 type TodoOrder struct {
 	Field     string
 	Direction entgqlgo.OrderDirection
+	Nulls     *entgqlgo.NullsDirection
 }
 
 // ParseTodoOrder parses a GraphQL order input map into a TodoOrder.
@@ -155,6 +177,15 @@ func ParseTodoOrder(m map[string]interface{}) (*TodoOrder, error) {
 			order.Direction = entgqlgo.OrderDirection(v)
 		}
 	}
+	if nulls, ok := m["nulls"]; ok && nulls != nil {
+		switch v := nulls.(type) {
+		case entgqlgo.NullsDirection:
+			order.Nulls = &v
+		case string:
+			nd := entgqlgo.NullsDirection(v)
+			order.Nulls = &nd
+		}
+	}
 	return order, nil
 }
 
@@ -164,6 +195,9 @@ func (o *TodoOrder) ToOrderOption() todo.OrderOption {
 		return todo.ByID()
 	}
 	opts := []sql.OrderTermOption{o.Direction.OrderTermOption()}
+	if o.Nulls != nil {
+		opts = append(opts, o.Nulls.OrderTermOption())
+	}
 	switch o.Field {
 	case "CREATED_AT":
 		return todo.ByCreatedAt(opts...)

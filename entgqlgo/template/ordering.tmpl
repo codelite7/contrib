@@ -61,6 +61,10 @@ var {{ $names.Order }}InputType = graphql.NewInputObject(graphql.InputObjectConf
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},
+		"nulls": &graphql.InputObjectFieldConfig{
+			Type:         NullsDirectionEnum,
+			Description:  "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
+		},
 	},
 })
 
@@ -68,6 +72,7 @@ var {{ $names.Order }}InputType = graphql.NewInputObject(graphql.InputObjectConf
 type {{ $names.Order }} struct {
 	Field     string
 	Direction entgqlgo.OrderDirection
+	Nulls     *entgqlgo.NullsDirection
 }
 
 // Parse{{ $names.Order }} parses a GraphQL order input map into a {{ $names.Order }}.
@@ -86,6 +91,15 @@ func Parse{{ $names.Order }}(m map[string]interface{}) (*{{ $names.Order }}, err
 			order.Direction = entgqlgo.OrderDirection(v)
 		}
 	}
+	if nulls, ok := m["nulls"]; ok && nulls != nil {
+		switch v := nulls.(type) {
+		case entgqlgo.NullsDirection:
+			order.Nulls = &v
+		case string:
+			nd := entgqlgo.NullsDirection(v)
+			order.Nulls = &nd
+		}
+	}
 	return order, nil
 }
 
@@ -95,6 +109,9 @@ func (o *{{ $names.Order }}) ToOrderOption() {{ $n.Package }}.OrderOption {
 		return {{ $n.Package }}.ByID()
 	}
 	opts := []sql.OrderTermOption{o.Direction.OrderTermOption()}
+	if o.Nulls != nil {
+		opts = append(opts, o.Nulls.OrderTermOption())
+	}
 	switch o.Field {
 	{{- range $f := $orderFields }}
 	{{- if $f.IsFieldTerm }}

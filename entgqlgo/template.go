@@ -73,6 +73,7 @@ var (
 		CollectionTemplate,
 		EnumTemplate,
 		NodeTemplate,
+		NodeDescriptorTemplate,
 		PaginationTemplate,
 		EdgeTemplate,
 		MutationInputTemplate,

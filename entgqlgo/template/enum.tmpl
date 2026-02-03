@@ -26,6 +26,10 @@ import (
 {{- range $f := $n.Fields }}
 {{- if $f.IsEnum }}
 {{- $enumName := print $n.Name (pascal $f.Name) }}
+{{- $useEnumNames := false }}
+{{- with $f.Annotations.EntGQL }}
+{{- $useEnumNames = .UseEnumNames }}
+{{- end }}
 
 // {{ $enumName }}Enum is the GraphQL enum for {{ $n.Name }}.{{ $f.Name }}.
 var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
@@ -33,9 +37,16 @@ var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
 	Description: "{{ $enumName }} is enum for the field {{ $f.Name }}",
 	Values: graphql.EnumValueConfigMap{
 		{{- range $e := $f.Enums }}
+		{{- if $useEnumNames }}
+		"{{ $e.Name }}": &graphql.EnumValueConfig{
+			Value: "{{ $e.Value }}",
+			Description: "Database value: {{ $e.Value }}",
+		},
+		{{- else }}
 		"{{ $e.Value }}": &graphql.EnumValueConfig{
 			Value: "{{ $e.Value }}",
 		},
+		{{- end }}
 		{{- end }}
 	},
 })

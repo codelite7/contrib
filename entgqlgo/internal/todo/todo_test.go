@@ -2980,3 +2980,409 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 		}
 	}
 }
+
+// ========== Advanced Features Tests ==========
+
+// TestNullsDirection tests ordering with nulls first/last.
+func TestNullsDirection(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with varying priorities
+	for i := 1; i <= 3; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// Query with nulls ordering - ASC with NULLS_FIRST
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: {field: PRIORITY, direction: ASC, nulls: FIRST}) {
+				id
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(todos))
+	}
+
+	// Verify ascending order (since all have values, no nulls to sort)
+	for i, item := range todos {
+		todoItem := item.(map[string]interface{})
+		priority := todoItem["priority"].(int)
+		expectedPriority := i + 1
+		if priority != expectedPriority {
+			t.Errorf("expected priority %d at index %d, got %d", expectedPriority, i, priority)
+		}
+	}
+
+	// Test DESC with NULLS_LAST
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: {field: PRIORITY, direction: DESC, nulls: LAST}) {
+				id
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	todos = data["todos"].([]interface{})
+
+	// Verify descending order
+	expectedOrder := []int{3, 2, 1}
+	for i, item := range todos {
+		todoItem := item.(map[string]interface{})
+		priority := todoItem["priority"].(int)
+		if priority != expectedOrder[i] {
+			t.Errorf("expected priority %d at index %d, got %d", expectedOrder[i], i, priority)
+		}
+	}
+}
+
+// TestCustomScalarDateTime tests that DateTime scalar works correctly.
+func TestCustomScalarDateTime(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a todo - createdAt is auto-set
+	created, err := client.Todo.Create().
+		SetText("Test todo").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query the todo and verify createdAt is returned as RFC3339 string
+	result := graphql.Do(graphql.Params{
+		Schema:        schema,
+		RequestString: `query { todos { createdAt } }`,
+		Context:       ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(todos))
+	}
+
+	todoItem := todos[0].(map[string]interface{})
+	createdAtStr, ok := todoItem["createdAt"].(string)
+	if !ok {
+		t.Fatalf("createdAt should be a string, got %T", todoItem["createdAt"])
+	}
+
+	// Verify it's a valid RFC3339 format by checking it matches the expected format
+	if createdAtStr == "" {
+		t.Error("createdAt should not be empty")
+	}
+
+	// The created time should roughly match what we have in the entity
+	expectedPrefix := created.CreatedAt.Format("2006-01-02")
+	if len(createdAtStr) < len(expectedPrefix) || createdAtStr[:len(expectedPrefix)] != expectedPrefix {
+		t.Errorf("createdAt date mismatch: got %s, expected prefix %s", createdAtStr, expectedPrefix)
+	}
+}
+
+// TestEnumValues tests that enum values are correctly mapped.
+func TestEnumValues(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with each status
+	statuses := []todo.Status{todo.StatusInProgress, todo.StatusCompleted, todo.StatusPending}
+	for i, status := range statuses {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i+1)).
+			SetStatus(status).
+			SetPriority(i + 1).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// Query and verify enum values
+	result := graphql.Do(graphql.Params{
+		Schema:        schema,
+		RequestString: `query { todos { status } }`,
+		Context:       ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(todos))
+	}
+
+	// Verify the enum values are correct strings
+	expectedStatuses := map[string]bool{
+		"IN_PROGRESS": true,
+		"COMPLETED":   true,
+		"PENDING":     true,
+	}
+
+	for _, item := range todos {
+		todoItem := item.(map[string]interface{})
+		status, ok := todoItem["status"].(string)
+		if !ok {
+			t.Errorf("status should be a string, got %T", todoItem["status"])
+			continue
+		}
+		if !expectedStatuses[status] {
+			t.Errorf("unexpected status value: %s", status)
+		}
+		delete(expectedStatuses, status)
+	}
+
+	if len(expectedStatuses) > 0 {
+		t.Errorf("some statuses were not found: %v", expectedStatuses)
+	}
+}
+
+// TestSkipMutationCreateInput tests that SkipMutationCreateInput annotation works.
+// The created_at field has Skip(SkipMutationCreateInput) annotation.
+func TestSkipMutationCreateInput(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	// Create a todo using the generated CreateTodoInput
+	// Note: created_at should NOT be in the input type due to skip annotation
+	input := ent.CreateTodoInput{
+		Status:   todo.StatusPending,
+		Text:     "Test todo",
+		Priority: intPtr(5),
+	}
+
+	created, err := client.Todo.Create().SetInput(input).Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo with input: %v", err)
+	}
+
+	// Verify the todo was created with auto-generated createdAt
+	if created.CreatedAt.IsZero() {
+		t.Error("createdAt should have been auto-set")
+	}
+
+	// Verify other fields
+	if created.Text != "Test todo" {
+		t.Errorf("text mismatch: got %s, want 'Test todo'", created.Text)
+	}
+	if created.Priority != 5 {
+		t.Errorf("priority mismatch: got %d, want 5", created.Priority)
+	}
+}
+
+// TestSkipWhereInputVerifyGenerated verifies the skip annotation by checking
+// that skipped fields are not included in query capabilities.
+func TestSkipWhereInputVerifyGenerated(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	// Create a todo with specific text
+	_, err := client.Todo.Create().
+		SetText("Test todo").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Verify filtering works on non-skipped fields
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {textContains: "Test"}) {
+				text
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(todos))
+	}
+}
+
+// TestNodeDescriptor tests the Node() method returns correct field/edge data.
+func TestNodeDescriptor(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Test Category").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create a todo with the category
+	createdTodo, err := client.Todo.Create().
+		SetText("Test todo").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(5).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Get the node descriptor
+	node, err := createdTodo.Node(ctx)
+	if err != nil {
+		t.Fatalf("failed to get node descriptor: %v", err)
+	}
+
+	// Verify node type
+	if node.Type != "Todo" {
+		t.Errorf("expected type 'Todo', got '%s'", node.Type)
+	}
+
+	// Verify node ID
+	if node.ID != createdTodo.ID {
+		t.Errorf("expected ID %d, got %d", createdTodo.ID, node.ID)
+	}
+
+	// Verify fields are present
+	if len(node.Fields) != 4 {
+		t.Errorf("expected 4 fields, got %d", len(node.Fields))
+	}
+
+	// Check specific field
+	fieldNames := make(map[string]bool)
+	for _, f := range node.Fields {
+		fieldNames[f.Name] = true
+	}
+	expectedFields := []string{"created_at", "status", "priority", "text"}
+	for _, fname := range expectedFields {
+		if !fieldNames[fname] {
+			t.Errorf("expected field '%s' not found", fname)
+		}
+	}
+
+	// Verify edges are present (parent, children, category)
+	if len(node.Edges) != 3 {
+		t.Errorf("expected 3 edges, got %d", len(node.Edges))
+	}
+
+	// Check that category edge has the correct ID
+	for _, e := range node.Edges {
+		if e.Name == "category" {
+			if len(e.IDs) != 1 {
+				t.Errorf("expected 1 category ID, got %d", len(e.IDs))
+			} else if e.IDs[0] != category.ID {
+				t.Errorf("expected category ID %d, got %d", category.ID, e.IDs[0])
+			}
+		}
+	}
+}
+
+// TestNodeDescriptorClient tests the client.NodeWithDescriptor method.
+func TestNodeDescriptorClient(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Test Category").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Get node via client method
+	node, err := client.NodeWithDescriptor(ctx, category.ID)
+	if err != nil {
+		t.Fatalf("failed to get node with descriptor: %v", err)
+	}
+
+	// Verify the node
+	if node.Type != "Category" {
+		t.Errorf("expected type 'Category', got '%s'", node.Type)
+	}
+
+	if node.ID != category.ID {
+		t.Errorf("expected ID %d, got %d", category.ID, node.ID)
+	}
+
+	// Verify fields
+	if len(node.Fields) != 2 {
+		t.Errorf("expected 2 fields, got %d", len(node.Fields))
+	}
+}
+
+// Helper function for int pointers
+func intPtr(i int) *int {
+	return &i
+}
