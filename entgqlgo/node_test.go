@@ -179,20 +179,6 @@ func TestParseGlobalIDInt(t *testing.T) {
 	}
 }
 
-func TestMustGlobalID(t *testing.T) {
-	// MustGlobalID should not panic for valid input
-	globalID := MustGlobalID("Todo", 1)
-	if globalID == "" {
-		t.Error("expected non-empty global ID from MustGlobalID")
-	}
-
-	// Verify it produces the same result as GlobalID
-	expected := GlobalID("Todo", 1)
-	if globalID != expected {
-		t.Errorf("MustGlobalID() = %v, want %v", globalID, expected)
-	}
-}
-
 func TestGlobalIDRoundTrip(t *testing.T) {
 	testCases := []struct {
 		typeName string

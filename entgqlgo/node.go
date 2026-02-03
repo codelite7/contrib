@@ -57,8 +57,3 @@ func ParseGlobalIDInt(globalID string) (typeName string, id int, err error) {
 	return typeName, id, nil
 }
 
-// MustGlobalID is like GlobalID but panics if there's an error.
-// This is useful for tests and initialization code.
-func MustGlobalID(typeName string, id interface{}) string {
-	return GlobalID(typeName, id)
-}

@@ -26,9 +26,9 @@ import (
 )
 
 func main() {
-	ex, err := entgqlgo.NewExtension(
-		entgqlgo.WithWhereInputs(true),
-	)
+	// WhereInputs are enabled by default in entgqlgo (unlike entgql).
+	// Use entgqlgo.WithWhereInputs(false) to disable.
+	ex, err := entgqlgo.NewExtension()
 	if err != nil {
 		log.Fatalf("creating entgqlgo extension: %v", err)
 	}

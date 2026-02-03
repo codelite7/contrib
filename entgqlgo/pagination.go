@@ -262,6 +262,16 @@ func multiPredicate[T any](cursor *Cursor[T], opts *MultiCursorsOptions) (func(*
 			if opts.NullsDirections[i] == "" {
 				opts.NullsDirections[i] = NullsLast
 			}
+			// Build cursor predicates based on sort direction and nulls position.
+			// For each case, we need to find records that come "after" the cursor in the sort order.
+			//
+			// ASC + NullsFirst:  NULLs → low → high. After NULL = other NULLs (by ID) OR non-NULLs.
+			// ASC + NullsLast:   low → high → NULLs. After NULL = other NULLs (by ID, since we're at the end).
+			// DESC + NullsFirst: NULLs → high → low. After NULL = other NULLs (by ID).
+			// DESC + NullsLast:  high → low → NULLs. After NULL = other NULLs (by ID, at the end).
+			//
+			// When the cursor value is NULL, we use ID comparison (GT) to break ties among NULL rows,
+			// ensuring stable pagination even when multiple rows have NULL in the sort column.
 			if opts.Directions[i] == OrderDirectionAsc {
 				switch {
 				case values[i] == nil && opts.NullsDirections[i] == NullsFirst:

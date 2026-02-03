@@ -69,6 +69,7 @@ var (
 	OrderingTemplate = parseT("template/ordering.tmpl")
 
 	// AllTemplates holds all templates for extending ent to support graphql-go/graphql.
+	// Note: Unlike entgql, WhereTemplate is included by default.
 	AllTemplates = []*gen.Template{
 		CollectionTemplate,
 		EnumTemplate,
@@ -76,6 +77,7 @@ var (
 		NodeDescriptorTemplate,
 		PaginationTemplate,
 		EdgeTemplate,
+		WhereTemplate,
 		MutationInputTemplate,
 		TypesTemplate,
 		SchemaTemplate,
@@ -641,6 +643,7 @@ func fieldMapping(f *gen.Field) ([]string, error) {
 }
 
 // gqlgoType maps an ent field type to graphql-go type.
+// For enum fields, templates should use the generated enum type directly.
 func gqlgoType(f *gen.Field) string {
 	switch t := f.Type.Type; {
 	case f.Name == "id":
@@ -657,12 +660,23 @@ func gqlgoType(f *gen.Field) string {
 		return "graphql.Boolean"
 	case t == field.TypeTime:
 		return "graphql.DateTime"
+	case t == field.TypeUUID:
+		return "graphql.String" // UUID serialized as string
+	case t == field.TypeBytes:
+		return "graphql.String" // Bytes serialized as base64 string
+	case t == field.TypeJSON:
+		return "graphql.String" // JSON serialized as string; use entgqlgo.Type() annotation for custom scalars
+	case t == field.TypeEnum:
+		return "graphql.String" // Enums handled separately in templates
+	case t == field.TypeOther:
+		return "graphql.String" // Other types require entgqlgo.Type() annotation
 	default:
 		return "graphql.String"
 	}
 }
 
 // gqlgoScalar maps an ent field type to graphql-go scalar string.
+// For enum fields, templates should use the generated enum type directly.
 func gqlgoScalar(f *gen.Field) string {
 	switch t := f.Type.Type; {
 	case f.Name == "id":
@@ -679,6 +693,16 @@ func gqlgoScalar(f *gen.Field) string {
 		return "Boolean"
 	case t == field.TypeTime:
 		return "DateTime"
+	case t == field.TypeUUID:
+		return "String" // UUID serialized as string
+	case t == field.TypeBytes:
+		return "String" // Bytes serialized as base64 string
+	case t == field.TypeJSON:
+		return "String" // JSON serialized as string; use entgqlgo.Type() annotation for custom scalars
+	case t == field.TypeEnum:
+		return "String" // Enums handled separately in templates
+	case t == field.TypeOther:
+		return "String" // Other types require entgqlgo.Type() annotation
 	default:
 		return "String"
 	}

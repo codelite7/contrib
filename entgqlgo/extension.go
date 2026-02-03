@@ -28,7 +28,6 @@ type (
 
 		// Configuration
 		genWhereInput bool
-		genMutations  bool
 		relaySpec     bool
 		scalarFunc    func(*gen.Field, gen.Op) string
 	}
@@ -86,9 +85,9 @@ func WithMapScalarFunc(scalarFunc func(*gen.Field, gen.Op) string) ExtensionOpti
 //	)
 func NewExtension(opts ...ExtensionOption) (*Extension, error) {
 	ex := &Extension{
-		templates:    AllTemplates,
-		relaySpec:    true,
-		genMutations: true,
+		templates:     AllTemplates,
+		relaySpec:     true,
+		genWhereInput: true,
 	}
 	for _, opt := range opts {
 		if err := opt(ex); err != nil {
