@@ -64,6 +64,30 @@ func CategoryQueryCollectFieldsConnection(ctx context.Context, info graphql.Reso
 	return query
 }
 
+// CategoryQueryCollectFieldsRecursive adds eager loading with support for nested edge selections.
+// It uses CollectFieldsWithArgs to recursively configure eager loading based on the full
+// GraphQL selection tree.
+func CategoryQueryCollectFieldsRecursive(ctx context.Context, info graphql.ResolveInfo, query *CategoryQuery) *CategoryQuery {
+	fields := entgqlgo.CollectFieldsWithArgs(info)
+	return CategoryQueryCollectFieldsFromFieldInfos(ctx, fields, query)
+}
+
+// CategoryQueryCollectFieldsFromFieldInfos adds eager loading for nested field selections.
+func CategoryQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *CategoryQuery) *CategoryQuery {
+	for _, field := range fields {
+		switch field.Name {
+		case "todos":
+			query = query.WithTodos(func(q *TodoQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		}
+	}
+	return query
+}
+
 // TodoQueryCollectFields adds eager loading to a TodoQuery based on the
 // selected fields in the GraphQL query. This prevents N+1 query problems.
 func TodoQueryCollectFields(ctx context.Context, info graphql.ResolveInfo, query *TodoQuery) *TodoQuery {
@@ -103,6 +127,44 @@ func TodoQueryCollectFieldsConnection(ctx context.Context, info graphql.ResolveI
 	// Check nested fields in Relay connection pattern: edges -> node -> <fields>
 	query = TodoQueryCollectFieldsNested(ctx, info, query, "edges", "node")
 
+	return query
+}
+
+// TodoQueryCollectFieldsRecursive adds eager loading with support for nested edge selections.
+// It uses CollectFieldsWithArgs to recursively configure eager loading based on the full
+// GraphQL selection tree.
+func TodoQueryCollectFieldsRecursive(ctx context.Context, info graphql.ResolveInfo, query *TodoQuery) *TodoQuery {
+	fields := entgqlgo.CollectFieldsWithArgs(info)
+	return TodoQueryCollectFieldsFromFieldInfos(ctx, fields, query)
+}
+
+// TodoQueryCollectFieldsFromFieldInfos adds eager loading for nested field selections.
+func TodoQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *TodoQuery) *TodoQuery {
+	for _, field := range fields {
+		switch field.Name {
+		case "parent":
+			query = query.WithParent(func(q *TodoQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		case "children":
+			query = query.WithChildren(func(q *TodoQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		case "category":
+			query = query.WithCategory(func(q *CategoryQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					CategoryQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		}
+	}
 	return query
 }
 

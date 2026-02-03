@@ -76,19 +76,38 @@ func init() {
 	{{- end }}
 }
 
-{{- /* Generate edge resolvers */ -}}
+{{- /* Generate edge resolvers that check for eager-loaded data first */ -}}
 {{- range $n := $gqlNodes }}
 {{- range $e := filterEdges $n.Edges (skipMode "type") }}
 
 // resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
 func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*{{ $n.Name }})
 	if !ok {
 		return nil, nil
 	}
 	{{- if $e.Unique }}
-	return source.Query{{ $e.StructField }}().Only(p.Context)
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.{{ $e.StructField }}; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := source.Query{{ $e.StructField }}().Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
 	{{- else }}
+	// Check if edge was already loaded via eager loading
+	if edges := source.Edges.{{ $e.StructField }}; edges != nil {
+		return edges, nil
+	}
+	// Fall back to query
 	return source.Query{{ $e.StructField }}().All(p.Context)
 	{{- end }}
 }

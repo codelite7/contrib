@@ -2500,3 +2500,483 @@ func TestNodesWithMixedResults(t *testing.T) {
 		t.Errorf("expected second node to be nil for non-existent ID, got %v", nodes[1])
 	}
 }
+
+// ========== Eager Loading tests ==========
+
+// TestEagerLoadEdges tests that edges are eager loaded when selected, avoiding N+1 queries.
+func TestEagerLoadEdges(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category with multiple todos
+	category, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create 5 todos in this category
+	for i := 1; i <= 5; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Task %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			SetCategory(category).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo %d: %v", i, err)
+		}
+	}
+
+	// Query todos WITH category edge selected
+	// This should eager load the category and not cause N+1 queries
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos {
+				id
+				text
+				category {
+					id
+					text
+				}
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 5 {
+		t.Fatalf("expected 5 todos, got %d", len(todos))
+	}
+
+	// Verify all todos have their category loaded
+	for i, item := range todos {
+		todoItem := item.(map[string]interface{})
+		cat, ok := todoItem["category"].(map[string]interface{})
+		if !ok {
+			t.Errorf("todo %d: expected category to be loaded, got %v", i, todoItem["category"])
+			continue
+		}
+		if cat["text"] != "Work" {
+			t.Errorf("todo %d: expected category text 'Work', got %v", i, cat["text"])
+		}
+	}
+}
+
+// TestNoEagerLoadWhenNotSelected tests that edges are NOT loaded when not selected in the query.
+func TestNoEagerLoadWhenNotSelected(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category with a todo
+	category, err := client.Category.Create().
+		SetText("Personal").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Personal task").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query todos WITHOUT category edge selected
+	// The category should NOT be in the response
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos {
+				id
+				text
+				status
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(todos))
+	}
+
+	todoItem := todos[0].(map[string]interface{})
+
+	// Verify basic fields are present
+	if todoItem["text"] != "Personal task" {
+		t.Errorf("expected text 'Personal task', got %v", todoItem["text"])
+	}
+	if todoItem["status"] != "PENDING" {
+		t.Errorf("expected status 'PENDING', got %v", todoItem["status"])
+	}
+
+	// Verify category is NOT in the response (it wasn't selected)
+	if _, exists := todoItem["category"]; exists {
+		t.Error("expected category to NOT be in response when not selected")
+	}
+}
+
+// TestNestedEagerLoad tests that nested edge selections are properly loaded.
+func TestNestedEagerLoad(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Projects").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create a parent todo with children
+	parent, err := client.Todo.Create().
+		SetText("Parent Task").
+		SetStatus(todo.StatusInProgress).
+		SetPriority(10).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create parent todo: %v", err)
+	}
+
+	// Create child todos
+	for i := 1; i <= 3; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Child Task %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			SetParent(parent).
+			SetCategory(category).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create child todo %d: %v", i, err)
+		}
+	}
+
+	// Query todos with nested edges: children -> category
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(first: 1) {
+				id
+				text
+				children {
+					id
+					text
+					category {
+						id
+						text
+					}
+				}
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) < 1 {
+		t.Fatal("expected at least 1 todo")
+	}
+
+	// Find the parent todo (it has children)
+	var parentTodo map[string]interface{}
+	for _, item := range todos {
+		todoItem := item.(map[string]interface{})
+		if todoItem["text"] == "Parent Task" {
+			parentTodo = todoItem
+			break
+		}
+	}
+
+	// If parent wasn't in first result, query specifically
+	if parentTodo == nil {
+		result = graphql.Do(graphql.Params{
+			Schema: schema,
+			RequestString: fmt.Sprintf(`query {
+				todo(id: "%d") {
+					id
+					text
+					children {
+						id
+						text
+						category {
+							id
+							text
+						}
+					}
+				}
+			}`, parent.ID),
+			Context: ctx,
+		})
+
+		if len(result.Errors) > 0 {
+			t.Fatalf("GraphQL query had errors: %v", result.Errors)
+		}
+
+		data = result.Data.(map[string]interface{})
+		parentTodo = data["todo"].(map[string]interface{})
+	}
+
+	// Verify children are loaded
+	children, ok := parentTodo["children"].([]interface{})
+	if !ok {
+		t.Fatalf("expected children to be a list, got %T", parentTodo["children"])
+	}
+
+	if len(children) != 3 {
+		t.Errorf("expected 3 children, got %d", len(children))
+	}
+
+	// Verify each child has its category loaded
+	for i, childItem := range children {
+		child := childItem.(map[string]interface{})
+		cat, ok := child["category"].(map[string]interface{})
+		if !ok {
+			t.Errorf("child %d: expected category to be loaded, got %v", i, child["category"])
+			continue
+		}
+		if cat["text"] != "Projects" {
+			t.Errorf("child %d: expected category text 'Projects', got %v", i, cat["text"])
+		}
+	}
+}
+
+// TestEagerLoadEdgesList tests eager loading with multiple edges selected.
+func TestEagerLoadEdgesList(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Family").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create parent todo
+	parent, err := client.Todo.Create().
+		SetText("Parent Todo").
+		SetStatus(todo.StatusPending).
+		SetPriority(5).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create parent: %v", err)
+	}
+
+	// Create child todo
+	_, err = client.Todo.Create().
+		SetText("Child Todo").
+		SetStatus(todo.StatusPending).
+		SetPriority(3).
+		SetParent(parent).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+
+	// Query with both parent and category edges selected
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos {
+				id
+				text
+				parent {
+					id
+					text
+				}
+				category {
+					id
+					text
+				}
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 2 {
+		t.Fatalf("expected 2 todos, got %d", len(todos))
+	}
+
+	// Find the child todo (it has a parent)
+	var childTodo map[string]interface{}
+	for _, item := range todos {
+		todoItem := item.(map[string]interface{})
+		if todoItem["text"] == "Child Todo" {
+			childTodo = todoItem
+			break
+		}
+	}
+
+	if childTodo == nil {
+		t.Fatal("could not find child todo")
+	}
+
+	// Verify parent is loaded
+	parentEdge, ok := childTodo["parent"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected parent to be loaded, got %v", childTodo["parent"])
+	}
+	if parentEdge["text"] != "Parent Todo" {
+		t.Errorf("expected parent text 'Parent Todo', got %v", parentEdge["text"])
+	}
+
+	// Verify category is loaded
+	catEdge, ok := childTodo["category"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected category to be loaded, got %v", childTodo["category"])
+	}
+	if catEdge["text"] != "Family" {
+		t.Errorf("expected category text 'Family', got %v", catEdge["text"])
+	}
+}
+
+// TestEagerLoadCategoryTodos tests eager loading from category side.
+func TestEagerLoadCategoryTodos(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create categories with todos
+	cat1, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category 1: %v", err)
+	}
+
+	cat2, err := client.Category.Create().
+		SetText("Home").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category 2: %v", err)
+	}
+
+	// Create todos for each category
+	for i := 1; i <= 3; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Work Task %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			SetCategory(cat1).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create work todo %d: %v", i, err)
+		}
+
+		_, err = client.Todo.Create().
+			SetText(fmt.Sprintf("Home Task %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			SetCategory(cat2).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create home todo %d: %v", i, err)
+		}
+	}
+
+	// Query categories with todos edge selected
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			categories {
+				id
+				text
+				todos {
+					id
+					text
+				}
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	categories := data["categories"].([]interface{})
+
+	if len(categories) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(categories))
+	}
+
+	// Verify each category has its todos loaded
+	for _, catItem := range categories {
+		cat := catItem.(map[string]interface{})
+		todos, ok := cat["todos"].([]interface{})
+		if !ok {
+			t.Errorf("category %v: expected todos to be loaded", cat["text"])
+			continue
+		}
+		if len(todos) != 3 {
+			t.Errorf("category %v: expected 3 todos, got %d", cat["text"], len(todos))
+		}
+	}
+}

@@ -96,37 +96,77 @@ func init() {
 }
 
 // resolveCategoryTodos resolves the todos edge for Category.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
 func resolveCategoryTodos(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*Category)
 	if !ok {
 		return nil, nil
 	}
+	// Check if edge was already loaded via eager loading
+	if edges := source.Edges.Todos; edges != nil {
+		return edges, nil
+	}
+	// Fall back to query
 	return source.QueryTodos().All(p.Context)
 }
 
 // resolveTodoParent resolves the parent edge for Todo.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
 func resolveTodoParent(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*Todo)
 	if !ok {
 		return nil, nil
 	}
-	return source.QueryParent().Only(p.Context)
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Parent; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := source.QueryParent().Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
 }
 
 // resolveTodoChildren resolves the children edge for Todo.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
 func resolveTodoChildren(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*Todo)
 	if !ok {
 		return nil, nil
 	}
+	// Check if edge was already loaded via eager loading
+	if edges := source.Edges.Children; edges != nil {
+		return edges, nil
+	}
+	// Fall back to query
 	return source.QueryChildren().All(p.Context)
 }
 
 // resolveTodoCategory resolves the category edge for Todo.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
 func resolveTodoCategory(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*Todo)
 	if !ok {
 		return nil, nil
 	}
-	return source.QueryCategory().Only(p.Context)
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Category; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := source.QueryCategory().Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
 }
