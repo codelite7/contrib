@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"entgo.io/contrib/entgqlgo"
 	"github.com/graphql-go/graphql"
 )
 
@@ -95,12 +96,59 @@ func (r *NodesResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("ids argument is required")
 	}
+	return r.client.Noders(p.Context, ids)
+}
 
+// Noder returns a node by its global ID.
+// The ID is decoded and the appropriate entity is fetched.
+func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
+	idStr := fmt.Sprint(id)
+
+	// Try to parse as a global ID (TypeName:LocalID format)
+	typeName, localID, err := entgqlgo.ParseGlobalID(idStr)
+	if err == nil {
+		// Successfully parsed as global ID, route to the right type
+		switch typeName {
+		case "Category":
+			idInt, err := parseInt(localID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid Category ID: %w", err)
+			}
+			return c.Category.Get(ctx, idInt)
+		case "Todo":
+			idInt, err := parseInt(localID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid Todo ID: %w", err)
+			}
+			return c.Todo.Get(ctx, idInt)
+		default:
+			return nil, fmt.Errorf("unknown type: %s", typeName)
+		}
+	}
+
+	// Fallback: try as raw ID (for backward compatibility)
+	// Try each type until we find a match
+	if idInt, err := parseInt(idStr); err == nil {
+		if node, err := c.Category.Get(ctx, idInt); err == nil {
+			return node, nil
+		}
+	}
+	if idInt, err := parseInt(idStr); err == nil {
+		if node, err := c.Todo.Get(ctx, idInt); err == nil {
+			return node, nil
+		}
+	}
+	return nil, fmt.Errorf("node not found: %v", id)
+}
+
+// Noders returns nodes by their global IDs.
+// Returns nil for IDs that don't exist (preserving index positions).
+func (c *Client) Noders(ctx context.Context, ids []interface{}) ([]Noder, error) {
 	nodes := make([]Noder, len(ids))
 	for i, id := range ids {
-		node, err := r.client.Noder(p.Context, id)
+		node, err := c.Noder(ctx, id)
 		if err != nil {
-			// Return nil for nodes that don't exist
+			// Return nil for nodes that don't exist (per Relay spec)
 			nodes[i] = nil
 			continue
 		}
@@ -109,25 +157,8 @@ func (r *NodesResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
 	return nodes, nil
 }
 
-// Noder returns a node by its ID.
-// The ID is decoded and the appropriate entity is fetched.
-func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
-	// Try each type until we find a match
-	if idInt, err := toIntID(id); err == nil {
-		if node, err := c.Category.Get(ctx, idInt); err == nil {
-			return node, nil
-		}
-	}
-	if idInt, err := toIntID(id); err == nil {
-		if node, err := c.Todo.Get(ctx, idInt); err == nil {
-			return node, nil
-		}
-	}
-	return nil, fmt.Errorf("node not found: %v", id)
-}
-
-// toIntID converts various types to int for ID lookup.
-func toIntID(id interface{}) (int, error) {
+// parseInt converts various types to int for ID lookup.
+func parseInt(id interface{}) (int, error) {
 	switch v := id.(type) {
 	case int:
 		return v, nil

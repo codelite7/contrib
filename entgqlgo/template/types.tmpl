@@ -33,6 +33,9 @@ func init() {
 	{{- range $n := $gqlNodes }}
 	{{ $n.Name }}Type = graphql.NewObject(graphql.ObjectConfig{
 		Name: "{{ $n.Name }}",
+		Interfaces: []*graphql.Interface{
+			NodeInterface,
+		},
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				{{- $fields := filterFields $n.Fields (skipMode "type") }}

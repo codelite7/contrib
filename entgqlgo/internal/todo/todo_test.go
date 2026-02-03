@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	"entgo.io/contrib/entgqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/enttest"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
@@ -2111,5 +2112,391 @@ func TestCreateWithEdge(t *testing.T) {
 	}
 	if todos[0].Edges.Category.Text != "Work" {
 		t.Errorf("expected category text 'Work', got %s", todos[0].Edges.Category.Text)
+	}
+}
+
+// ========== Relay Node interface tests ==========
+
+// TestNodeQuery tests fetching a single node by global ID.
+func TestNodeQuery(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a todo
+	created, err := client.Todo.Create().
+		SetText("Test node query").
+		SetStatus(todo.StatusPending).
+		SetPriority(5).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query via node query with raw ID (backward compatibility)
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%d") {
+				... on Todo {
+					id
+					text
+					status
+				}
+			}
+		}`, created.ID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	node := data["node"].(map[string]interface{})
+
+	if node["text"] != "Test node query" {
+		t.Errorf("expected text 'Test node query', got %v", node["text"])
+	}
+	if node["status"] != "PENDING" {
+		t.Errorf("expected status 'PENDING', got %v", node["status"])
+	}
+}
+
+// TestNodeQueryWithGlobalID tests fetching a node using encoded global ID.
+func TestNodeQueryWithGlobalID(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create global ID
+	globalID := entgqlgo.GlobalID("Category", category.ID)
+
+	// Query via node query with global ID
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%s") {
+				... on Category {
+					id
+					text
+				}
+			}
+		}`, globalID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	node := data["node"].(map[string]interface{})
+
+	if node["text"] != "Work" {
+		t.Errorf("expected text 'Work', got %v", node["text"])
+	}
+}
+
+// TestNodesQuery tests fetching multiple nodes by their IDs.
+func TestNodesQuery(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create multiple todos
+	todo1, err := client.Todo.Create().
+		SetText("Todo 1").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo 1: %v", err)
+	}
+
+	todo2, err := client.Todo.Create().
+		SetText("Todo 2").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo 2: %v", err)
+	}
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create global IDs
+	todoGlobalID1 := entgqlgo.GlobalID("Todo", todo1.ID)
+	todoGlobalID2 := entgqlgo.GlobalID("Todo", todo2.ID)
+	categoryGlobalID := entgqlgo.GlobalID("Category", category.ID)
+
+	// Query multiple nodes
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			nodes(ids: ["%s", "%s", "%s"]) {
+				... on Todo {
+					id
+					text
+					status
+				}
+				... on Category {
+					id
+					text
+				}
+			}
+		}`, todoGlobalID1, categoryGlobalID, todoGlobalID2),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	nodes := data["nodes"].([]interface{})
+
+	if len(nodes) != 3 {
+		t.Fatalf("expected 3 nodes, got %d", len(nodes))
+	}
+
+	// First node should be Todo 1
+	node0 := nodes[0].(map[string]interface{})
+	if node0["text"] != "Todo 1" {
+		t.Errorf("expected first node text 'Todo 1', got %v", node0["text"])
+	}
+
+	// Second node should be Category
+	node1 := nodes[1].(map[string]interface{})
+	if node1["text"] != "Work" {
+		t.Errorf("expected second node text 'Work', got %v", node1["text"])
+	}
+
+	// Third node should be Todo 2
+	node2 := nodes[2].(map[string]interface{})
+	if node2["text"] != "Todo 2" {
+		t.Errorf("expected third node text 'Todo 2', got %v", node2["text"])
+	}
+}
+
+// TestNodeTypename tests that __typename resolves correctly.
+func TestNodeTypename(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a todo
+	createdTodo, err := client.Todo.Create().
+		SetText("Test typename").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Create a category
+	createdCategory, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Query Todo __typename
+	todoGlobalID := entgqlgo.GlobalID("Todo", createdTodo.ID)
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%s") {
+				__typename
+				... on Todo {
+					text
+				}
+			}
+		}`, todoGlobalID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	node := data["node"].(map[string]interface{})
+
+	if node["__typename"] != "Todo" {
+		t.Errorf("expected __typename 'Todo', got %v", node["__typename"])
+	}
+
+	// Query Category __typename
+	categoryGlobalID := entgqlgo.GlobalID("Category", createdCategory.ID)
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%s") {
+				__typename
+				... on Category {
+					text
+				}
+			}
+		}`, categoryGlobalID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	node = data["node"].(map[string]interface{})
+
+	if node["__typename"] != "Category" {
+		t.Errorf("expected __typename 'Category', got %v", node["__typename"])
+	}
+}
+
+// TestNodeNotFound tests graceful handling of missing IDs.
+func TestNodeNotFound(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Query non-existent node with global ID
+	nonExistentGlobalID := entgqlgo.GlobalID("Todo", 99999)
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%s") {
+				... on Todo {
+					id
+					text
+				}
+			}
+		}`, nonExistentGlobalID),
+		Context: ctx,
+	})
+
+	// Should return null for node (the resolver returns an error which translates to null)
+	// The data should be a map with "node" key
+	data, ok := result.Data.(map[string]interface{})
+	if !ok {
+		// If Data is nil entirely, that's also acceptable for error cases
+		return
+	}
+
+	// node should be nil (null in GraphQL)
+	nodeValue, exists := data["node"]
+	if exists && nodeValue != nil {
+		// If it's a typed nil (interface holding nil), that's acceptable
+		// Otherwise fail
+		if _, isMap := nodeValue.(map[string]interface{}); isMap {
+			t.Errorf("expected null for non-existent node, got %v", nodeValue)
+		}
+	}
+	// Getting here means node is nil, which is the expected behavior
+}
+
+// TestNodesWithMixedResults tests nodes query with some existing and some missing IDs.
+func TestNodesWithMixedResults(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a todo
+	created, err := client.Todo.Create().
+		SetText("Existing todo").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	existingID := entgqlgo.GlobalID("Todo", created.ID)
+	nonExistentID := entgqlgo.GlobalID("Todo", 99999)
+
+	// Query with mixed IDs - one exists, one doesn't
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			nodes(ids: ["%s", "%s"]) {
+				... on Todo {
+					id
+					text
+				}
+			}
+		}`, existingID, nonExistentID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	nodes := data["nodes"].([]interface{})
+
+	if len(nodes) != 2 {
+		t.Fatalf("expected 2 nodes, got %d", len(nodes))
+	}
+
+	// First node should exist
+	if nodes[0] == nil {
+		t.Error("expected first node to exist")
+	} else {
+		node0 := nodes[0].(map[string]interface{})
+		if node0["text"] != "Existing todo" {
+			t.Errorf("expected text 'Existing todo', got %v", node0["text"])
+		}
+	}
+
+	// Second node should be nil (non-existent)
+	if nodes[1] != nil {
+		t.Errorf("expected second node to be nil for non-existent ID, got %v", nodes[1])
 	}
 }

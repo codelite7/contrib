@@ -33,6 +33,9 @@ var (
 func init() {
 	CategoryType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "Category",
+		Interfaces: []*graphql.Interface{
+			NodeInterface,
+		},
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"text": &graphql.Field{
@@ -54,6 +57,9 @@ func init() {
 	})
 	TodoType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "Todo",
+		Interfaces: []*graphql.Interface{
+			NodeInterface,
+		},
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"createdAt": &graphql.Field{

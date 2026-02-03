@@ -261,6 +261,23 @@ func newQueryType(client *Client) *graphql.Object {
 					return client.Noder(p.Context, fmt.Sprint(id))
 				},
 			},
+			"nodes": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.NewList(NodeInterface)),
+				Args: graphql.FieldConfigArgument{
+					"ids": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(graphql.ID))),
+						Description: "The IDs of the nodes.",
+					},
+				},
+				Description: "Fetches objects given their IDs.",
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					ids, ok := p.Args["ids"].([]interface{})
+					if !ok {
+						return nil, nil
+					}
+					return client.Noders(p.Context, ids)
+				},
+			},
 		},
 	})
 }
