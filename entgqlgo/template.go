@@ -25,7 +25,7 @@ import (
 	"entgo.io/ent/entc/gen"
 	"entgo.io/ent/schema/field"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 var (

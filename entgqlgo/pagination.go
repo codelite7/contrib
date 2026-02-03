@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
