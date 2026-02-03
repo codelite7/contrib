@@ -113,14 +113,6 @@ func MultiOrder() Annotation {
 	return Annotation{MultiOrder: true}
 }
 
-// Bind returns a binding annotation.
-//
-// Deprecated: the Bind option predates the Unbind option, and it is planned
-// to be removed in future versions.
-func Bind() Annotation {
-	return Annotation{}
-}
-
 // Unbind implies the edge field name in GraphQL schema is not equivalent
 // to the name used in ent schema.
 func Unbind() Annotation {

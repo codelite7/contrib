@@ -117,8 +117,12 @@ func (e *Extension) Options() []entc.Option {
 
 // hasTemplate reports if the template exists in the template list and returns its index.
 func (e *Extension) hasTemplate(tem *gen.Template) (int, bool) {
+	tems := tem.Templates()
+	if len(tems) < 2 {
+		return -1, false
+	}
 	for i := range e.templates {
-		if e.templates[i].Name() == tem.Templates()[1].Name() {
+		if e.templates[i].Name() == tems[1].Name() {
 			return i, true
 		}
 	}

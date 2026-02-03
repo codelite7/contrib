@@ -15,11 +15,12 @@
 package entgqlgo
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 )
+
 
 // FieldInfo contains information about a selected field in a GraphQL query.
 type FieldInfo struct {
@@ -209,14 +210,12 @@ func extractArguments(args []*ast.Argument, vars map[string]interface{}) map[str
 func extractValue(value ast.Value, vars map[string]interface{}) interface{} {
 	switch v := value.(type) {
 	case *ast.IntValue:
-		i := 0
-		if _, err := fmt.Sscanf(v.Value, "%d", &i); err == nil {
+		if i, err := strconv.Atoi(v.Value); err == nil {
 			return i
 		}
 		return v.Value
 	case *ast.FloatValue:
-		f := 0.0
-		if _, err := fmt.Sscanf(v.Value, "%f", &f); err == nil {
+		if f, err := strconv.ParseFloat(v.Value, 64); err == nil {
 			return f
 		}
 		return v.Value
