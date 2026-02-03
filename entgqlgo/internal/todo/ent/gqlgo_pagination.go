@@ -258,22 +258,22 @@ func (c *Client) PaginateCategoriesWithOrder(
 		query = query.Where(category.IDLT(before.ID))
 	}
 
-	// Apply ordering
-	if order != nil {
-		query = query.Order(order.ToOrderOption())
-	} else {
-		// Default to ID ordering
-		query = query.Order(category.ByID())
-	}
-
-	// Apply limit
+	// Apply ordering and limit
+	// Note: ordering must be applied in the same block as pagination direction
+	// to avoid applying conflicting orders (e.g., ASC then DESC)
 	limit := 0
 	if first != nil {
+		// Forward pagination - apply ordering then limit
+		if order != nil {
+			query = query.Order(order.ToOrderOption())
+		} else {
+			query = query.Order(category.ByID())
+		}
 		limit = *first + 1 // +1 to check if there are more items
 		query = query.Limit(limit)
 	} else if last != nil {
+		// Backward pagination - apply reversed ordering then limit
 		limit = *last + 1
-		// For backward pagination, we need to reverse the order direction
 		if order != nil {
 			reversedOrder := &CategoryOrder{
 				Field:     order.Field,
@@ -284,6 +284,13 @@ func (c *Client) PaginateCategoriesWithOrder(
 			query = query.Order(category.ByID(sql.OrderDesc()))
 		}
 		query = query.Limit(limit)
+	} else {
+		// No pagination - apply default ordering
+		if order != nil {
+			query = query.Order(order.ToOrderOption())
+		} else {
+			query = query.Order(category.ByID())
+		}
 	}
 
 	nodes, err := query.All(ctx)
@@ -490,22 +497,22 @@ func (c *Client) PaginateTodosWithOrder(
 		query = query.Where(todo.IDLT(before.ID))
 	}
 
-	// Apply ordering
-	if len(orders) > 0 {
-		query = ApplyTodoOrderList(query, orders)
-	} else {
-		// Default to ID ordering
-		query = query.Order(todo.ByID())
-	}
-
-	// Apply limit
+	// Apply ordering and limit
+	// Note: ordering must be applied in the same block as pagination direction
+	// to avoid applying conflicting orders (e.g., ASC then DESC)
 	limit := 0
 	if first != nil {
+		// Forward pagination - apply ordering then limit
+		if len(orders) > 0 {
+			query = ApplyTodoOrderList(query, orders)
+		} else {
+			query = query.Order(todo.ByID())
+		}
 		limit = *first + 1 // +1 to check if there are more items
 		query = query.Limit(limit)
 	} else if last != nil {
+		// Backward pagination - apply reversed ordering then limit
 		limit = *last + 1
-		// For backward pagination, we need to reverse the order direction
 		if len(orders) > 0 {
 			// Reverse each order direction for backward pagination
 			reversedOrders := make([]*TodoOrder, len(orders))
@@ -520,6 +527,13 @@ func (c *Client) PaginateTodosWithOrder(
 			query = query.Order(todo.ByID(sql.OrderDesc()))
 		}
 		query = query.Limit(limit)
+	} else {
+		// No pagination - apply default ordering
+		if len(orders) > 0 {
+			query = ApplyTodoOrderList(query, orders)
+		} else {
+			query = query.Order(todo.ByID())
+		}
 	}
 
 	nodes, err := query.All(ctx)

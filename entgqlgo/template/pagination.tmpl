@@ -270,31 +270,30 @@ func (c *Client) Paginate{{ plural $n.Name }}WithOrder(
 		query = query.Where({{ $n.Package }}.IDLT(before.ID))
 	}
 
-	// Apply ordering
-	{{- if $multiOrder }}
-	if len(orders) > 0 {
-		query = Apply{{ $names.Order }}List(query, orders)
-	} else {
-		// Default to ID ordering
-		query = query.Order({{ $n.Package }}.ByID())
-	}
-	{{- else }}
-	if order != nil {
-		query = query.Order(order.ToOrderOption())
-	} else {
-		// Default to ID ordering
-		query = query.Order({{ $n.Package }}.ByID())
-	}
-	{{- end }}
-
-	// Apply limit
+	// Apply ordering and limit
+	// Note: ordering must be applied in the same block as pagination direction
+	// to avoid applying conflicting orders (e.g., ASC then DESC)
 	limit := 0
 	if first != nil {
+		// Forward pagination - apply ordering then limit
+		{{- if $multiOrder }}
+		if len(orders) > 0 {
+			query = Apply{{ $names.Order }}List(query, orders)
+		} else {
+			query = query.Order({{ $n.Package }}.ByID())
+		}
+		{{- else }}
+		if order != nil {
+			query = query.Order(order.ToOrderOption())
+		} else {
+			query = query.Order({{ $n.Package }}.ByID())
+		}
+		{{- end }}
 		limit = *first + 1 // +1 to check if there are more items
 		query = query.Limit(limit)
 	} else if last != nil {
+		// Backward pagination - apply reversed ordering then limit
 		limit = *last + 1
-		// For backward pagination, we need to reverse the order direction
 		{{- if $multiOrder }}
 		if len(orders) > 0 {
 			// Reverse each order direction for backward pagination
@@ -321,6 +320,21 @@ func (c *Client) Paginate{{ plural $n.Name }}WithOrder(
 		}
 		{{- end }}
 		query = query.Limit(limit)
+	} else {
+		// No pagination - apply default ordering
+		{{- if $multiOrder }}
+		if len(orders) > 0 {
+			query = Apply{{ $names.Order }}List(query, orders)
+		} else {
+			query = query.Order({{ $n.Package }}.ByID())
+		}
+		{{- else }}
+		if order != nil {
+			query = query.Order(order.ToOrderOption())
+		} else {
+			query = query.Order({{ $n.Package }}.ByID())
+		}
+		{{- end }}
 	}
 
 	nodes, err := query.All(ctx)
