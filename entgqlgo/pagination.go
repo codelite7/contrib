@@ -131,12 +131,25 @@ func (c Cursor[T]) String() string {
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (c *Cursor[T]) UnmarshalText(text []byte) error {
-	return msgpack.NewDecoder(
+	// Decode the cursor struct fields manually to avoid msgpack using
+	// UnmarshalText which expects string data instead of the map we encode.
+	type cursorData struct {
+		ID    T         `msgpack:"i"`
+		Value ent.Value `msgpack:"v,omitempty"`
+	}
+	var data cursorData
+	err := msgpack.NewDecoder(
 		base64.NewDecoder(
 			base64.RawStdEncoding,
 			strings.NewReader(string(text)),
 		),
-	).Decode(c)
+	).Decode(&data)
+	if err != nil {
+		return err
+	}
+	c.ID = data.ID
+	c.Value = data.Value
+	return nil
 }
 
 // CursorsPredicate converts the given cursors to predicates.

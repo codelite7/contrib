@@ -48,19 +48,31 @@ func ParsePaginationArgs(p graphql.ResolveParams) (*PaginationArgs, error) {
 	if last, ok := p.Args["last"].(int); ok {
 		args.Last = &last
 	}
-	if after, ok := p.Args["after"].(string); ok {
-		c := &entgqlgo.Cursor[int]{}
-		if err := c.UnmarshalText([]byte(after)); err != nil {
-			return nil, err
+	// Handle after cursor - may be parsed as cursor by scalar or as string
+	if after := p.Args["after"]; after != nil {
+		switch v := after.(type) {
+		case *entgqlgo.Cursor[int]:
+			args.After = v
+		case string:
+			c := &entgqlgo.Cursor[int]{}
+			if err := c.UnmarshalText([]byte(v)); err != nil {
+				return nil, err
+			}
+			args.After = c
 		}
-		args.After = c
 	}
-	if before, ok := p.Args["before"].(string); ok {
-		c := &entgqlgo.Cursor[int]{}
-		if err := c.UnmarshalText([]byte(before)); err != nil {
-			return nil, err
+	// Handle before cursor - may be parsed as cursor by scalar or as string
+	if before := p.Args["before"]; before != nil {
+		switch v := before.(type) {
+		case *entgqlgo.Cursor[int]:
+			args.Before = v
+		case string:
+			c := &entgqlgo.Cursor[int]{}
+			if err := c.UnmarshalText([]byte(v)); err != nil {
+				return nil, err
+			}
+			args.Before = c
 		}
-		args.Before = c
 	}
 
 	// Validate arguments
@@ -105,16 +117,18 @@ type CategoryConnection struct {
 var CategoryEdgeType = graphql.NewObject(graphql.ObjectConfig{
 	Name:        "CategoryEdge",
 	Description: "An edge in a Category connection.",
-	Fields: graphql.Fields{
-		"node": &graphql.Field{
-			Type:        CategoryType,
-			Description: "The item at the end of the edge.",
-		},
-		"cursor": &graphql.Field{
-			Type:        graphql.NewNonNull(CursorScalar),
-			Description: "A cursor for use in pagination.",
-		},
-	},
+	Fields: graphql.FieldsThunk(func() graphql.Fields {
+		return graphql.Fields{
+			"node": &graphql.Field{
+				Type:        CategoryType,
+				Description: "The item at the end of the edge.",
+			},
+			"cursor": &graphql.Field{
+				Type:        graphql.NewNonNull(CursorScalar),
+				Description: "A cursor for use in pagination.",
+			},
+		}
+	}),
 })
 
 // CategoryConnectionType is the GraphQL type for CategoryConnection.
@@ -211,8 +225,8 @@ func (c *Client) PaginateCategories(
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
 	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && after != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && before != nil)
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
 
 	return conn, nil
 }
@@ -237,16 +251,18 @@ type TodoConnection struct {
 var TodoEdgeType = graphql.NewObject(graphql.ObjectConfig{
 	Name:        "TodoEdge",
 	Description: "An edge in a Todo connection.",
-	Fields: graphql.Fields{
-		"node": &graphql.Field{
-			Type:        TodoType,
-			Description: "The item at the end of the edge.",
-		},
-		"cursor": &graphql.Field{
-			Type:        graphql.NewNonNull(CursorScalar),
-			Description: "A cursor for use in pagination.",
-		},
-	},
+	Fields: graphql.FieldsThunk(func() graphql.Fields {
+		return graphql.Fields{
+			"node": &graphql.Field{
+				Type:        TodoType,
+				Description: "The item at the end of the edge.",
+			},
+			"cursor": &graphql.Field{
+				Type:        graphql.NewNonNull(CursorScalar),
+				Description: "A cursor for use in pagination.",
+			},
+		}
+	}),
 })
 
 // TodoConnectionType is the GraphQL type for TodoConnection.
@@ -343,8 +359,8 @@ func (c *Client) PaginateTodos(
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
 	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && after != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && before != nil)
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
 
 	return conn, nil
 }

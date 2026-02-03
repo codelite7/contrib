@@ -149,6 +149,76 @@ func newQueryType(client *Client) *graphql.Object {
 					}
 					return client.Todo.Get(p.Context, idInt)
 				},
+			},
+			"categoriesConnection": &graphql.Field{
+				Type:        graphql.NewNonNull(CategoryConnectionType),
+				Description: "Query Categories with Relay-style pagination.",
+				Args: graphql.FieldConfigArgument{
+					"first": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the first n elements from the list.",
+					},
+					"after": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements that come after the specified cursor.",
+					},
+					"last": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the last n elements from the list.",
+					},
+					"before": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements that come before the specified cursor.",
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					args, err := ParsePaginationArgs(p)
+					if err != nil {
+						return nil, err
+					}
+					return client.PaginateCategories(
+						p.Context,
+						args.After,
+						args.Before,
+						args.First,
+						args.Last,
+					)
+				},
+			},
+			"todosConnection": &graphql.Field{
+				Type:        graphql.NewNonNull(TodoConnectionType),
+				Description: "Query Todos with Relay-style pagination.",
+				Args: graphql.FieldConfigArgument{
+					"first": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the first n elements from the list.",
+					},
+					"after": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements that come after the specified cursor.",
+					},
+					"last": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the last n elements from the list.",
+					},
+					"before": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements that come before the specified cursor.",
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					args, err := ParsePaginationArgs(p)
+					if err != nil {
+						return nil, err
+					}
+					return client.PaginateTodos(
+						p.Context,
+						args.After,
+						args.Before,
+						args.First,
+						args.Last,
+					)
+				},
 			}, "node": &graphql.Field{
 				Type: NodeInterface,
 				Args: graphql.FieldConfigArgument{

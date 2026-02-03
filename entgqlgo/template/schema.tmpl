@@ -97,6 +97,45 @@ func newQueryType(client *Client) *graphql.Object {
 				},
 			},
 			{{- end }}
+			{{- /* Relay Connection queries */ -}}
+			{{- range $n := $gqlNodes }}
+			{{- $names := nodePaginationNames $n }}
+			"{{ plural (camel $n.Name) }}Connection": &graphql.Field{
+				Type:        graphql.NewNonNull({{ $names.Connection }}Type),
+				Description: "Query {{ plural $n.Name }} with Relay-style pagination.",
+				Args: graphql.FieldConfigArgument{
+					"first": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the first n elements from the list.",
+					},
+					"after": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements that come after the specified cursor.",
+					},
+					"last": &graphql.ArgumentConfig{
+						Type:        graphql.Int,
+						Description: "Returns the last n elements from the list.",
+					},
+					"before": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements that come before the specified cursor.",
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					args, err := ParsePaginationArgs(p)
+					if err != nil {
+						return nil, err
+					}
+					return client.Paginate{{ plural $n.Name }}(
+						p.Context,
+						args.After,
+						args.Before,
+						args.First,
+						args.Last,
+					)
+				},
+			},
+			{{- end }}
 			{{- /* Relay Node interface */ -}}
 			"node": &graphql.Field{
 				Type: NodeInterface,

@@ -424,3 +424,439 @@ func TestQueryTodoFields(t *testing.T) {
 		t.Error("createdAt should not be nil")
 	}
 }
+
+// ========== Relay-style cursor pagination tests ==========
+
+// TestPageForward tests forward pagination using first/after.
+func TestPageForward(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create 10 todos
+	for i := 1; i <= 10; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// Query first 3 todos
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todosConnection(first: 3) {
+				edges {
+					node {
+						id
+						text
+					}
+					cursor
+				}
+				pageInfo {
+					hasNextPage
+					hasPreviousPage
+					startCursor
+					endCursor
+				}
+				totalCount
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	conn := data["todosConnection"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	pageInfo := conn["pageInfo"].(map[string]interface{})
+
+	// Verify first page
+	if len(edges) != 3 {
+		t.Errorf("expected 3 edges, got %d", len(edges))
+	}
+	if !pageInfo["hasNextPage"].(bool) {
+		t.Error("expected hasNextPage to be true")
+	}
+	if pageInfo["hasPreviousPage"].(bool) {
+		t.Error("expected hasPreviousPage to be false")
+	}
+
+	// Get the end cursor
+	endCursor := pageInfo["endCursor"].(string)
+	if endCursor == "" {
+		t.Fatal("expected endCursor to be non-empty")
+	}
+
+	// Query next page using after cursor
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			todosConnection(first: 3, after: "%s") {
+				edges {
+					node {
+						id
+						text
+					}
+					cursor
+				}
+				pageInfo {
+					hasNextPage
+					hasPreviousPage
+				}
+				totalCount
+			}
+		}`, endCursor),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query with after cursor had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	conn = data["todosConnection"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
+	pageInfo = conn["pageInfo"].(map[string]interface{})
+
+	// Verify second page
+	if len(edges) != 3 {
+		t.Errorf("expected 3 edges on second page, got %d", len(edges))
+	}
+	if !pageInfo["hasNextPage"].(bool) {
+		t.Error("expected hasNextPage to be true on second page")
+	}
+	// After using a cursor, hasPreviousPage should be true
+	if !pageInfo["hasPreviousPage"].(bool) {
+		t.Error("expected hasPreviousPage to be true after using after cursor")
+	}
+
+	// Verify we got different items
+	firstEdge := edges[0].(map[string]interface{})
+	firstNode := firstEdge["node"].(map[string]interface{})
+	if firstNode["text"].(string) != "Todo 4" {
+		t.Errorf("expected first item on second page to be 'Todo 4', got '%s'", firstNode["text"])
+	}
+}
+
+// TestPageBackward tests backward pagination using last/before.
+func TestPageBackward(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create 10 todos
+	for i := 1; i <= 10; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// Query last 3 todos
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todosConnection(last: 3) {
+				edges {
+					node {
+						id
+						text
+					}
+					cursor
+				}
+				pageInfo {
+					hasNextPage
+					hasPreviousPage
+					startCursor
+					endCursor
+				}
+				totalCount
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	conn := data["todosConnection"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	pageInfo := conn["pageInfo"].(map[string]interface{})
+
+	// Verify last page
+	if len(edges) != 3 {
+		t.Errorf("expected 3 edges, got %d", len(edges))
+	}
+	if pageInfo["hasNextPage"].(bool) {
+		t.Error("expected hasNextPage to be false when using last")
+	}
+	if !pageInfo["hasPreviousPage"].(bool) {
+		t.Error("expected hasPreviousPage to be true")
+	}
+
+	// Verify we got the last items (Todo 8, 9, 10)
+	firstEdge := edges[0].(map[string]interface{})
+	firstNode := firstEdge["node"].(map[string]interface{})
+	if firstNode["text"].(string) != "Todo 8" {
+		t.Errorf("expected first item to be 'Todo 8', got '%s'", firstNode["text"])
+	}
+
+	lastEdge := edges[2].(map[string]interface{})
+	lastNode := lastEdge["node"].(map[string]interface{})
+	if lastNode["text"].(string) != "Todo 10" {
+		t.Errorf("expected last item to be 'Todo 10', got '%s'", lastNode["text"])
+	}
+
+	// Get the start cursor for the next query
+	startCursor := pageInfo["startCursor"].(string)
+
+	// Query previous page using before cursor
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			todosConnection(last: 3, before: "%s") {
+				edges {
+					node {
+						id
+						text
+					}
+				}
+				pageInfo {
+					hasNextPage
+					hasPreviousPage
+				}
+			}
+		}`, startCursor),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query with before cursor had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	conn = data["todosConnection"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
+
+	// Verify we got the previous 3 items (Todo 5, 6, 7)
+	if len(edges) != 3 {
+		t.Errorf("expected 3 edges, got %d", len(edges))
+	}
+
+	firstEdge = edges[0].(map[string]interface{})
+	firstNode = firstEdge["node"].(map[string]interface{})
+	if firstNode["text"].(string) != "Todo 5" {
+		t.Errorf("expected first item to be 'Todo 5', got '%s'", firstNode["text"])
+	}
+}
+
+// TestTotalCount tests that totalCount is accurate.
+func TestTotalCount(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create 7 todos
+	for i := 1; i <= 7; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// Query with pagination but verify totalCount reflects all items
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todosConnection(first: 2) {
+				edges {
+					node {
+						id
+					}
+				}
+				totalCount
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	conn := data["todosConnection"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	totalCount := conn["totalCount"].(int)
+
+	// Verify we only got 2 items but totalCount is 7
+	if len(edges) != 2 {
+		t.Errorf("expected 2 edges, got %d", len(edges))
+	}
+	if totalCount != 7 {
+		t.Errorf("expected totalCount to be 7, got %d", totalCount)
+	}
+}
+
+// TestEmptyPage tests querying past the end returns empty edges.
+func TestEmptyPage(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create 3 todos
+	var lastTodo *ent.Todo
+	for i := 1; i <= 3; i++ {
+		lastTodo, err = client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// First get all todos to get the last cursor
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todosConnection(first: 10) {
+				edges {
+					cursor
+				}
+				pageInfo {
+					endCursor
+				}
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	conn := data["todosConnection"].(map[string]interface{})
+	pageInfo := conn["pageInfo"].(map[string]interface{})
+	endCursor := pageInfo["endCursor"].(string)
+
+	// Query after the last item - should get empty edges
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			todosConnection(first: 5, after: "%s") {
+				edges {
+					node {
+						id
+					}
+				}
+				pageInfo {
+					hasNextPage
+					hasPreviousPage
+				}
+				totalCount
+			}
+		}`, endCursor),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query after last had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	conn = data["todosConnection"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	pageInfo = conn["pageInfo"].(map[string]interface{})
+	totalCount := conn["totalCount"].(int)
+
+	// Verify empty edges but correct metadata
+	if len(edges) != 0 {
+		t.Errorf("expected 0 edges when querying past end, got %d", len(edges))
+	}
+	if pageInfo["hasNextPage"].(bool) {
+		t.Error("expected hasNextPage to be false when at end")
+	}
+	if !pageInfo["hasPreviousPage"].(bool) {
+		t.Error("expected hasPreviousPage to be true when past beginning")
+	}
+	if totalCount != 3 {
+		t.Errorf("expected totalCount to still be 3, got %d", totalCount)
+	}
+
+	// Also verify empty result when no items exist
+	// Delete all todos
+	client.Todo.DeleteOneID(lastTodo.ID).Exec(ctx)
+	client.Todo.Delete().Exec(ctx)
+
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todosConnection(first: 5) {
+				edges {
+					node {
+						id
+					}
+				}
+				totalCount
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query on empty table had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	conn = data["todosConnection"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
+	totalCount = conn["totalCount"].(int)
+
+	if len(edges) != 0 {
+		t.Errorf("expected 0 edges on empty table, got %d", len(edges))
+	}
+	if totalCount != 0 {
+		t.Errorf("expected totalCount to be 0 on empty table, got %d", totalCount)
+	}
+}
