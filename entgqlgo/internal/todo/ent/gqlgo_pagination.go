@@ -231,6 +231,104 @@ func (c *Client) PaginateCategories(
 	return conn, nil
 }
 
+// PaginateCategoriesWithOrder returns a paginated list of Categories with ordering.
+func (c *Client) PaginateCategoriesWithOrder(
+	ctx context.Context,
+	after, before *entgqlgo.Cursor[int],
+	first, last *int,
+	order *CategoryOrder,
+	opts ...CategoryQueryOption,
+) (*CategoryConnection, error) {
+	query := c.Category.Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+
+	// Get total count
+	totalCount, err := query.Clone().Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply cursor pagination
+	if after != nil {
+		query = query.Where(category.IDGT(after.ID))
+	}
+	if before != nil {
+		query = query.Where(category.IDLT(before.ID))
+	}
+
+	// Apply ordering
+	if order != nil {
+		query = query.Order(order.ToOrderOption())
+	} else {
+		// Default to ID ordering
+		query = query.Order(category.ByID())
+	}
+
+	// Apply limit
+	limit := 0
+	if first != nil {
+		limit = *first + 1 // +1 to check if there are more items
+		query = query.Limit(limit)
+	} else if last != nil {
+		limit = *last + 1
+		// For backward pagination, we need to reverse the order direction
+		if order != nil {
+			reversedOrder := &CategoryOrder{
+				Field:     order.Field,
+				Direction: order.Direction.Reverse(),
+			}
+			query = query.Order(reversedOrder.ToOrderOption())
+		} else {
+			query = query.Order(category.ByID(sql.OrderDesc()))
+		}
+		query = query.Limit(limit)
+	}
+
+	nodes, err := query.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build connection
+	conn := &CategoryConnection{
+		TotalCount: totalCount,
+	}
+
+	// Check for more pages
+	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
+	if hasMore {
+		nodes = nodes[:len(nodes)-1]
+	}
+
+	// Reverse if paginating backwards
+	if last != nil {
+		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		}
+	}
+
+	// Build edges
+	conn.Edges = make([]*CategoryEdge, len(nodes))
+	for i, node := range nodes {
+		conn.Edges[i] = &CategoryEdge{
+			Node:   node,
+			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
+		}
+	}
+
+	// Build page info
+	if len(conn.Edges) > 0 {
+		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
+		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
+	}
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
+
+	return conn, nil
+}
+
 // CategoryQueryOption is a function that modifies a CategoryQuery.
 type CategoryQueryOption func(*CategoryQuery)
 
@@ -319,6 +417,108 @@ func (c *Client) PaginateTodos(
 	} else if last != nil {
 		limit = *last + 1
 		query = query.Order(todo.ByID(sql.OrderDesc()))
+		query = query.Limit(limit)
+	}
+
+	nodes, err := query.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build connection
+	conn := &TodoConnection{
+		TotalCount: totalCount,
+	}
+
+	// Check for more pages
+	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
+	if hasMore {
+		nodes = nodes[:len(nodes)-1]
+	}
+
+	// Reverse if paginating backwards
+	if last != nil {
+		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		}
+	}
+
+	// Build edges
+	conn.Edges = make([]*TodoEdge, len(nodes))
+	for i, node := range nodes {
+		conn.Edges[i] = &TodoEdge{
+			Node:   node,
+			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
+		}
+	}
+
+	// Build page info
+	if len(conn.Edges) > 0 {
+		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
+		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
+	}
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
+
+	return conn, nil
+}
+
+// PaginateTodosWithOrder returns a paginated list of Todos with ordering.
+func (c *Client) PaginateTodosWithOrder(
+	ctx context.Context,
+	after, before *entgqlgo.Cursor[int],
+	first, last *int,
+	orders []*TodoOrder,
+	opts ...TodoQueryOption,
+) (*TodoConnection, error) {
+	query := c.Todo.Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+
+	// Get total count
+	totalCount, err := query.Clone().Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply cursor pagination
+	if after != nil {
+		query = query.Where(todo.IDGT(after.ID))
+	}
+	if before != nil {
+		query = query.Where(todo.IDLT(before.ID))
+	}
+
+	// Apply ordering
+	if len(orders) > 0 {
+		query = ApplyTodoOrderList(query, orders)
+	} else {
+		// Default to ID ordering
+		query = query.Order(todo.ByID())
+	}
+
+	// Apply limit
+	limit := 0
+	if first != nil {
+		limit = *first + 1 // +1 to check if there are more items
+		query = query.Limit(limit)
+	} else if last != nil {
+		limit = *last + 1
+		// For backward pagination, we need to reverse the order direction
+		if len(orders) > 0 {
+			// Reverse each order direction for backward pagination
+			reversedOrders := make([]*TodoOrder, len(orders))
+			for i, o := range orders {
+				reversedOrders[i] = &TodoOrder{
+					Field:     o.Field,
+					Direction: o.Direction.Reverse(),
+				}
+			}
+			query = ApplyTodoOrderList(query, reversedOrders)
+		} else {
+			query = query.Order(todo.ByID(sql.OrderDesc()))
+		}
 		query = query.Limit(limit)
 	}
 

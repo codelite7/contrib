@@ -1,0 +1,138 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gqlgo_ordering" }}
+
+{{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
+
+{{ $pkg := base $.Config.Package }}
+{{- with extend $ "Package" $pkg }}
+        {{ template "header" . }}
+{{- end }}
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+
+import (
+	"github.com/graphql-go/graphql"
+	"entgo.io/ent/dialect/sql"
+	"entgo.io/contrib/entgqlgo"
+	{{- range $n := $gqlNodes }}
+	{{- $orderFields := orderFields $n }}
+	{{- if $orderFields }}
+	"{{ $.Config.Package }}/{{ $n.Package }}"
+	{{- end }}
+	{{- end }}
+)
+
+{{- range $n := $gqlNodes }}
+{{- $names := nodePaginationNames $n }}
+{{- $orderFields := orderFields $n }}
+{{- if $orderFields }}
+{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
+
+// {{ $names.OrderField }}Enum is the GraphQL enum for ordering {{ $n.Name }} by field.
+var {{ $names.OrderField }}Enum = graphql.NewEnum(graphql.EnumConfig{
+	Name:        "{{ $names.OrderField }}",
+	Description: "Properties by which {{ $n.Name }} connections can be ordered.",
+	Values: graphql.EnumValueConfigMap{
+		{{- range $f := $orderFields }}
+		"{{ $f.GQL }}": &graphql.EnumValueConfig{
+			Value:       "{{ $f.GQL }}",
+			Description: "Order by {{ $f.GQL }}.",
+		},
+		{{- end }}
+	},
+})
+
+// {{ $names.Order }}InputType is the GraphQL input type for ordering {{ plural $n.Name }}.
+var {{ $names.Order }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
+	Name:        "{{ $names.Order }}",
+	Description: "Ordering options for {{ $n.Name }} connections.",
+	Fields: graphql.InputObjectConfigFieldMap{
+		"field": &graphql.InputObjectFieldConfig{
+			Type:        graphql.NewNonNull({{ $names.OrderField }}Enum),
+			Description: "The field to order by.",
+		},
+		"direction": &graphql.InputObjectFieldConfig{
+			Type:         OrderDirectionEnum,
+			DefaultValue: entgqlgo.OrderDirectionAsc,
+			Description:  "The direction to order by.",
+		},
+	},
+})
+
+// {{ $names.Order }} represents an ordering option for {{ $n.Name }}.
+type {{ $names.Order }} struct {
+	Field     string
+	Direction entgqlgo.OrderDirection
+}
+
+// Parse{{ $names.Order }} parses a GraphQL order input map into a {{ $names.Order }}.
+func Parse{{ $names.Order }}(m map[string]interface{}) (*{{ $names.Order }}, error) {
+	order := &{{ $names.Order }}{
+		Direction: entgqlgo.OrderDirectionAsc,
+	}
+	if field, ok := m["field"].(string); ok {
+		order.Field = field
+	}
+	if dir, ok := m["direction"]; ok {
+		switch v := dir.(type) {
+		case entgqlgo.OrderDirection:
+			order.Direction = v
+		case string:
+			order.Direction = entgqlgo.OrderDirection(v)
+		}
+	}
+	return order, nil
+}
+
+// ToOrderOption converts the order to an ent {{ $n.Name }} OrderOption.
+func (o *{{ $names.Order }}) ToOrderOption() {{ $n.Package }}.OrderOption {
+	if o == nil {
+		return {{ $n.Package }}.ByID()
+	}
+	opts := []sql.OrderTermOption{o.Direction.OrderTermOption()}
+	switch o.Field {
+	{{- range $f := $orderFields }}
+	{{- if $f.IsFieldTerm }}
+	case "{{ $f.GQL }}":
+		return {{ $n.Package }}.{{ $f.Field.OrderName }}(opts...)
+	{{- end }}
+	{{- end }}
+	default:
+		return {{ $n.Package }}.ByID(opts...)
+	}
+}
+
+{{- if $multiOrder }}
+
+// Parse{{ $names.Order }}List parses a list of GraphQL order inputs.
+func Parse{{ $names.Order }}List(list []interface{}) ([]*{{ $names.Order }}, error) {
+	orders := make([]*{{ $names.Order }}, 0, len(list))
+	for _, item := range list {
+		if m, ok := item.(map[string]interface{}); ok {
+			order, err := Parse{{ $names.Order }}(m)
+			if err != nil {
+				return nil, err
+			}
+			orders = append(orders, order)
+		}
+	}
+	return orders, nil
+}
+
+// Apply{{ $names.Order }}List applies multiple order options to a query.
+func Apply{{ $names.Order }}List(query *{{ $n.QueryName }}, orders []*{{ $names.Order }}) *{{ $n.QueryName }} {
+	for _, o := range orders {
+		query = query.Order(o.ToOrderOption())
+	}
+	return query
+}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{ end }}

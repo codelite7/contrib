@@ -65,6 +65,9 @@ var (
 	// ScalarsTemplate generates Cursor, enum scalars for graphql-go.
 	ScalarsTemplate = parseT("template/scalars.tmpl")
 
+	// OrderingTemplate generates order field enums and input types for graphql-go.
+	OrderingTemplate = parseT("template/ordering.tmpl")
+
 	// AllTemplates holds all templates for extending ent to support graphql-go/graphql.
 	AllTemplates = []*gen.Template{
 		CollectionTemplate,
@@ -77,6 +80,7 @@ var (
 		SchemaTemplate,
 		ResolversTemplate,
 		ScalarsTemplate,
+		OrderingTemplate,
 	}
 
 	// TemplateFuncs contains the extra template functions used by entgqlgo.

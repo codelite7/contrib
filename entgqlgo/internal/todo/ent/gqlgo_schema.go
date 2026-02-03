@@ -55,6 +55,10 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        CategoryWhereInputType,
 						Description: "Filter Categories by conditions.",
 					},
+					"orderBy": &graphql.ArgumentConfig{
+						Type:        CategoryOrderInputType,
+						Description: "Ordering options for Categories.",
+					},
 				},
 				Description: "Query all Categories.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -75,6 +79,16 @@ func newQueryType(client *Client) *graphql.Object {
 							if err != nil {
 								return nil, fmt.Errorf("applying where filter: %w", err)
 							}
+						}
+					}
+					// Apply ordering
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						if orderMap, ok := orderByArg.(map[string]interface{}); ok {
+							order, err := ParseCategoryOrder(orderMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+							query = query.Order(order.ToOrderOption())
 						}
 					}
 					// Apply pagination
@@ -124,6 +138,10 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        TodoWhereInputType,
 						Description: "Filter Todos by conditions.",
 					},
+					"orderBy": &graphql.ArgumentConfig{
+						Type:        graphql.NewList(TodoOrderInputType),
+						Description: "Ordering options for Todos. Multiple orders can be specified.",
+					},
 				},
 				Description: "Query all Todos.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -150,6 +168,16 @@ func newQueryType(client *Client) *graphql.Object {
 							if err != nil {
 								return nil, fmt.Errorf("applying where filter: %w", err)
 							}
+						}
+					}
+					// Apply ordering
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						if orderList, ok := orderByArg.([]interface{}); ok {
+							orders, err := ParseTodoOrderList(orderList)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+							query = ApplyTodoOrderList(query, orders)
 						}
 					}
 					// Apply pagination
@@ -204,18 +232,32 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        CursorScalar,
 						Description: "Returns the elements that come before the specified cursor.",
 					},
+					"orderBy": &graphql.ArgumentConfig{
+						Type:        CategoryOrderInputType,
+						Description: "Ordering options for Categories.",
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					args, err := ParsePaginationArgs(p)
 					if err != nil {
 						return nil, err
 					}
-					return client.PaginateCategories(
+					var order *CategoryOrder
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						if orderMap, ok := orderByArg.(map[string]interface{}); ok {
+							order, err = ParseCategoryOrder(orderMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+						}
+					}
+					return client.PaginateCategoriesWithOrder(
 						p.Context,
 						args.After,
 						args.Before,
 						args.First,
 						args.Last,
+						order,
 					)
 				},
 			},
@@ -239,18 +281,32 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        CursorScalar,
 						Description: "Returns the elements that come before the specified cursor.",
 					},
+					"orderBy": &graphql.ArgumentConfig{
+						Type:        graphql.NewList(TodoOrderInputType),
+						Description: "Ordering options for Todos. Multiple orders can be specified.",
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					args, err := ParsePaginationArgs(p)
 					if err != nil {
 						return nil, err
 					}
-					return client.PaginateTodos(
+					var orders []*TodoOrder
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						if orderList, ok := orderByArg.([]interface{}); ok {
+							orders, err = ParseTodoOrderList(orderList)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+						}
+					}
+					return client.PaginateTodosWithOrder(
 						p.Context,
 						args.After,
 						args.Before,
 						args.First,
 						args.Last,
+						orders,
 					)
 				},
 			}, "node": &graphql.Field{

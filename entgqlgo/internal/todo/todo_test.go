@@ -1326,3 +1326,464 @@ func TestFilterByEdge(t *testing.T) {
 		t.Errorf("expected 'Todo without category', got %v", todoItem["text"])
 	}
 }
+
+// ========== Ordering tests ==========
+
+// TestOrderByPriority tests ordering todos by priority.
+func TestOrderByPriority(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different priorities
+	_, err = client.Todo.Create().
+		SetText("Low priority").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("High priority").
+		SetStatus(todo.StatusPending).
+		SetPriority(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Medium priority").
+		SetStatus(todo.StatusPending).
+		SetPriority(5).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query with orderBy priority ASC
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: [{field: PRIORITY, direction: ASC}]) {
+				text
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(todos))
+	}
+
+	// Verify order: Low (1), Medium (5), High (10)
+	if todos[0].(map[string]interface{})["text"] != "Low priority" {
+		t.Errorf("expected first todo to be 'Low priority', got %v", todos[0].(map[string]interface{})["text"])
+	}
+	if todos[1].(map[string]interface{})["text"] != "Medium priority" {
+		t.Errorf("expected second todo to be 'Medium priority', got %v", todos[1].(map[string]interface{})["text"])
+	}
+	if todos[2].(map[string]interface{})["text"] != "High priority" {
+		t.Errorf("expected third todo to be 'High priority', got %v", todos[2].(map[string]interface{})["text"])
+	}
+}
+
+// TestOrderByCreatedAt tests ordering todos by created_at timestamp.
+func TestOrderByCreatedAt(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos - they will have slightly different created_at timestamps
+	_, err = client.Todo.Create().
+		SetText("First created").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Second created").
+		SetStatus(todo.StatusPending).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Third created").
+		SetStatus(todo.StatusPending).
+		SetPriority(3).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query with orderBy created_at ASC
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: [{field: CREATED_AT, direction: ASC}]) {
+				text
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(todos))
+	}
+
+	// Verify order based on creation time (ASC = oldest first)
+	if todos[0].(map[string]interface{})["text"] != "First created" {
+		t.Errorf("expected first todo to be 'First created', got %v", todos[0].(map[string]interface{})["text"])
+	}
+	if todos[2].(map[string]interface{})["text"] != "Third created" {
+		t.Errorf("expected third todo to be 'Third created', got %v", todos[2].(map[string]interface{})["text"])
+	}
+}
+
+// TestOrderDesc tests ordering in descending direction.
+func TestOrderDesc(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different priorities
+	_, err = client.Todo.Create().
+		SetText("Low priority").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("High priority").
+		SetStatus(todo.StatusPending).
+		SetPriority(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Medium priority").
+		SetStatus(todo.StatusPending).
+		SetPriority(5).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query with orderBy priority DESC
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: [{field: PRIORITY, direction: DESC}]) {
+				text
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(todos))
+	}
+
+	// Verify order: High (10), Medium (5), Low (1)
+	if todos[0].(map[string]interface{})["text"] != "High priority" {
+		t.Errorf("expected first todo to be 'High priority', got %v", todos[0].(map[string]interface{})["text"])
+	}
+	if todos[1].(map[string]interface{})["text"] != "Medium priority" {
+		t.Errorf("expected second todo to be 'Medium priority', got %v", todos[1].(map[string]interface{})["text"])
+	}
+	if todos[2].(map[string]interface{})["text"] != "Low priority" {
+		t.Errorf("expected third todo to be 'Low priority', got %v", todos[2].(map[string]interface{})["text"])
+	}
+}
+
+// TestMultiOrder tests ordering by multiple fields (multi-order).
+func TestMultiOrder(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with same status but different priorities
+	_, err = client.Todo.Create().
+		SetText("Pending Low").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Completed High").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Pending High").
+		SetStatus(todo.StatusPending).
+		SetPriority(10).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Completed Low").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query with orderBy status ASC, then priority DESC
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: [{field: STATUS, direction: ASC}, {field: PRIORITY, direction: DESC}]) {
+				text
+				status
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 4 {
+		t.Fatalf("expected 4 todos, got %d", len(todos))
+	}
+
+	// Verify order: COMPLETED status first (alphabetically), then by priority DESC
+	// COMPLETED High (10), COMPLETED Low (1), then IN_PROGRESS, then PENDING High (10), PENDING Low (1)
+
+	// Since status sorts alphabetically: COMPLETED < IN_PROGRESS < PENDING
+	// First two should be COMPLETED, last two should be PENDING
+	firstTodo := todos[0].(map[string]interface{})
+	secondTodo := todos[1].(map[string]interface{})
+	thirdTodo := todos[2].(map[string]interface{})
+	fourthTodo := todos[3].(map[string]interface{})
+
+	// COMPLETED items first (with high priority first due to DESC)
+	if firstTodo["status"] != "COMPLETED" {
+		t.Errorf("expected first todo status to be COMPLETED, got %v", firstTodo["status"])
+	}
+	if firstTodo["priority"] != 10 {
+		t.Errorf("expected first todo priority to be 10, got %v", firstTodo["priority"])
+	}
+
+	if secondTodo["status"] != "COMPLETED" {
+		t.Errorf("expected second todo status to be COMPLETED, got %v", secondTodo["status"])
+	}
+	if secondTodo["priority"] != 1 {
+		t.Errorf("expected second todo priority to be 1, got %v", secondTodo["priority"])
+	}
+
+	// PENDING items last (with high priority first due to DESC)
+	if thirdTodo["status"] != "PENDING" {
+		t.Errorf("expected third todo status to be PENDING, got %v", thirdTodo["status"])
+	}
+	if thirdTodo["priority"] != 10 {
+		t.Errorf("expected third todo priority to be 10, got %v", thirdTodo["priority"])
+	}
+
+	if fourthTodo["status"] != "PENDING" {
+		t.Errorf("expected fourth todo status to be PENDING, got %v", fourthTodo["status"])
+	}
+	if fourthTodo["priority"] != 1 {
+		t.Errorf("expected fourth todo priority to be 1, got %v", fourthTodo["priority"])
+	}
+}
+
+// TestOrderByText tests ordering by text field.
+func TestOrderByText(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different text
+	_, err = client.Todo.Create().
+		SetText("Charlie").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Alpha").
+		SetStatus(todo.StatusPending).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Bravo").
+		SetStatus(todo.StatusPending).
+		SetPriority(3).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Query with orderBy text ASC
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(orderBy: [{field: TEXT, direction: ASC}]) {
+				text
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(todos))
+	}
+
+	// Verify alphabetical order: Alpha, Bravo, Charlie
+	if todos[0].(map[string]interface{})["text"] != "Alpha" {
+		t.Errorf("expected first todo to be 'Alpha', got %v", todos[0].(map[string]interface{})["text"])
+	}
+	if todos[1].(map[string]interface{})["text"] != "Bravo" {
+		t.Errorf("expected second todo to be 'Bravo', got %v", todos[1].(map[string]interface{})["text"])
+	}
+	if todos[2].(map[string]interface{})["text"] != "Charlie" {
+		t.Errorf("expected third todo to be 'Charlie', got %v", todos[2].(map[string]interface{})["text"])
+	}
+}
+
+// TestOrderWithPagination tests ordering with pagination.
+func TestOrderWithPagination(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create 5 todos with different priorities
+	for i := 1; i <= 5; i++ {
+		_, err = client.Todo.Create().
+			SetText(fmt.Sprintf("Priority %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo: %v", err)
+		}
+	}
+
+	// Query first 2 todos ordered by priority DESC
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(first: 2, orderBy: [{field: PRIORITY, direction: DESC}]) {
+				text
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 2 {
+		t.Fatalf("expected 2 todos, got %d", len(todos))
+	}
+
+	// Should get priority 5 and 4 (highest first)
+	if todos[0].(map[string]interface{})["priority"] != 5 {
+		t.Errorf("expected first todo priority to be 5, got %v", todos[0].(map[string]interface{})["priority"])
+	}
+	if todos[1].(map[string]interface{})["priority"] != 4 {
+		t.Errorf("expected second todo priority to be 4, got %v", todos[1].(map[string]interface{})["priority"])
+	}
+}

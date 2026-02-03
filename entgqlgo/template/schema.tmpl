@@ -17,6 +17,8 @@ in the LICENSE file in the root directory of this source tree.
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/graphql-go/graphql"
 	"entgo.io/contrib/entgqlgo"
@@ -38,6 +40,8 @@ func newQueryType(client *Client) *graphql.Object {
 		Fields: graphql.Fields{
 			{{- range $n := $gqlNodes }}
 			{{- $names := nodePaginationNames $n }}
+			{{- $orderFields := orderFields $n }}
+			{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
 			"{{ plural (camel $n.Name) }}": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList({{ $n.Name }}Type)),
 				Args: graphql.FieldConfigArgument{
@@ -53,6 +57,17 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        {{ $names.WhereInput }}Type,
 						Description: "Filter {{ plural $n.Name }} by conditions.",
 					},
+					{{- if $orderFields }}
+					"orderBy": &graphql.ArgumentConfig{
+						{{- if $multiOrder }}
+						Type:        graphql.NewList({{ $names.Order }}InputType),
+						Description: "Ordering options for {{ plural $n.Name }}. Multiple orders can be specified.",
+						{{- else }}
+						Type:        {{ $names.Order }}InputType,
+						Description: "Ordering options for {{ plural $n.Name }}.",
+						{{- end }}
+					},
+					{{- end }}
 				},
 				Description: "Query all {{ plural $n.Name }}.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -77,6 +92,28 @@ func newQueryType(client *Client) *graphql.Object {
 							}
 						}
 					}
+					{{- if $orderFields }}
+					// Apply ordering
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						{{- if $multiOrder }}
+						if orderList, ok := orderByArg.([]interface{}); ok {
+							orders, err := Parse{{ $names.Order }}List(orderList)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+							query = Apply{{ $names.Order }}List(query, orders)
+						}
+						{{- else }}
+						if orderMap, ok := orderByArg.(map[string]interface{}); ok {
+							order, err := Parse{{ $names.Order }}(orderMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+							query = query.Order(order.ToOrderOption())
+						}
+						{{- end }}
+					}
+					{{- end }}
 					// Apply pagination
 					if first, ok := p.Args["first"].(int); ok && first > 0 {
 						query = query.Limit(first)
@@ -117,6 +154,8 @@ func newQueryType(client *Client) *graphql.Object {
 			{{- /* Relay Connection queries */ -}}
 			{{- range $n := $gqlNodes }}
 			{{- $names := nodePaginationNames $n }}
+			{{- $orderFields := orderFields $n }}
+			{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
 			"{{ plural (camel $n.Name) }}Connection": &graphql.Field{
 				Type:        graphql.NewNonNull({{ $names.Connection }}Type),
 				Description: "Query {{ plural $n.Name }} with Relay-style pagination.",
@@ -137,12 +176,62 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        CursorScalar,
 						Description: "Returns the elements that come before the specified cursor.",
 					},
+					{{- if $orderFields }}
+					"orderBy": &graphql.ArgumentConfig{
+						{{- if $multiOrder }}
+						Type:        graphql.NewList({{ $names.Order }}InputType),
+						Description: "Ordering options for {{ plural $n.Name }}. Multiple orders can be specified.",
+						{{- else }}
+						Type:        {{ $names.Order }}InputType,
+						Description: "Ordering options for {{ plural $n.Name }}.",
+						{{- end }}
+					},
+					{{- end }}
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					args, err := ParsePaginationArgs(p)
 					if err != nil {
 						return nil, err
 					}
+					{{- if $orderFields }}
+					{{- if $multiOrder }}
+					var orders []*{{ $names.Order }}
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						if orderList, ok := orderByArg.([]interface{}); ok {
+							orders, err = Parse{{ $names.Order }}List(orderList)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+						}
+					}
+					return client.Paginate{{ plural $n.Name }}WithOrder(
+						p.Context,
+						args.After,
+						args.Before,
+						args.First,
+						args.Last,
+						orders,
+					)
+					{{- else }}
+					var order *{{ $names.Order }}
+					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
+						if orderMap, ok := orderByArg.(map[string]interface{}); ok {
+							order, err = Parse{{ $names.Order }}(orderMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing orderBy: %w", err)
+							}
+						}
+					}
+					return client.Paginate{{ plural $n.Name }}WithOrder(
+						p.Context,
+						args.After,
+						args.Before,
+						args.First,
+						args.Last,
+						order,
+					)
+					{{- end }}
+					{{- else }}
 					return client.Paginate{{ plural $n.Name }}(
 						p.Context,
 						args.After,
@@ -150,6 +239,7 @@ func newQueryType(client *Client) *graphql.Object {
 						args.First,
 						args.Last,
 					)
+					{{- end }}
 				},
 			},
 			{{- end }}
