@@ -22,8 +22,90 @@ import (
         {{- template "import/types" $n }}
 		"{{ $.Config.Package }}/{{ $n.Package }}"
 	{{- end }}
+
+    "github.com/graphql-go/graphql"
 )
 {{ template "import" $ }}
+
+// WhereInput GraphQL InputObject types for filtering
+var (
+{{- range $n := $gqlNodes }}
+    {{ $names := nodePaginationNames $n }}
+    // {{ $names.WhereInput }}Type is the GraphQL InputObject for filtering {{ $n.Name }} queries.
+    {{ $names.WhereInput }}Type *graphql.InputObject
+{{- end }}
+)
+
+func init() {
+{{- range $n := $gqlNodes }}
+    {{ $comparableFields := list $n.ID }}
+    {{ $names := nodePaginationNames $n }}
+    {{ with $annotation := $n.ID.Annotations.EntGQL }}
+        {{ if isSkipMode $annotation.Skip "where_input" }}
+            {{ $comparableFields = list }}
+        {{ end }}
+    {{ end }}
+    {{ range $f := filterFields $n.Fields (skipMode "where_input") }}
+        {{ if $f.Type.Comparable }}
+            {{ $comparableFields = append $comparableFields $f }}
+        {{ end }}
+    {{ end }}
+    {{ $names.WhereInput }}Type = graphql.NewInputObject(graphql.InputObjectConfig{
+        Name:        "{{ $names.WhereInput }}",
+        Description: "{{ $names.WhereInput }} is used for filtering {{ $n.Name }} objects.",
+        Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+            return graphql.InputObjectConfigFieldMap{
+                "not": &graphql.InputObjectFieldConfig{
+                    Type:        {{ $names.WhereInput }}Type,
+                    Description: "Logical NOT of the condition.",
+                },
+                "and": &graphql.InputObjectFieldConfig{
+                    Type:        graphql.NewList(graphql.NewNonNull({{ $names.WhereInput }}Type)),
+                    Description: "Logical AND of conditions.",
+                },
+                "or": &graphql.InputObjectFieldConfig{
+                    Type:        graphql.NewList(graphql.NewNonNull({{ $names.WhereInput }}Type)),
+                    Description: "Logical OR of conditions.",
+                },
+                {{- range $f := $comparableFields }}
+                {{- range $op := $f.Ops }}
+                {{- $field := print $f.StructField $op.Name }}
+                {{- $jsonTag := print $f.Name "_" $op.Name }}
+                {{- if eq $op.Name "EQ" }}
+                    {{- $field = $f.StructField }}
+                    {{- $jsonTag = $f.Name }}
+                {{- end }}
+                "{{ camel $jsonTag }}": &graphql.InputObjectFieldConfig{
+                    {{- if $f.IsEnum }}
+                    Type: {{ if $op.Variadic }}graphql.NewList(graphql.NewNonNull({{ $n.Name }}{{ $f.StructField }}Enum)){{ else }}{{ $n.Name }}{{ $f.StructField }}Enum{{ end }},
+                    {{- else if $op.Niladic }}
+                    Type: graphql.Boolean,
+                    {{- else if $op.Variadic }}
+                    Type: graphql.NewList(graphql.NewNonNull({{ gqlgoType $f }})),
+                    {{- else }}
+                    Type: {{ gqlgoType $f }},
+                    {{- end }}
+                },
+                {{- end }}
+                {{- end }}
+                {{- range $e := filterEdges $n.Edges (skipMode "where_input") }}
+                {{- $field := print "has" $e.StructField }}
+                {{- $jsonTag := print "has_" $e.Name }}
+                "{{ camel $jsonTag }}": &graphql.InputObjectFieldConfig{
+                    Type:        graphql.Boolean,
+                    Description: "Check if {{ $e.Name }} edge exists.",
+                },
+                {{- $names := nodePaginationNames $e.Type }}
+                "{{ camel $jsonTag }}With": &graphql.InputObjectFieldConfig{
+                    Type:        graphql.NewList(graphql.NewNonNull({{ $names.WhereInput }}Type)),
+                    Description: "Filter by {{ $e.Name }} edge with conditions.",
+                },
+                {{- end }}
+            }
+        }),
+    })
+{{- end }}
+}
 
 {{ range $n := $gqlNodes }}
     {{ $comparableFields := list $n.ID }}
@@ -209,6 +291,166 @@ import (
         default:
             return {{ $n.Package }}.And(predicates...), nil
         }
+    }
+
+    // Parse{{ $input }} converts a map[string]interface{} from GraphQL into a typed {{ $input }}.
+    func Parse{{ $input }}(m map[string]interface{}) (*{{ $input }}, error) {
+        if m == nil {
+            return nil, nil
+        }
+        input := &{{ $input }}{}
+
+        // Parse not
+        if v, ok := m["not"]; ok && v != nil {
+            if notMap, ok := v.(map[string]interface{}); ok {
+                notInput, err := Parse{{ $input }}(notMap)
+                if err != nil {
+                    return nil, fmt.Errorf("parsing 'not': %w", err)
+                }
+                input.Not = notInput
+            }
+        }
+
+        // Parse and
+        if v, ok := m["and"]; ok && v != nil {
+            if andSlice, ok := v.([]interface{}); ok {
+                for i, item := range andSlice {
+                    if itemMap, ok := item.(map[string]interface{}); ok {
+                        andInput, err := Parse{{ $input }}(itemMap)
+                        if err != nil {
+                            return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
+                        }
+                        input.And = append(input.And, andInput)
+                    }
+                }
+            }
+        }
+
+        // Parse or
+        if v, ok := m["or"]; ok && v != nil {
+            if orSlice, ok := v.([]interface{}); ok {
+                for i, item := range orSlice {
+                    if itemMap, ok := item.(map[string]interface{}); ok {
+                        orInput, err := Parse{{ $input }}(itemMap)
+                        if err != nil {
+                            return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
+                        }
+                        input.Or = append(input.Or, orInput)
+                    }
+                }
+            }
+        }
+
+        {{- range $f := $comparableFields }}
+        {{- range $op := $f.Ops }}
+        {{- $field := print $f.StructField $op.Name }}
+        {{- $jsonTag := print $f.Name "_" $op.Name }}
+        {{- if eq $op.Name "EQ" }}
+            {{- $field = $f.StructField }}
+            {{- $jsonTag = $f.Name }}
+        {{- end }}
+        // Parse {{ camel $jsonTag }}
+        if v, ok := m["{{ camel $jsonTag }}"]; ok && v != nil {
+            {{- if $f.IsEnum }}
+                {{- if $op.Variadic }}
+            if slice, ok := v.([]interface{}); ok {
+                for _, item := range slice {
+                    if s, ok := item.(string); ok {
+                        input.{{ $field }} = append(input.{{ $field }}, {{ $f.Type }}(s))
+                    }
+                }
+            }
+                {{- else }}
+            if s, ok := v.(string); ok {
+                val := {{ $f.Type }}(s)
+                input.{{ $field }} = &val
+            }
+                {{- end }}
+            {{- else if $op.Niladic }}
+            if b, ok := v.(bool); ok {
+                input.{{ $field }} = b
+            }
+            {{- else if $op.Variadic }}
+                {{- if $f.Type.Numeric }}
+            if slice, ok := v.([]interface{}); ok {
+                for _, item := range slice {
+                    if i, ok := item.(int); ok {
+                        input.{{ $field }} = append(input.{{ $field }}, {{ $f.Type }}(i))
+                    }
+                }
+            }
+                {{- else if eq $f.Type.String "string" }}
+            if slice, ok := v.([]interface{}); ok {
+                for _, item := range slice {
+                    if s, ok := item.(string); ok {
+                        input.{{ $field }} = append(input.{{ $field }}, s)
+                    }
+                }
+            }
+                {{- else if eq $f.Type.String "time.Time" }}
+            if slice, ok := v.([]interface{}); ok {
+                for _, item := range slice {
+                    if t, ok := item.(time.Time); ok {
+                        input.{{ $field }} = append(input.{{ $field }}, t)
+                    }
+                }
+            }
+                {{- else }}
+            // Unsupported variadic type: {{ $f.Type.Ident }}
+                {{- end }}
+            {{- else }}
+                {{- if $f.Type.Numeric }}
+            if i, ok := v.(int); ok {
+                val := {{ $f.Type }}(i)
+                input.{{ $field }} = &val
+            }
+                {{- else if eq $f.Type.String "string" }}
+            if s, ok := v.(string); ok {
+                input.{{ $field }} = &s
+            }
+                {{- else if eq $f.Type.String "bool" }}
+            if b, ok := v.(bool); ok {
+                input.{{ $field }} = &b
+            }
+                {{- else if eq $f.Type.String "time.Time" }}
+            if t, ok := v.(time.Time); ok {
+                input.{{ $field }} = &t
+            }
+                {{- else }}
+            // Unsupported type: {{ $f.Type.Ident }}
+                {{- end }}
+            {{- end }}
+        }
+        {{- end }}
+        {{- end }}
+
+        {{- range $e := filterEdges $n.Edges (skipMode "where_input") }}
+        {{- $field := print "Has" $e.StructField }}
+        {{- $jsonTag := print "has_" $e.Name }}
+        // Parse {{ camel $jsonTag }}
+        if v, ok := m["{{ camel $jsonTag }}"]; ok && v != nil {
+            if b, ok := v.(bool); ok {
+                input.{{ $field }} = &b
+            }
+        }
+        {{- $edgeNames := nodePaginationNames $e.Type }}
+        // Parse {{ camel $jsonTag }}With
+        if v, ok := m["{{ camel $jsonTag }}With"]; ok && v != nil {
+            if slice, ok := v.([]interface{}); ok {
+                for i, item := range slice {
+                    if itemMap, ok := item.(map[string]interface{}); ok {
+                        withInput, err := Parse{{ $edgeNames.WhereInput }}(itemMap)
+                        if err != nil {
+                            return nil, fmt.Errorf("parsing '{{ camel $jsonTag }}With[%d]': %w", i, err)
+                        }
+                        input.{{ $field }}With = append(input.{{ $field }}With, withInput)
+                    }
+                }
+            }
+        }
+        {{- end }}
+
+        return input, nil
     }
 {{- end }}
 {{ end }}

@@ -17,14 +17,301 @@
 package ent
 
 import (
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
+
 	"errors"
 	"fmt"
 	"time"
 
-	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
-	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
-	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
+	"github.com/graphql-go/graphql"
 )
+
+// WhereInput GraphQL InputObject types for filtering
+var (
+
+	// CategoryWhereInputType is the GraphQL InputObject for filtering Category queries.
+	CategoryWhereInputType *graphql.InputObject
+
+	// TodoWhereInputType is the GraphQL InputObject for filtering Todo queries.
+	TodoWhereInputType *graphql.InputObject
+)
+
+func init() {
+
+	CategoryWhereInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name:        "CategoryWhereInput",
+		Description: "CategoryWhereInput is used for filtering Category objects.",
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"not": &graphql.InputObjectFieldConfig{
+					Type:        CategoryWhereInputType,
+					Description: "Logical NOT of the condition.",
+				},
+				"and": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(CategoryWhereInputType)),
+					Description: "Logical AND of conditions.",
+				},
+				"or": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(CategoryWhereInputType)),
+					Description: "Logical OR of conditions.",
+				},
+				"id": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"text": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"textNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"textGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textContains": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textHasPrefix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textHasSuffix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textEqualFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textContainsFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"status": &graphql.InputObjectFieldConfig{
+					Type: CategoryStatusEnum,
+				},
+				"statusNEQ": &graphql.InputObjectFieldConfig{
+					Type: CategoryStatusEnum,
+				},
+				"statusIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryStatusEnum)),
+				},
+				"statusNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryStatusEnum)),
+				},
+				"hasTodos": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if todos edge exists.",
+				},
+				"hasTodosWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Filter by todos edge with conditions.",
+				},
+			}
+		}),
+	})
+
+	TodoWhereInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name:        "TodoWhereInput",
+		Description: "TodoWhereInput is used for filtering Todo objects.",
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"not": &graphql.InputObjectFieldConfig{
+					Type:        TodoWhereInputType,
+					Description: "Logical NOT of the condition.",
+				},
+				"and": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Logical AND of conditions.",
+				},
+				"or": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Logical OR of conditions.",
+				},
+				"id": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"createdAt": &graphql.InputObjectFieldConfig{
+					Type: graphql.DateTime,
+				},
+				"createdAtNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.DateTime,
+				},
+				"createdAtIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.DateTime)),
+				},
+				"createdAtNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.DateTime)),
+				},
+				"createdAtGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.DateTime,
+				},
+				"createdAtGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.DateTime,
+				},
+				"createdAtLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.DateTime,
+				},
+				"createdAtLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.DateTime,
+				},
+				"status": &graphql.InputObjectFieldConfig{
+					Type: TodoStatusEnum,
+				},
+				"statusNEQ": &graphql.InputObjectFieldConfig{
+					Type: TodoStatusEnum,
+				},
+				"statusIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(TodoStatusEnum)),
+				},
+				"statusNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(TodoStatusEnum)),
+				},
+				"priority": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"priorityNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"priorityIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Int)),
+				},
+				"priorityNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Int)),
+				},
+				"priorityGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"priorityGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"priorityLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"priorityLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"text": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"textNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"textGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textContains": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textHasPrefix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textHasSuffix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textEqualFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"textContainsFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"hasParent": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if parent edge exists.",
+				},
+				"hasParentWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Filter by parent edge with conditions.",
+				},
+				"hasChildren": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if children edge exists.",
+				},
+				"hasChildrenWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Filter by children edge with conditions.",
+				},
+				"hasCategory": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if category edge exists.",
+				},
+				"hasCategoryWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(CategoryWhereInputType)),
+					Description: "Filter by category edge with conditions.",
+				},
+			}
+		}),
+	})
+}
 
 // CategoryWhereInput represents a where input for filtering Category queries.
 type CategoryWhereInput struct {
@@ -240,6 +527,259 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 	default:
 		return category.And(predicates...), nil
 	}
+}
+
+// ParseCategoryWhereInput converts a map[string]interface{} from GraphQL into a typed CategoryWhereInput.
+func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, error) {
+	if m == nil {
+		return nil, nil
+	}
+	input := &CategoryWhereInput{}
+
+	// Parse not
+	if v, ok := m["not"]; ok && v != nil {
+		if notMap, ok := v.(map[string]interface{}); ok {
+			notInput, err := ParseCategoryWhereInput(notMap)
+			if err != nil {
+				return nil, fmt.Errorf("parsing 'not': %w", err)
+			}
+			input.Not = notInput
+		}
+	}
+
+	// Parse and
+	if v, ok := m["and"]; ok && v != nil {
+		if andSlice, ok := v.([]interface{}); ok {
+			for i, item := range andSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					andInput, err := ParseCategoryWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
+					}
+					input.And = append(input.And, andInput)
+				}
+			}
+		}
+	}
+
+	// Parse or
+	if v, ok := m["or"]; ok && v != nil {
+		if orSlice, ok := v.([]interface{}); ok {
+			for i, item := range orSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					orInput, err := ParseCategoryWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
+					}
+					input.Or = append(input.Or, orInput)
+				}
+			}
+		}
+	}
+	// Parse id
+	if v, ok := m["id"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.ID = &val
+		}
+	}
+	// Parse idNEQ
+	if v, ok := m["idNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDNEQ = &val
+		}
+	}
+	// Parse idIn
+	if v, ok := m["idIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDIn = append(input.IDIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idNotIn
+	if v, ok := m["idNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDNotIn = append(input.IDNotIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idGT
+	if v, ok := m["idGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGT = &val
+		}
+	}
+	// Parse idGTE
+	if v, ok := m["idGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGTE = &val
+		}
+	}
+	// Parse idLT
+	if v, ok := m["idLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLT = &val
+		}
+	}
+	// Parse idLTE
+	if v, ok := m["idLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLTE = &val
+		}
+	}
+	// Parse text
+	if v, ok := m["text"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.Text = &s
+		}
+	}
+	// Parse textNEQ
+	if v, ok := m["textNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextNEQ = &s
+		}
+	}
+	// Parse textIn
+	if v, ok := m["textIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.TextIn = append(input.TextIn, s)
+				}
+			}
+		}
+	}
+	// Parse textNotIn
+	if v, ok := m["textNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.TextNotIn = append(input.TextNotIn, s)
+				}
+			}
+		}
+	}
+	// Parse textGT
+	if v, ok := m["textGT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextGT = &s
+		}
+	}
+	// Parse textGTE
+	if v, ok := m["textGTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextGTE = &s
+		}
+	}
+	// Parse textLT
+	if v, ok := m["textLT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextLT = &s
+		}
+	}
+	// Parse textLTE
+	if v, ok := m["textLTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextLTE = &s
+		}
+	}
+	// Parse textContains
+	if v, ok := m["textContains"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextContains = &s
+		}
+	}
+	// Parse textHasPrefix
+	if v, ok := m["textHasPrefix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextHasPrefix = &s
+		}
+	}
+	// Parse textHasSuffix
+	if v, ok := m["textHasSuffix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextHasSuffix = &s
+		}
+	}
+	// Parse textEqualFold
+	if v, ok := m["textEqualFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextEqualFold = &s
+		}
+	}
+	// Parse textContainsFold
+	if v, ok := m["textContainsFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextContainsFold = &s
+		}
+	}
+	// Parse status
+	if v, ok := m["status"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			val := category.Status(s)
+			input.Status = &val
+		}
+	}
+	// Parse statusNEQ
+	if v, ok := m["statusNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			val := category.Status(s)
+			input.StatusNEQ = &val
+		}
+	}
+	// Parse statusIn
+	if v, ok := m["statusIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.StatusIn = append(input.StatusIn, category.Status(s))
+				}
+			}
+		}
+	}
+	// Parse statusNotIn
+	if v, ok := m["statusNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.StatusNotIn = append(input.StatusNotIn, category.Status(s))
+				}
+			}
+		}
+	}
+	// Parse hasTodos
+	if v, ok := m["hasTodos"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasTodos = &b
+		}
+	}
+	// Parse hasTodosWith
+	if v, ok := m["hasTodosWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasTodosWith[%d]': %w", i, err)
+					}
+					input.HasTodosWith = append(input.HasTodosWith, withInput)
+				}
+			}
+		}
+	}
+
+	return input, nil
 }
 
 // TodoWhereInput represents a where input for filtering Todo queries.
@@ -568,4 +1108,415 @@ func (i *TodoWhereInput) P() (predicate.Todo, error) {
 	default:
 		return todo.And(predicates...), nil
 	}
+}
+
+// ParseTodoWhereInput converts a map[string]interface{} from GraphQL into a typed TodoWhereInput.
+func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
+	if m == nil {
+		return nil, nil
+	}
+	input := &TodoWhereInput{}
+
+	// Parse not
+	if v, ok := m["not"]; ok && v != nil {
+		if notMap, ok := v.(map[string]interface{}); ok {
+			notInput, err := ParseTodoWhereInput(notMap)
+			if err != nil {
+				return nil, fmt.Errorf("parsing 'not': %w", err)
+			}
+			input.Not = notInput
+		}
+	}
+
+	// Parse and
+	if v, ok := m["and"]; ok && v != nil {
+		if andSlice, ok := v.([]interface{}); ok {
+			for i, item := range andSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					andInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
+					}
+					input.And = append(input.And, andInput)
+				}
+			}
+		}
+	}
+
+	// Parse or
+	if v, ok := m["or"]; ok && v != nil {
+		if orSlice, ok := v.([]interface{}); ok {
+			for i, item := range orSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					orInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
+					}
+					input.Or = append(input.Or, orInput)
+				}
+			}
+		}
+	}
+	// Parse id
+	if v, ok := m["id"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.ID = &val
+		}
+	}
+	// Parse idNEQ
+	if v, ok := m["idNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDNEQ = &val
+		}
+	}
+	// Parse idIn
+	if v, ok := m["idIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDIn = append(input.IDIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idNotIn
+	if v, ok := m["idNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDNotIn = append(input.IDNotIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idGT
+	if v, ok := m["idGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGT = &val
+		}
+	}
+	// Parse idGTE
+	if v, ok := m["idGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGTE = &val
+		}
+	}
+	// Parse idLT
+	if v, ok := m["idLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLT = &val
+		}
+	}
+	// Parse idLTE
+	if v, ok := m["idLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLTE = &val
+		}
+	}
+	// Parse createdAt
+	if v, ok := m["createdAt"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.CreatedAt = &t
+		}
+	}
+	// Parse createdAtNEQ
+	if v, ok := m["createdAtNEQ"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.CreatedAtNEQ = &t
+		}
+	}
+	// Parse createdAtIn
+	if v, ok := m["createdAtIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if t, ok := item.(time.Time); ok {
+					input.CreatedAtIn = append(input.CreatedAtIn, t)
+				}
+			}
+		}
+	}
+	// Parse createdAtNotIn
+	if v, ok := m["createdAtNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if t, ok := item.(time.Time); ok {
+					input.CreatedAtNotIn = append(input.CreatedAtNotIn, t)
+				}
+			}
+		}
+	}
+	// Parse createdAtGT
+	if v, ok := m["createdAtGT"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.CreatedAtGT = &t
+		}
+	}
+	// Parse createdAtGTE
+	if v, ok := m["createdAtGTE"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.CreatedAtGTE = &t
+		}
+	}
+	// Parse createdAtLT
+	if v, ok := m["createdAtLT"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.CreatedAtLT = &t
+		}
+	}
+	// Parse createdAtLTE
+	if v, ok := m["createdAtLTE"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.CreatedAtLTE = &t
+		}
+	}
+	// Parse status
+	if v, ok := m["status"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			val := todo.Status(s)
+			input.Status = &val
+		}
+	}
+	// Parse statusNEQ
+	if v, ok := m["statusNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			val := todo.Status(s)
+			input.StatusNEQ = &val
+		}
+	}
+	// Parse statusIn
+	if v, ok := m["statusIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.StatusIn = append(input.StatusIn, todo.Status(s))
+				}
+			}
+		}
+	}
+	// Parse statusNotIn
+	if v, ok := m["statusNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.StatusNotIn = append(input.StatusNotIn, todo.Status(s))
+				}
+			}
+		}
+	}
+	// Parse priority
+	if v, ok := m["priority"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.Priority = &val
+		}
+	}
+	// Parse priorityNEQ
+	if v, ok := m["priorityNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.PriorityNEQ = &val
+		}
+	}
+	// Parse priorityIn
+	if v, ok := m["priorityIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.PriorityIn = append(input.PriorityIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse priorityNotIn
+	if v, ok := m["priorityNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.PriorityNotIn = append(input.PriorityNotIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse priorityGT
+	if v, ok := m["priorityGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.PriorityGT = &val
+		}
+	}
+	// Parse priorityGTE
+	if v, ok := m["priorityGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.PriorityGTE = &val
+		}
+	}
+	// Parse priorityLT
+	if v, ok := m["priorityLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.PriorityLT = &val
+		}
+	}
+	// Parse priorityLTE
+	if v, ok := m["priorityLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.PriorityLTE = &val
+		}
+	}
+	// Parse text
+	if v, ok := m["text"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.Text = &s
+		}
+	}
+	// Parse textNEQ
+	if v, ok := m["textNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextNEQ = &s
+		}
+	}
+	// Parse textIn
+	if v, ok := m["textIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.TextIn = append(input.TextIn, s)
+				}
+			}
+		}
+	}
+	// Parse textNotIn
+	if v, ok := m["textNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.TextNotIn = append(input.TextNotIn, s)
+				}
+			}
+		}
+	}
+	// Parse textGT
+	if v, ok := m["textGT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextGT = &s
+		}
+	}
+	// Parse textGTE
+	if v, ok := m["textGTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextGTE = &s
+		}
+	}
+	// Parse textLT
+	if v, ok := m["textLT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextLT = &s
+		}
+	}
+	// Parse textLTE
+	if v, ok := m["textLTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextLTE = &s
+		}
+	}
+	// Parse textContains
+	if v, ok := m["textContains"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextContains = &s
+		}
+	}
+	// Parse textHasPrefix
+	if v, ok := m["textHasPrefix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextHasPrefix = &s
+		}
+	}
+	// Parse textHasSuffix
+	if v, ok := m["textHasSuffix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextHasSuffix = &s
+		}
+	}
+	// Parse textEqualFold
+	if v, ok := m["textEqualFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextEqualFold = &s
+		}
+	}
+	// Parse textContainsFold
+	if v, ok := m["textContainsFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.TextContainsFold = &s
+		}
+	}
+	// Parse hasParent
+	if v, ok := m["hasParent"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasParent = &b
+		}
+	}
+	// Parse hasParentWith
+	if v, ok := m["hasParentWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasParentWith[%d]': %w", i, err)
+					}
+					input.HasParentWith = append(input.HasParentWith, withInput)
+				}
+			}
+		}
+	}
+	// Parse hasChildren
+	if v, ok := m["hasChildren"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasChildren = &b
+		}
+	}
+	// Parse hasChildrenWith
+	if v, ok := m["hasChildrenWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasChildrenWith[%d]': %w", i, err)
+					}
+					input.HasChildrenWith = append(input.HasChildrenWith, withInput)
+				}
+			}
+		}
+	}
+	// Parse hasCategory
+	if v, ok := m["hasCategory"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasCategory = &b
+		}
+	}
+	// Parse hasCategoryWith
+	if v, ok := m["hasCategoryWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseCategoryWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasCategoryWith[%d]': %w", i, err)
+					}
+					input.HasCategoryWith = append(input.HasCategoryWith, withInput)
+				}
+			}
+		}
+	}
+
+	return input, nil
 }

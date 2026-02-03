@@ -51,6 +51,10 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        graphql.Int,
 						Description: "Skip the first n elements.",
 					},
+					"where": &graphql.ArgumentConfig{
+						Type:        CategoryWhereInputType,
+						Description: "Filter Categories by conditions.",
+					},
 				},
 				Description: "Query all Categories.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -59,6 +63,19 @@ func newQueryType(client *Client) *graphql.Object {
 					fields := entgqlgo.CollectFields(p.Info)
 					if contains(fields, "todos") {
 						query = query.WithTodos()
+					}
+					// Apply where filter
+					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
+						if whereMap, ok := whereArg.(map[string]interface{}); ok {
+							whereInput, err := ParseCategoryWhereInput(whereMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing where input: %w", err)
+							}
+							query, err = whereInput.Filter(query)
+							if err != nil {
+								return nil, fmt.Errorf("applying where filter: %w", err)
+							}
+						}
 					}
 					// Apply pagination
 					if first, ok := p.Args["first"].(int); ok && first > 0 {
@@ -103,6 +120,10 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        graphql.Int,
 						Description: "Skip the first n elements.",
 					},
+					"where": &graphql.ArgumentConfig{
+						Type:        TodoWhereInputType,
+						Description: "Filter Todos by conditions.",
+					},
 				},
 				Description: "Query all Todos.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -117,6 +138,19 @@ func newQueryType(client *Client) *graphql.Object {
 					}
 					if contains(fields, "category") {
 						query = query.WithCategory()
+					}
+					// Apply where filter
+					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
+						if whereMap, ok := whereArg.(map[string]interface{}); ok {
+							whereInput, err := ParseTodoWhereInput(whereMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing where input: %w", err)
+							}
+							query, err = whereInput.Filter(query)
+							if err != nil {
+								return nil, fmt.Errorf("applying where filter: %w", err)
+							}
+						}
 					}
 					// Apply pagination
 					if first, ok := p.Args["first"].(int); ok && first > 0 {

@@ -49,6 +49,10 @@ func newQueryType(client *Client) *graphql.Object {
 						Type:        graphql.Int,
 						Description: "Skip the first n elements.",
 					},
+					"where": &graphql.ArgumentConfig{
+						Type:        {{ $names.WhereInput }}Type,
+						Description: "Filter {{ plural $n.Name }} by conditions.",
+					},
 				},
 				Description: "Query all {{ plural $n.Name }}.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -60,6 +64,19 @@ func newQueryType(client *Client) *graphql.Object {
 						query = query.With{{ $e.StructField }}()
 					}
 					{{- end }}
+					// Apply where filter
+					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
+						if whereMap, ok := whereArg.(map[string]interface{}); ok {
+							whereInput, err := Parse{{ $names.WhereInput }}(whereMap)
+							if err != nil {
+								return nil, fmt.Errorf("parsing where input: %w", err)
+							}
+							query, err = whereInput.Filter(query)
+							if err != nil {
+								return nil, fmt.Errorf("applying where filter: %w", err)
+							}
+						}
+					}
 					// Apply pagination
 					if first, ok := p.Args["first"].(int); ok && first > 0 {
 						query = query.Limit(first)

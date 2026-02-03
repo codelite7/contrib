@@ -860,3 +860,469 @@ func TestEmptyPage(t *testing.T) {
 		t.Errorf("expected totalCount to be 0 on empty table, got %d", totalCount)
 	}
 }
+
+// ========== WhereInput filtering tests ==========
+
+// TestFilterByStatus tests filtering todos by status enum.
+func TestFilterByStatus(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different statuses
+	_, err = client.Todo.Create().
+		SetText("Todo 1").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Todo 2").
+		SetStatus(todo.StatusInProgress).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Todo 3").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(3).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Filter by COMPLETED status
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {status: COMPLETED}) {
+				id
+				text
+				status
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo with COMPLETED status, got %d", len(todos))
+	}
+
+	todoItem := todos[0].(map[string]interface{})
+	if todoItem["status"] != "COMPLETED" {
+		t.Errorf("expected status COMPLETED, got %v", todoItem["status"])
+	}
+	if todoItem["text"] != "Todo 3" {
+		t.Errorf("expected text 'Todo 3', got %v", todoItem["text"])
+	}
+}
+
+// TestFilterByText tests filtering todos by text field with contains.
+func TestFilterByText(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different text
+	_, err = client.Todo.Create().
+		SetText("Buy groceries").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Write test code").
+		SetStatus(todo.StatusPending).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Review test results").
+		SetStatus(todo.StatusPending).
+		SetPriority(3).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Filter by text containing "test"
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {textContains: "test"}) {
+				id
+				text
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 2 {
+		t.Fatalf("expected 2 todos containing 'test', got %d", len(todos))
+	}
+
+	// Verify both todos contain "test"
+	for _, item := range todos {
+		todoItem := item.(map[string]interface{})
+		text := todoItem["text"].(string)
+		if text != "Write test code" && text != "Review test results" {
+			t.Errorf("unexpected todo text: %s", text)
+		}
+	}
+}
+
+// TestFilterAnd tests filtering with AND condition.
+func TestFilterAnd(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with various status and priority combinations
+	_, err = client.Todo.Create().
+		SetText("Low priority completed").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("High priority completed").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(8).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("High priority pending").
+		SetStatus(todo.StatusPending).
+		SetPriority(7).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Filter by COMPLETED status AND priority > 5
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {and: [{status: COMPLETED}, {priorityGT: 5}]}) {
+				id
+				text
+				status
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo matching AND condition, got %d", len(todos))
+	}
+
+	todoItem := todos[0].(map[string]interface{})
+	if todoItem["text"] != "High priority completed" {
+		t.Errorf("expected 'High priority completed', got %v", todoItem["text"])
+	}
+}
+
+// TestFilterOr tests filtering with OR condition.
+func TestFilterOr(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different statuses
+	_, err = client.Todo.Create().
+		SetText("Todo 1").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Todo 2").
+		SetStatus(todo.StatusInProgress).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Todo 3").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(3).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Filter by COMPLETED OR IN_PROGRESS status
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {or: [{status: COMPLETED}, {status: IN_PROGRESS}]}) {
+				id
+				text
+				status
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 2 {
+		t.Fatalf("expected 2 todos matching OR condition, got %d", len(todos))
+	}
+
+	// Verify we got COMPLETED and IN_PROGRESS, but not PENDING
+	statuses := make(map[string]bool)
+	for _, item := range todos {
+		todoItem := item.(map[string]interface{})
+		statuses[todoItem["status"].(string)] = true
+	}
+
+	if !statuses["COMPLETED"] {
+		t.Error("expected COMPLETED status in results")
+	}
+	if !statuses["IN_PROGRESS"] {
+		t.Error("expected IN_PROGRESS status in results")
+	}
+	if statuses["PENDING"] {
+		t.Error("unexpected PENDING status in results")
+	}
+}
+
+// TestFilterNot tests filtering with NOT condition.
+func TestFilterNot(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create todos with different statuses
+	_, err = client.Todo.Create().
+		SetText("Todo 1").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Todo 2").
+		SetStatus(todo.StatusInProgress).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	_, err = client.Todo.Create().
+		SetText("Todo 3").
+		SetStatus(todo.StatusCompleted).
+		SetPriority(3).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Filter by NOT COMPLETED status (should get PENDING and IN_PROGRESS)
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {not: {status: COMPLETED}}) {
+				id
+				text
+				status
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 2 {
+		t.Fatalf("expected 2 todos NOT COMPLETED, got %d", len(todos))
+	}
+
+	// Verify none have COMPLETED status
+	for _, item := range todos {
+		todoItem := item.(map[string]interface{})
+		if todoItem["status"] == "COMPLETED" {
+			t.Error("found COMPLETED status when it should be excluded")
+		}
+	}
+}
+
+// TestFilterByEdge tests filtering by edge existence.
+func TestFilterByEdge(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create todo with category
+	_, err = client.Todo.Create().
+		SetText("Todo with category").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo with category: %v", err)
+	}
+
+	// Create todo without category
+	_, err = client.Todo.Create().
+		SetText("Todo without category").
+		SetStatus(todo.StatusPending).
+		SetPriority(2).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo without category: %v", err)
+	}
+
+	// Filter by hasCategory: true
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {hasCategory: true}) {
+				id
+				text
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	todos := data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo with category, got %d", len(todos))
+	}
+
+	todoItem := todos[0].(map[string]interface{})
+	if todoItem["text"] != "Todo with category" {
+		t.Errorf("expected 'Todo with category', got %v", todoItem["text"])
+	}
+
+	// Filter by hasCategory: false
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {hasCategory: false}) {
+				id
+				text
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL query had errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	todos = data["todos"].([]interface{})
+
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo without category, got %d", len(todos))
+	}
+
+	todoItem = todos[0].(map[string]interface{})
+	if todoItem["text"] != "Todo without category" {
+		t.Errorf("expected 'Todo without category', got %v", todoItem["text"])
+	}
+}
