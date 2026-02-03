@@ -273,50 +273,68 @@ func newMutationType(client *Client) *graphql.Object {
 			{{- range $n := $gqlNodes }}
 			"create{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
-				Args: create{{ $n.Name }}Args(),
+				Args: graphql.FieldConfigArgument{
+					"input": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(Create{{ $n.Name }}InputType),
+						Description: "Input for creating a {{ $n.Name }}.",
+					},
+				},
 				Description: "Create a new {{ $n.Name }}.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					create := client.{{ $n.Name }}.Create()
-					{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
-					{{- if not $f.Sensitive }}
-					{{- if not $f.Immutable }}
-					if v, ok := p.Args["{{ camel $f.Name }}"]; ok {
-						create = create.Set{{ $f.StructField }}(v.({{ $f.Type }}))
+					inputArg, ok := p.Args["input"]
+					if !ok {
+						return nil, fmt.Errorf("input is required")
 					}
-					{{- end }}
-					{{- end }}
-					{{- end }}
-					return create.Save(p.Context)
+					inputMap, ok := inputArg.(map[string]interface{})
+					if !ok {
+						return nil, fmt.Errorf("input must be an object")
+					}
+					input, err := ParseCreate{{ $n.Name }}Input(inputMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing input: %w", err)
+					}
+					return client.{{ $n.Name }}.Create().SetInput(*input).Save(p.Context)
 				},
 			},
 			"update{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
-				Args: update{{ $n.Name }}Args(),
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(graphql.ID),
+						Description: "The ID of the {{ $n.Name }} to update.",
+					},
+					"input": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(Update{{ $n.Name }}InputType),
+						Description: "Input for updating a {{ $n.Name }}.",
+					},
+				},
 				Description: "Update an existing {{ $n.Name }}.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					id, ok := p.Args["id"]
 					if !ok {
 						return nil, fmt.Errorf("id is required")
 					}
+					inputArg, ok := p.Args["input"]
+					if !ok {
+						return nil, fmt.Errorf("input is required")
+					}
+					inputMap, ok := inputArg.(map[string]interface{})
+					if !ok {
+						return nil, fmt.Errorf("input must be an object")
+					}
+					input, err := ParseUpdate{{ $n.Name }}Input(inputMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing input: %w", err)
+					}
 					{{- if $n.ID.IsInt }}
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return nil, err
 					}
-					update := client.{{ $n.Name }}.UpdateOneID(idInt)
+					return client.{{ $n.Name }}.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
 					{{- else }}
-					update := client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
+					return client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id)).SetInput(*input).Save(p.Context)
 					{{- end }}
-					{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
-					{{- if not $f.Sensitive }}
-					{{- if not $f.Immutable }}
-					if v, ok := p.Args["{{ camel $f.Name }}"]; ok {
-						update = update.Set{{ $f.StructField }}(v.({{ $f.Type }}))
-					}
-					{{- end }}
-					{{- end }}
-					{{- end }}
-					return update.Save(p.Context)
 				},
 			},
 			"delete{{ $n.Name }}": &graphql.Field{
@@ -350,45 +368,276 @@ func newMutationType(client *Client) *graphql.Object {
 	})
 }
 
-{{- /* Generate mutation argument helpers */ -}}
+{{/* Generate mutation input types */}}
+var (
+{{- range $n := $gqlNodes }}
+	{{- $names := nodePaginationNames $n }}
+	// Create{{ $n.Name }}InputType is the GraphQL input type for creating a {{ $n.Name }}.
+	Create{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "Create{{ $n.Name }}Input",
+		Fields: graphql.InputObjectConfigFieldMap{
+			{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+			{{- if not $f.Sensitive }}
+			{{- if not $f.Immutable }}
+			"{{ camel $f.Name }}": &graphql.InputObjectFieldConfig{
+				Type: {{ if not $f.Optional }}graphql.NewNonNull({{ end }}{{ if $f.IsEnum }}{{ $n.Name }}{{ $f.StructField }}Enum{{ else }}{{ gqlgoType $f }}{{ end }}{{ if not $f.Optional }}){{ end }},
+				{{- if $f.Comment }}
+				Description: "{{ $f.Comment }}",
+				{{- end }}
+			},
+			{{- end }}
+			{{- end }}
+			{{- end }}
+			{{- /* Edge fields for create */ -}}
+			{{- range $e := filterEdges $n.Edges (skipMode "mutation_create_input") }}
+			{{- if $e.Unique }}
+			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
+				Type: graphql.ID,
+				Description: "ID of the {{ $e.Name }} edge.",
+			},
+			{{- else }}
+			"{{ singular (camel $e.Name) }}IDs": &graphql.InputObjectFieldConfig{
+				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				Description: "IDs of the {{ $e.Name }} edges.",
+			},
+			{{- end }}
+			{{- end }}
+		},
+	})
+	// Update{{ $n.Name }}InputType is the GraphQL input type for updating a {{ $n.Name }}.
+	Update{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "Update{{ $n.Name }}Input",
+		Fields: graphql.InputObjectConfigFieldMap{
+			{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+			{{- if not $f.Sensitive }}
+			{{- if not $f.Immutable }}
+			"{{ camel $f.Name }}": &graphql.InputObjectFieldConfig{
+				Type: {{ if $f.IsEnum }}{{ $n.Name }}{{ $f.StructField }}Enum{{ else }}{{ gqlgoType $f }}{{ end }},
+				{{- if $f.Comment }}
+				Description: "{{ $f.Comment }}",
+				{{- end }}
+			},
+			{{- if $f.Optional }}
+			"clear{{ $f.StructField }}": &graphql.InputObjectFieldConfig{
+				Type: graphql.Boolean,
+				Description: "Clear the {{ camel $f.Name }} field.",
+			},
+			{{- end }}
+			{{- end }}
+			{{- end }}
+			{{- end }}
+			{{- /* Edge fields for update */ -}}
+			{{- range $e := filterEdges $n.Edges (skipMode "mutation_update_input") }}
+			{{- if $e.Unique }}
+			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
+				Type: graphql.ID,
+				Description: "ID of the {{ $e.Name }} edge.",
+			},
+			{{- if $e.Optional }}
+			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
+				Type: graphql.Boolean,
+				Description: "Clear the {{ camel $e.Name }} edge.",
+			},
+			{{- end }}
+			{{- else }}
+			"add{{ singular $e.Name | pascal }}IDs": &graphql.InputObjectFieldConfig{
+				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				Description: "IDs to add to the {{ $e.Name }} edges.",
+			},
+			"remove{{ singular $e.Name | pascal }}IDs": &graphql.InputObjectFieldConfig{
+				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				Description: "IDs to remove from the {{ $e.Name }} edges.",
+			},
+			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
+				Type: graphql.Boolean,
+				Description: "Clear all {{ $e.Name }} edges.",
+			},
+			{{- end }}
+			{{- end }}
+		},
+	})
+{{- end }}
+)
+
+{{- /* Generate mutation input parsing helpers */ -}}
 {{- range $n := $gqlNodes }}
 
-func create{{ $n.Name }}Args() graphql.FieldConfigArgument {
-	return graphql.FieldConfigArgument{
-		{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
-		{{- if not $f.Sensitive }}
-		{{- if not $f.Immutable }}
-		"{{ camel $f.Name }}": &graphql.ArgumentConfig{
-			Type: {{ if not $f.Optional }}graphql.NewNonNull({{ end }}{{ gqlgoType $f }}{{ if not $f.Optional }}){{ end }},
-			{{- if $f.Comment }}
-			Description: "{{ $f.Comment }}",
-			{{- end }}
-		},
-		{{- end }}
-		{{- end }}
-		{{- end }}
+// ParseCreate{{ $n.Name }}Input parses a map into Create{{ $n.Name }}Input.
+func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.Name }}Input, error) {
+	result := &Create{{ $n.Name }}Input{}
+{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+{{- if not $f.Sensitive }}
+{{- if not $f.Immutable }}
+{{- $isPointer := or $f.Optional $f.Default (not (not $f.DefaultFunc)) }}
+	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
+{{- if $f.IsEnum }}
+		if str, ok := v.(string); ok {
+{{- if $isPointer }}
+			val := {{ $n.Package }}.{{ $f.StructField }}(str)
+			result.{{ $f.StructField }} = &val
+{{- else }}
+			result.{{ $f.StructField }} = {{ $n.Package }}.{{ $f.StructField }}(str)
+{{- end }}
+		}
+{{- else if eq $f.Type.String "int" }}
+		switch val := v.(type) {
+		case int:
+{{- if $isPointer }}
+			result.{{ $f.StructField }} = &val
+{{- else }}
+			result.{{ $f.StructField }} = val
+{{- end }}
+		case float64:
+			i := int(val)
+{{- if $isPointer }}
+			result.{{ $f.StructField }} = &i
+{{- else }}
+			result.{{ $f.StructField }} = i
+{{- end }}
+		}
+{{- else if eq $f.Type.String "string" }}
+		if str, ok := v.(string); ok {
+{{- if $isPointer }}
+			result.{{ $f.StructField }} = &str
+{{- else }}
+			result.{{ $f.StructField }} = str
+{{- end }}
+		}
+{{- else if eq $f.Type.String "bool" }}
+		if b, ok := v.(bool); ok {
+{{- if $isPointer }}
+			result.{{ $f.StructField }} = &b
+{{- else }}
+			result.{{ $f.StructField }} = b
+{{- end }}
+		}
+{{- else }}
+		// Handle {{ $f.Type.String }} type
+{{- end }}
 	}
+{{- end }}
+{{- end }}
+{{- end }}
+	{{- /* Parse edge IDs */ -}}
+	{{- range $e := filterEdges $n.Edges (skipMode "mutation_create_input") }}
+	{{- if $e.Unique }}
+	if v, ok := input["{{ camel $e.Name }}ID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid {{ camel $e.Name }}ID: %w", err)
+		}
+		result.{{ $e.StructField }}ID = &id
+	}
+	{{- else }}
+	if v, ok := input["{{ singular (camel $e.Name) }}IDs"]; ok && v != nil {
+		if ids, ok := v.([]interface{}); ok {
+			for _, id := range ids {
+				idInt, err := strconv.Atoi(fmt.Sprint(id))
+				if err != nil {
+					return nil, fmt.Errorf("invalid {{ singular (camel $e.Name) }}ID: %w", err)
+				}
+				result.{{ singular $e.Name | pascal }}IDs = append(result.{{ singular $e.Name | pascal }}IDs, idInt)
+			}
+		}
+	}
+	{{- end }}
+	{{- end }}
+	return result, nil
 }
 
-func update{{ $n.Name }}Args() graphql.FieldConfigArgument {
-	return graphql.FieldConfigArgument{
-		"id": &graphql.ArgumentConfig{
-			Type:        graphql.NewNonNull(graphql.ID),
-			Description: "The ID of the {{ $n.Name }} to update.",
-		},
-		{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
-		{{- if not $f.Sensitive }}
-		{{- if not $f.Immutable }}
-		"{{ camel $f.Name }}": &graphql.ArgumentConfig{
-			Type: {{ gqlgoType $f }},
-			{{- if $f.Comment }}
-			Description: "{{ $f.Comment }}",
-			{{- end }}
-		},
-		{{- end }}
-		{{- end }}
-		{{- end }}
+// ParseUpdate{{ $n.Name }}Input parses a map into Update{{ $n.Name }}Input.
+func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.Name }}Input, error) {
+	result := &Update{{ $n.Name }}Input{}
+{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+{{- if not $f.Sensitive }}
+{{- if not $f.Immutable }}
+	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
+{{- if $f.IsEnum }}
+		if str, ok := v.(string); ok {
+			val := {{ $n.Package }}.{{ $f.StructField }}(str)
+			result.{{ $f.StructField }} = &val
+		}
+{{- else if eq $f.Type.String "int" }}
+		switch val := v.(type) {
+		case int:
+			i := val
+			result.{{ $f.StructField }} = &i
+		case float64:
+			i := int(val)
+			result.{{ $f.StructField }} = &i
+		}
+{{- else if eq $f.Type.String "string" }}
+		if str, ok := v.(string); ok {
+			s := str
+			result.{{ $f.StructField }} = &s
+		}
+{{- else if eq $f.Type.String "bool" }}
+		if b, ok := v.(bool); ok {
+			bb := b
+			result.{{ $f.StructField }} = &bb
+		}
+{{- else }}
+		// Handle {{ $f.Type.String }} type
+{{- end }}
 	}
+{{- if $f.Optional }}
+	if v, ok := input["clear{{ $f.StructField }}"]; ok {
+		if b, ok := v.(bool); ok {
+			result.Clear{{ $f.StructField }} = b
+		}
+	}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+	{{- /* Parse edge IDs for update */ -}}
+	{{- range $e := filterEdges $n.Edges (skipMode "mutation_update_input") }}
+	{{- if $e.Unique }}
+	if v, ok := input["{{ camel $e.Name }}ID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid {{ camel $e.Name }}ID: %w", err)
+		}
+		result.{{ $e.StructField }}ID = &id
+	}
+	{{- if $e.Optional }}
+	if v, ok := input["clear{{ $e.StructField }}"]; ok {
+		if b, ok := v.(bool); ok {
+			result.Clear{{ $e.StructField }} = b
+		}
+	}
+	{{- end }}
+	{{- else }}
+	if v, ok := input["add{{ singular $e.Name | pascal }}IDs"]; ok && v != nil {
+		if ids, ok := v.([]interface{}); ok {
+			for _, id := range ids {
+				idInt, err := strconv.Atoi(fmt.Sprint(id))
+				if err != nil {
+					return nil, fmt.Errorf("invalid add{{ singular $e.Name | pascal }}ID: %w", err)
+				}
+				result.Add{{ singular $e.Name | pascal }}IDs = append(result.Add{{ singular $e.Name | pascal }}IDs, idInt)
+			}
+		}
+	}
+	if v, ok := input["remove{{ singular $e.Name | pascal }}IDs"]; ok && v != nil {
+		if ids, ok := v.([]interface{}); ok {
+			for _, id := range ids {
+				idInt, err := strconv.Atoi(fmt.Sprint(id))
+				if err != nil {
+					return nil, fmt.Errorf("invalid remove{{ singular $e.Name | pascal }}ID: %w", err)
+				}
+				result.Remove{{ singular $e.Name | pascal }}IDs = append(result.Remove{{ singular $e.Name | pascal }}IDs, idInt)
+			}
+		}
+	}
+	if v, ok := input["clear{{ $e.StructField }}"]; ok {
+		if b, ok := v.(bool); ok {
+			result.Clear{{ $e.StructField }} = b
+		}
+	}
+	{{- end }}
+	{{- end }}
+	return result, nil
 }
 {{- end }}
 

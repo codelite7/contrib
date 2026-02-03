@@ -1787,3 +1787,329 @@ func TestOrderWithPagination(t *testing.T) {
 		t.Errorf("expected second todo priority to be 4, got %v", todos[1].(map[string]interface{})["priority"])
 	}
 }
+
+// ========== Mutation tests ==========
+
+// TestCreateTodo tests creating a todo via GraphQL mutation.
+func TestCreateTodo(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a todo via mutation
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `mutation {
+			createTodo(input: {
+				text: "Test todo from mutation"
+				status: PENDING
+				priority: 5
+			}) {
+				id
+				text
+				status
+				priority
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL mutation had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	created := data["createTodo"].(map[string]interface{})
+
+	if created["text"] != "Test todo from mutation" {
+		t.Errorf("expected text 'Test todo from mutation', got %v", created["text"])
+	}
+	if created["status"] != "PENDING" {
+		t.Errorf("expected status 'PENDING', got %v", created["status"])
+	}
+	if created["priority"] != 5 {
+		t.Errorf("expected priority 5, got %v", created["priority"])
+	}
+
+	// Verify it was created in the database
+	todos, err := client.Todo.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed to query todos: %v", err)
+	}
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo in database, got %d", len(todos))
+	}
+	if todos[0].Text != "Test todo from mutation" {
+		t.Errorf("expected text 'Test todo from mutation' in DB, got %s", todos[0].Text)
+	}
+}
+
+// TestCreateCategory tests creating a category via GraphQL mutation.
+func TestCreateCategory(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category via mutation
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `mutation {
+			createCategory(input: {
+				text: "Work"
+				status: ENABLED
+			}) {
+				id
+				text
+				status
+			}
+		}`,
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL mutation had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	created := data["createCategory"].(map[string]interface{})
+
+	if created["text"] != "Work" {
+		t.Errorf("expected text 'Work', got %v", created["text"])
+	}
+	if created["status"] != "ENABLED" {
+		t.Errorf("expected status 'ENABLED', got %v", created["status"])
+	}
+
+	// Verify it was created in the database
+	categories, err := client.Category.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("failed to query categories: %v", err)
+	}
+	if len(categories) != 1 {
+		t.Fatalf("expected 1 category in database, got %d", len(categories))
+	}
+}
+
+// TestUpdateTodo tests updating a todo via GraphQL mutation.
+func TestUpdateTodo(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a todo first
+	created, err := client.Todo.Create().
+		SetText("Original text").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Update the todo via mutation
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`mutation {
+			updateTodo(id: "%d", input: {
+				text: "Updated text"
+				status: COMPLETED
+				priority: 10
+			}) {
+				id
+				text
+				status
+				priority
+			}
+		}`, created.ID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL mutation had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	updated := data["updateTodo"].(map[string]interface{})
+
+	if updated["text"] != "Updated text" {
+		t.Errorf("expected text 'Updated text', got %v", updated["text"])
+	}
+	if updated["status"] != "COMPLETED" {
+		t.Errorf("expected status 'COMPLETED', got %v", updated["status"])
+	}
+	if updated["priority"] != 10 {
+		t.Errorf("expected priority 10, got %v", updated["priority"])
+	}
+
+	// Verify it was updated in the database
+	dbTodo, err := client.Todo.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("failed to get todo: %v", err)
+	}
+	if dbTodo.Text != "Updated text" {
+		t.Errorf("expected text 'Updated text' in DB, got %s", dbTodo.Text)
+	}
+	if dbTodo.Status != todo.StatusCompleted {
+		t.Errorf("expected status COMPLETED in DB, got %s", dbTodo.Status)
+	}
+}
+
+// TestUpdateWithClear tests clearing optional fields via update mutation.
+func TestUpdateWithClear(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category
+	category, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create a todo with category
+	created, err := client.Todo.Create().
+		SetText("Todo with category").
+		SetStatus(todo.StatusPending).
+		SetPriority(5).
+		SetCategory(category).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+
+	// Verify category is set
+	dbTodo, err := client.Todo.Query().
+		Where(todo.ID(created.ID)).
+		WithCategory().
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("failed to query todo: %v", err)
+	}
+	if dbTodo.Edges.Category == nil {
+		t.Fatal("expected category to be set before clear")
+	}
+
+	// Clear the category via mutation
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`mutation {
+			updateTodo(id: "%d", input: {
+				clearCategory: true
+			}) {
+				id
+				text
+			}
+		}`, created.ID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL mutation had errors: %v", result.Errors)
+	}
+
+	// Verify category was cleared
+	dbTodo, err = client.Todo.Query().
+		Where(todo.ID(created.ID)).
+		WithCategory().
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("failed to query todo after clear: %v", err)
+	}
+	if dbTodo.Edges.Category != nil {
+		t.Errorf("expected category to be cleared, but got %v", dbTodo.Edges.Category)
+	}
+}
+
+// TestCreateWithEdge tests creating with edge reference.
+func TestCreateWithEdge(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := ent.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create a category first
+	category, err := client.Category.Create().
+		SetText("Work").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create a todo with the category via mutation
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`mutation {
+			createTodo(input: {
+				text: "Todo with category"
+				status: PENDING
+				priority: 3
+				categoryID: "%d"
+			}) {
+				id
+				text
+				category {
+					id
+					text
+				}
+			}
+		}`, category.ID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL mutation had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	created := data["createTodo"].(map[string]interface{})
+
+	if created["text"] != "Todo with category" {
+		t.Errorf("expected text 'Todo with category', got %v", created["text"])
+	}
+
+	catData := created["category"].(map[string]interface{})
+	if catData["text"] != "Work" {
+		t.Errorf("expected category text 'Work', got %v", catData["text"])
+	}
+
+	// Verify the edge in the database
+	todos, err := client.Todo.Query().WithCategory().All(ctx)
+	if err != nil {
+		t.Fatalf("failed to query todos: %v", err)
+	}
+	if len(todos) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(todos))
+	}
+	if todos[0].Edges.Category == nil {
+		t.Fatal("expected category edge to be set")
+	}
+	if todos[0].Edges.Category.Text != "Work" {
+		t.Errorf("expected category text 'Work', got %s", todos[0].Edges.Category.Text)
+	}
+}
