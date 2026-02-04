@@ -9,7 +9,7 @@
 
 {{ template "import" $ }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "mutation_create_input" "mutation_update_input") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "mutation_create_input" "mutation_update_input") }}
 import (
     "entgo.io/contrib/entgqlgo"
     {{- range $n := $gqlNodes }}
@@ -18,8 +18,8 @@ import (
     {{- end }}
 )
 
-{{- range $n := mutationInputs $.Nodes }}
-    {{- $names := nodePaginationNames $n.Type }}
+{{- range $n := gqlgoMutationInputs $.Nodes }}
+    {{- $names := gqlgoNodePaginationNames $n.Type }}
     {{- $input := $n.Input }}
     {{- $fields := $n.InputFields }}
     {{- $edges := $n.InputEdges }}
@@ -125,8 +125,8 @@ import (
     }
 
     {{- range $b := $n.Builders }}
-    // SetInput applies the change-set in the {{ $input }} on the {{ $b }} builder.
-    func(c *{{ $b }}) SetInput(i {{ $input }}) *{{ $b }} {
+    // SetInputGG applies the change-set in the {{ $input }} on the {{ $b }} builder.
+    func(c *{{ $b }}) SetInputGG(i {{ $input }}) *{{ $b }} {
         i.Mutate(c.Mutation())
         return c
     }

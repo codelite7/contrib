@@ -13,7 +13,7 @@ in the LICENSE file in the root directory of this source tree.
 {{- end }}
 
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "where_input") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "where_input") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -33,7 +33,7 @@ import (
 // WhereInput GraphQL InputObject types for filtering
 var (
 {{- range $n := $gqlNodes }}
-    {{ $names := nodePaginationNames $n }}
+    {{ $names := gqlgoNodePaginationNames $n }}
     // {{ $names.WhereInput }}Type is the GraphQL InputObject for filtering {{ $n.Name }} queries.
     {{ $names.WhereInput }}Type *graphql.InputObject
 {{- end }}
@@ -42,13 +42,13 @@ var (
 func init() {
 {{- range $n := $gqlNodes }}
     {{ $comparableFields := list $n.ID }}
-    {{ $names := nodePaginationNames $n }}
+    {{ $names := gqlgoNodePaginationNames $n }}
     {{ with $annotation := $n.ID.Annotations.EntGQL }}
-        {{ if isSkipMode $annotation.Skip "where_input" }}
+        {{ if gqlgoIsSkipMode $annotation.Skip "where_input" }}
             {{ $comparableFields = list }}
         {{ end }}
     {{ end }}
-    {{ range $f := filterFields $n.Fields (skipMode "where_input") }}
+    {{ range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "where_input") }}
         {{ if $f.Type.Comparable }}
             {{ $comparableFields = append $comparableFields $f }}
         {{ end }}
@@ -91,14 +91,14 @@ func init() {
                 },
                 {{- end }}
                 {{- end }}
-                {{- range $e := filterEdges $n.Edges (skipMode "where_input") }}
+                {{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "where_input") }}
                 {{- $field := print "has" $e.StructField }}
                 {{- $jsonTag := print "has_" $e.Name }}
                 "{{ camel $jsonTag }}": &graphql.InputObjectFieldConfig{
                     Type:        graphql.Boolean,
                     Description: "Check if {{ $e.Name }} edge exists.",
                 },
-                {{- $names := nodePaginationNames $e.Type }}
+                {{- $names := gqlgoNodePaginationNames $e.Type }}
                 "{{ camel $jsonTag }}With": &graphql.InputObjectFieldConfig{
                     Type:        graphql.NewList(graphql.NewNonNull({{ $names.WhereInput }}Type)),
                     Description: "Filter by {{ $e.Name }} edge with conditions.",
@@ -112,13 +112,13 @@ func init() {
 
 {{ range $n := $gqlNodes }}
     {{ $comparableFields := list $n.ID }}
-    {{ $names := nodePaginationNames $n }}
+    {{ $names := gqlgoNodePaginationNames $n }}
     {{ with $annotation := $n.ID.Annotations.EntGQL }}
-        {{ if isSkipMode $annotation.Skip "where_input" }}
+        {{ if gqlgoIsSkipMode $annotation.Skip "where_input" }}
             {{ $comparableFields = list }}
         {{ end }}
     {{ end }}
-    {{ range $f := filterFields $n.Fields (skipMode "where_input") }}
+    {{ range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "where_input") }}
         {{ if $f.Type.Comparable }}
             {{ $comparableFields = append $comparableFields $f }}
         {{ end }}
@@ -154,7 +154,7 @@ func init() {
             {{- end }}
         {{- end }}
 
-        {{ range $e := filterEdges $n.Edges (skipMode "where_input") }}
+        {{ range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "where_input") }}
 
             // "{{ $e.Name }}" edge predicates.
             {{- $field := print "Has" $e.StructField }}
@@ -162,7 +162,7 @@ func init() {
             {{ $field }} *bool `json:"{{ camel $jsonTag }},omitempty"`
             {{- $field = print $field "With" }}
             {{- $jsonTag = print $jsonTag "_with" }}
-            {{- $names := nodePaginationNames $e.Type }}
+            {{- $names := gqlgoNodePaginationNames $e.Type }}
             {{ $field }} []*{{ $names.WhereInput }} `json:"{{ camel $jsonTag }},omitempty"`
         {{- end }}
     }
@@ -266,7 +266,7 @@ func init() {
                 {{- end }}
             {{- end }}
         {{- end }}
-        {{ range $e := filterEdges $n.Edges (skipMode "where_input") }}
+        {{ range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "where_input") }}
             {{- $func := print "Has" $e.StructField }}
             if i.{{ $func }} != nil {
                 p := {{ $n.Package }}.{{ $func }}()
@@ -427,7 +427,7 @@ func init() {
         {{- end }}
         {{- end }}
 
-        {{- range $e := filterEdges $n.Edges (skipMode "where_input") }}
+        {{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "where_input") }}
         {{- $field := print "Has" $e.StructField }}
         {{- $jsonTag := print "has_" $e.Name }}
         // Parse {{ camel $jsonTag }}
@@ -436,7 +436,7 @@ func init() {
                 input.{{ $field }} = &b
             }
         }
-        {{- $edgeNames := nodePaginationNames $e.Type }}
+        {{- $edgeNames := gqlgoNodePaginationNames $e.Type }}
         // Parse {{ camel $jsonTag }}With
         if v, ok := m["{{ camel $jsonTag }}With"]; ok && v != nil {
             if slice, ok := v.([]interface{}); ok {

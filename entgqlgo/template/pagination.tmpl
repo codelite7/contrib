@@ -12,8 +12,8 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
-{{ $idType := gqlIDType $gqlNodes $.IDType }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
+{{ $idType := gqlgoIDType $gqlNodes $.IDType }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -103,8 +103,8 @@ func validatePaginationArgs(args *PaginationArgs) error {
 }
 
 {{- range $n := $gqlNodes }}
-{{- $names := nodePaginationNames $n }}
-{{- $orderFields := orderFields $n }}
+{{- $names := gqlgoNodePaginationNames $n }}
+{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
 {{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
 
 // {{ $names.Edge }} represents an edge in a {{ $n.Name }} connection.
@@ -242,7 +242,7 @@ func Paginate{{ plural $n.Name }}(
 	return conn, nil
 }
 
-{{- if $orderFields }}
+{{- if $gqlgoOrderFields }}
 
 // Paginate{{ plural $n.Name }}WithOrder returns a paginated list of {{ plural $n.Name }} with ordering.
 func Paginate{{ plural $n.Name }}WithOrder(

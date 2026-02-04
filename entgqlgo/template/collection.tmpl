@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -37,7 +37,7 @@ func {{ $n.QueryName }}CollectFields(ctx context.Context, info graphql.ResolveIn
 
 // {{ $n.QueryName }}CollectFieldsFromList adds eager loading for a list of field names.
 func {{ $n.QueryName }}CollectFieldsFromList(ctx context.Context, fields []string, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
-	{{- $edges := filterEdges $n.Edges (skipMode "type") }}
+	{{- $edges := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 	{{- if $edges }}
 	for _, field := range fields {
 		switch field {
@@ -81,7 +81,7 @@ func {{ $n.QueryName }}CollectFieldsRecursive(ctx context.Context, info graphql.
 
 // {{ $n.QueryName }}CollectFieldsFromFieldInfos adds eager loading for nested field selections.
 func {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
-	{{- $edges := filterEdges $n.Edges (skipMode "type") }}
+	{{- $edges := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 	{{- if $edges }}
 	for _, field := range fields {
 		switch field.Name {

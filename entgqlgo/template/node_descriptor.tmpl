@@ -12,8 +12,8 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
-{{ $idType := gqlIDType $gqlNodes $.IDType }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
+{{ $idType := gqlgoIDType $gqlNodes $.IDType }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -54,8 +54,8 @@ type Edge struct {
 
 {{/* Generate helper functions for each type to get node descriptors */}}
 {{- range $n := $gqlNodes }}
-{{- $fields := filterFields $n.Fields (skipMode "type") }}
-{{- $edges := filterEdges $n.Edges (skipMode "type") }}
+{{- $fields := gqlgoFilterFields $n.Fields (gqlgoSkipMode "type") }}
+{{- $edges := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 // {{ $n.Name }}Node returns the Node descriptor for a {{ $n.Name }}.
 func {{ $n.Name }}Node(ctx context.Context, n *{{ $entPkg }}.{{ $n.Name }}) (*Node, error) {
 	node := &Node{

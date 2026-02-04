@@ -87,25 +87,26 @@ var (
 	}
 
 	// TemplateFuncs contains the extra template functions used by entgqlgo.
+	// All functions are prefixed with "gqlgo" to avoid conflicts with entgql's template functions.
 	TemplateFuncs = template.FuncMap{
-		"fieldCollections":    fieldCollections,
-		"fieldMapping":        fieldMapping,
-		"filterEdges":         filterEdges,
-		"filterFields":        filterFields,
-		"filterNodes":         filterNodes,
-		"gqlIDType":           gqlIDType,
-		"hasWhereInput":       hasWhereInput,
-		"isRelayConn":         isRelayConn,
-		"isSkipMode":          isSkipMode,
-		"mutationInputs":      mutationInputs,
-		"nodeImplementors":    nodeImplementors,
-		"nodeImplementorsVar": nodeImplementorsVar,
-		"nodePaginationNames": nodePaginationNames,
-		"orderFields":         orderFields,
-		"skipMode":            skipModeFromString,
-		"trimPrefix":          trimPrefix,
-		"gqlgoType":           gqlgoType,
-		"gqlgoScalar":         gqlgoScalar,
+		"gqlgoFieldCollections":    fieldCollections,
+		"gqlgoFieldMapping":        fieldMapping,
+		"gqlgoFilterEdges":         filterEdges,
+		"gqlgoFilterFields":        filterFields,
+		"gqlgoFilterNodes":         filterNodes,
+		"gqlgoIDType":              gqlIDType,
+		"gqlgoHasWhereInput":       hasWhereInput,
+		"gqlgoIsRelayConn":         isRelayConn,
+		"gqlgoIsSkipMode":          isSkipMode,
+		"gqlgoMutationInputs":      mutationInputs,
+		"gqlgoNodeImplementors":    nodeImplementors,
+		"gqlgoNodeImplementorsVar": nodeImplementorsVar,
+		"gqlgoNodePaginationNames": nodePaginationNames,
+		"gqlgoOrderFields":         orderFields,
+		"gqlgoSkipMode":            skipModeFromString,
+		"gqlgoTrimPrefix":          trimPrefix,
+		"gqlgoType":                gqlgoType,
+		"gqlgoScalar":              gqlgoScalar,
 	}
 
 	//go:embed template/*

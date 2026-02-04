@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -41,7 +41,7 @@ func (r *Resolvers) Query{{ plural $n.Name }}(p graphql.ResolveParams) (interfac
 	query := r.client.{{ $n.Name }}.Query()
 
 	// Apply eager loading based on GraphQL field selection
-	{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 	if entgqlgo.HasField(p.Info, "{{ camel $e.Name }}") {
 		query = query.With{{ $e.StructField }}()
 	}
@@ -68,7 +68,7 @@ func (r *Resolvers) Query{{ $n.Name }}(p graphql.ResolveParams) (interface{}, er
 	query := r.client.{{ $n.Name }}.Query()
 
 	// Apply eager loading based on GraphQL field selection
-	{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 	if entgqlgo.HasField(p.Info, "{{ camel $e.Name }}") {
 		query = query.With{{ $e.StructField }}()
 	}
@@ -89,7 +89,7 @@ func (r *Resolvers) Query{{ $n.Name }}(p graphql.ResolveParams) (interface{}, er
 func (r *Resolvers) Create{{ $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
 	create := r.client.{{ $n.Name }}.Create()
 
-	{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+	{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 	{{- if not $f.Sensitive }}
 	{{- if not $f.Immutable }}
 	{{- if not $f.Default }}
@@ -133,7 +133,7 @@ func (r *Resolvers) Update{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 	update := r.client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
 	{{- end }}
 
-	{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+	{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 	{{- if not $f.Sensitive }}
 	{{- if not $f.Immutable }}
 	if v, ok := p.Args["{{ camel $f.Name }}"]; ok && v != nil {
@@ -178,7 +178,7 @@ func (r *Resolvers) Delete{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 }
 
 {{- /* Edge resolvers */ -}}
-{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 
 // Resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
 func (r *Resolvers) Resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {

@@ -377,7 +377,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
-					return client.Category.Create().SetInput(*input).Save(p.Context)
+					return client.Category.Create().SetInputGG(*input).Save(p.Context)
 				},
 			},
 			"updateCategory": &graphql.Field{
@@ -414,7 +414,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
-					return client.Category.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
+					return client.Category.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
 				},
 			},
 			"deleteCategory": &graphql.Field{
@@ -461,7 +461,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
-					return client.Todo.Create().SetInput(*input).Save(p.Context)
+					return client.Todo.Create().SetInputGG(*input).Save(p.Context)
 				},
 			},
 			"updateTodo": &graphql.Field{
@@ -498,7 +498,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
-					return client.Todo.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
+					return client.Todo.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
 				},
 			},
 			"deleteTodo": &graphql.Field{

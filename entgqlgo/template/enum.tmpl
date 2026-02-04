@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "enum_field") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "enum_field") }}
 
 import (
 	"github.com/graphql-go/graphql"

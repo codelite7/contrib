@@ -39,8 +39,8 @@ func (i *CategoryCreateInputGG) Mutate(m *CategoryMutation) {
 	}
 }
 
-// SetInput applies the change-set in the CategoryCreateInputGG on the CategoryCreate builder.
-func (c *CategoryCreate) SetInput(i CategoryCreateInputGG) *CategoryCreate {
+// SetInputGG applies the change-set in the CategoryCreateInputGG on the CategoryCreate builder.
+func (c *CategoryCreate) SetInputGG(i CategoryCreateInputGG) *CategoryCreate {
 	i.Mutate(c.Mutation())
 	return c
 }
@@ -73,14 +73,14 @@ func (i *CategoryUpdateInputGG) Mutate(m *CategoryMutation) {
 	}
 }
 
-// SetInput applies the change-set in the CategoryUpdateInputGG on the CategoryUpdate builder.
-func (c *CategoryUpdate) SetInput(i CategoryUpdateInputGG) *CategoryUpdate {
+// SetInputGG applies the change-set in the CategoryUpdateInputGG on the CategoryUpdate builder.
+func (c *CategoryUpdate) SetInputGG(i CategoryUpdateInputGG) *CategoryUpdate {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// SetInput applies the change-set in the CategoryUpdateInputGG on the CategoryUpdateOne builder.
-func (c *CategoryUpdateOne) SetInput(i CategoryUpdateInputGG) *CategoryUpdateOne {
+// SetInputGG applies the change-set in the CategoryUpdateInputGG on the CategoryUpdateOne builder.
+func (c *CategoryUpdateOne) SetInputGG(i CategoryUpdateInputGG) *CategoryUpdateOne {
 	i.Mutate(c.Mutation())
 	return c
 }
@@ -113,8 +113,8 @@ func (i *TodoCreateInputGG) Mutate(m *TodoMutation) {
 	}
 }
 
-// SetInput applies the change-set in the TodoCreateInputGG on the TodoCreate builder.
-func (c *TodoCreate) SetInput(i TodoCreateInputGG) *TodoCreate {
+// SetInputGG applies the change-set in the TodoCreateInputGG on the TodoCreate builder.
+func (c *TodoCreate) SetInputGG(i TodoCreateInputGG) *TodoCreate {
 	i.Mutate(c.Mutation())
 	return c
 }
@@ -167,14 +167,14 @@ func (i *TodoUpdateInputGG) Mutate(m *TodoMutation) {
 	}
 }
 
-// SetInput applies the change-set in the TodoUpdateInputGG on the TodoUpdate builder.
-func (c *TodoUpdate) SetInput(i TodoUpdateInputGG) *TodoUpdate {
+// SetInputGG applies the change-set in the TodoUpdateInputGG on the TodoUpdate builder.
+func (c *TodoUpdate) SetInputGG(i TodoUpdateInputGG) *TodoUpdate {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// SetInput applies the change-set in the TodoUpdateInputGG on the TodoUpdateOne builder.
-func (c *TodoUpdateOne) SetInput(i TodoUpdateInputGG) *TodoUpdateOne {
+// SetInputGG applies the change-set in the TodoUpdateInputGG on the TodoUpdateOne builder.
+func (c *TodoUpdateOne) SetInputGG(i TodoUpdateInputGG) *TodoUpdateOne {
 	i.Mutate(c.Mutation())
 	return c
 }

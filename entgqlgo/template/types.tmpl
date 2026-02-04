@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -39,7 +39,7 @@ func init() {
 		},
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
-				{{- $fields := filterFields $n.Fields (skipMode "type") }}
+				{{- $fields := gqlgoFilterFields $n.Fields (gqlgoSkipMode "type") }}
 				{{- range $f := $fields }}
 				{{- if not $f.Sensitive }}
 				"{{ camel $f.Name }}": &graphql.Field{
@@ -58,7 +58,7 @@ func init() {
 				},
 				{{- end }}
 				{{- /* Edge fields */ -}}
-				{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+				{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 				"{{ camel $e.Name }}": &graphql.Field{
 					{{- if $e.Unique }}
 					Type: {{ $e.Type.Name }}Type,
@@ -79,7 +79,7 @@ func init() {
 
 {{- /* Generate edge resolvers that check for eager-loaded data first */ -}}
 {{- range $n := $gqlNodes }}
-{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 
 // resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
 // It checks if the edge was already eager-loaded to avoid N+1 queries.

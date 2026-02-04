@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -40,8 +40,8 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 		Name: "Query",
 		Fields: graphql.Fields{
 			{{- range $n := $gqlNodes }}
-			{{- $names := nodePaginationNames $n }}
-			{{- $orderFields := orderFields $n }}
+			{{- $names := gqlgoNodePaginationNames $n }}
+			{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
 			{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
 			"{{ plural (camel $n.Name) }}": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList({{ $n.Name }}Type)),
@@ -58,7 +58,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 						Type:        {{ $names.WhereInput }}Type,
 						Description: "Filter {{ plural $n.Name }} by conditions.",
 					},
-					{{- if $orderFields }}
+					{{- if $gqlgoOrderFields }}
 					"orderBy": &graphql.ArgumentConfig{
 						{{- if $multiOrder }}
 						Type:        graphql.NewList({{ $names.Order }}InputType),
@@ -75,7 +75,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					query := client.{{ $n.Name }}.Query()
 					// Apply eager loading based on selection
 					fields := entgqlgo.CollectFields(p.Info)
-					{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+					{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 					if contains(fields, "{{ camel $e.Name }}") {
 						query = query.With{{ $e.StructField }}()
 					}
@@ -93,7 +93,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 							}
 						}
 					}
-					{{- if $orderFields }}
+					{{- if $gqlgoOrderFields }}
 					// Apply ordering
 					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
 						{{- if $multiOrder }}
@@ -154,8 +154,8 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 			{{- end }}
 			{{- /* Relay Connection queries */ -}}
 			{{- range $n := $gqlNodes }}
-			{{- $names := nodePaginationNames $n }}
-			{{- $orderFields := orderFields $n }}
+			{{- $names := gqlgoNodePaginationNames $n }}
+			{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
 			{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
 			"{{ plural (camel $n.Name) }}Connection": &graphql.Field{
 				Type:        graphql.NewNonNull({{ $names.Connection }}Type),
@@ -177,7 +177,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 						Type:        CursorScalar,
 						Description: "Returns the elements that come before the specified cursor.",
 					},
-					{{- if $orderFields }}
+					{{- if $gqlgoOrderFields }}
 					"orderBy": &graphql.ArgumentConfig{
 						{{- if $multiOrder }}
 						Type:        graphql.NewList({{ $names.Order }}InputType),
@@ -194,7 +194,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
-					{{- if $orderFields }}
+					{{- if $gqlgoOrderFields }}
 					{{- if $multiOrder }}
 					var orders []*{{ $names.Order }}
 					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
@@ -314,7 +314,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
-					return client.{{ $n.Name }}.Create().SetInput(*input).Save(p.Context)
+					return client.{{ $n.Name }}.Create().SetInputGG(*input).Save(p.Context)
 				},
 			},
 			"update{{ $n.Name }}": &graphql.Field{
@@ -352,9 +352,9 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
-					return client.{{ $n.Name }}.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
+					return client.{{ $n.Name }}.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
 					{{- else }}
-					return client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id)).SetInput(*input).Save(p.Context)
+					return client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id)).SetInputGG(*input).Save(p.Context)
 					{{- end }}
 				},
 			},
@@ -392,12 +392,12 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 {{/* Generate mutation input types */}}
 var (
 {{- range $n := $gqlNodes }}
-	{{- $names := nodePaginationNames $n }}
+	{{- $names := gqlgoNodePaginationNames $n }}
 	// {{ $n.Name }}CreateInputGGType is the GraphQL input type for creating a {{ $n.Name }}.
 	{{ $n.Name }}CreateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "{{ $n.Name }}CreateInputGG",
 		Fields: graphql.InputObjectConfigFieldMap{
-			{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
 			"{{ camel $f.Name }}": &graphql.InputObjectFieldConfig{
@@ -410,7 +410,7 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- /* Edge fields for create */ -}}
-			{{- range $e := filterEdges $n.Edges (skipMode "mutation_create_input") }}
+			{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_create_input") }}
 			{{- if $e.Unique }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
 				Type: graphql.ID,
@@ -429,7 +429,7 @@ var (
 	{{ $n.Name }}UpdateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "{{ $n.Name }}UpdateInputGG",
 		Fields: graphql.InputObjectConfigFieldMap{
-			{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
 			"{{ camel $f.Name }}": &graphql.InputObjectFieldConfig{
@@ -448,7 +448,7 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- /* Edge fields for update */ -}}
-			{{- range $e := filterEdges $n.Edges (skipMode "mutation_update_input") }}
+			{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_update_input") }}
 			{{- if $e.Unique }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
 				Type: graphql.ID,
@@ -486,7 +486,7 @@ var (
 // Parse{{ $n.Name }}CreateInputGG parses a map into {{ $n.Name }}CreateInputGG.
 func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}CreateInputGG, error) {
 	result := &{{ $entPkg }}.{{ $n.Name }}CreateInputGG{}
-{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
+{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
 {{- $isPointer := or $f.Optional $f.Default (not (not $f.DefaultFunc)) }}
@@ -540,7 +540,7 @@ func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg 
 {{- end }}
 {{- end }}
 	{{- /* Parse edge IDs */ -}}
-	{{- range $e := filterEdges $n.Edges (skipMode "mutation_create_input") }}
+	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_create_input") }}
 	{{- if $e.Unique }}
 	if v, ok := input["{{ camel $e.Name }}ID"]; ok && v != nil {
 		id, err := strconv.Atoi(fmt.Sprint(v))
@@ -569,7 +569,7 @@ func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg 
 // Parse{{ $n.Name }}UpdateInputGG parses a map into {{ $n.Name }}UpdateInputGG.
 func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}UpdateInputGG, error) {
 	result := &{{ $entPkg }}.{{ $n.Name }}UpdateInputGG{}
-{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
+{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
@@ -612,7 +612,7 @@ func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg 
 {{- end }}
 {{- end }}
 	{{- /* Parse edge IDs for update */ -}}
-	{{- range $e := filterEdges $n.Edges (skipMode "mutation_update_input") }}
+	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_update_input") }}
 	{{- if $e.Unique }}
 	if v, ok := input["{{ camel $e.Name }}ID"]; ok && v != nil {
 		id, err := strconv.Atoi(fmt.Sprint(v))

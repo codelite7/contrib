@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -21,17 +21,17 @@ import (
 	"entgo.io/contrib/entgqlgo"
 	"{{ $.Config.Package }}"
 	{{- range $n := $gqlNodes }}
-	{{- $orderFields := orderFields $n }}
-	{{- if $orderFields }}
+	{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
+	{{- if $gqlgoOrderFields }}
 	"{{ $.Config.Package }}/{{ $n.Package }}"
 	{{- end }}
 	{{- end }}
 )
 
 {{- range $n := $gqlNodes }}
-{{- $names := nodePaginationNames $n }}
-{{- $orderFields := orderFields $n }}
-{{- if $orderFields }}
+{{- $names := gqlgoNodePaginationNames $n }}
+{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
+{{- if $gqlgoOrderFields }}
 {{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
 
 // {{ $names.OrderField }}Enum is the GraphQL enum for ordering {{ $n.Name }} by field.
@@ -39,7 +39,7 @@ var {{ $names.OrderField }}Enum = graphql.NewEnum(graphql.EnumConfig{
 	Name:        "{{ $names.OrderField }}",
 	Description: "Properties by which {{ $n.Name }} connections can be ordered.",
 	Values: graphql.EnumValueConfigMap{
-		{{- range $f := $orderFields }}
+		{{- range $f := $gqlgoOrderFields }}
 		"{{ $f.GQL }}": &graphql.EnumValueConfig{
 			Value:       "{{ $f.GQL }}",
 			Description: "Order by {{ $f.GQL }}.",
@@ -114,7 +114,7 @@ func (o *{{ $names.Order }}) ToOrderOption() {{ $n.Package }}.OrderOption {
 		opts = append(opts, o.Nulls.OrderTermOption())
 	}
 	switch o.Field {
-	{{- range $f := $orderFields }}
+	{{- range $f := $gqlgoOrderFields }}
 	{{- if $f.IsFieldTerm }}
 	case "{{ $f.GQL }}":
 		return {{ $n.Package }}.{{ $f.Field.OrderName }}(opts...)

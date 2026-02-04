@@ -3209,7 +3209,7 @@ func TestSkipMutationCreateInput(t *testing.T) {
 		Priority: intPtr(5),
 	}
 
-	created, err := client.Todo.Create().SetInput(input).Save(ctx)
+	created, err := client.Todo.Create().SetInputGG(input).Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to create todo with input: %v", err)
 	}

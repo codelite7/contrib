@@ -12,7 +12,7 @@ in the LICENSE file in the root directory of this source tree.
         {{ template "header" . }}
 {{- end }}
 
-{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
 import (
@@ -26,7 +26,7 @@ import (
 // These provide optimized edge resolution that checks for eager-loaded data first.
 
 {{- range $n := $gqlNodes }}
-{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 
 // {{ $n.Name }}{{ $e.StructField }}Resolver resolves the {{ $e.Name }} edge for {{ $n.Name }}.
 // It first checks if the edge was already loaded via eager loading.
@@ -86,7 +86,7 @@ func NewEdgeResolverMap(client *{{ $entPkg }}.Client) *EdgeResolverMap {
 }
 
 {{- range $n := $gqlNodes }}
-{{- range $e := filterEdges $n.Edges (skipMode "type") }}
+{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
 
 // {{ $n.Name }}{{ $e.StructField }} returns the resolver for {{ $n.Name }}.{{ $e.Name }}.
 func (m *EdgeResolverMap) {{ $n.Name }}{{ $e.StructField }}() graphql.FieldResolveFn {
