@@ -354,7 +354,11 @@ func init() {
         {{- end }}
         // Parse {{ camel $jsonTag }}
         if v, ok := m["{{ camel $jsonTag }}"]; ok && v != nil {
-            {{- if $f.IsEnum }}
+            {{- if $op.Niladic }}
+            if b, ok := v.(bool); ok {
+                input.{{ $field }} = b
+            }
+            {{- else if $f.IsEnum }}
                 {{- if $op.Variadic }}
             if slice, ok := v.([]interface{}); ok {
                 for _, item := range slice {
@@ -369,10 +373,6 @@ func init() {
                 input.{{ $field }} = &val
             }
                 {{- end }}
-            {{- else if $op.Niladic }}
-            if b, ok := v.(bool); ok {
-                input.{{ $field }} = b
-            }
             {{- else if $op.Variadic }}
                 {{- if $f.Type.Numeric }}
             if slice, ok := v.([]interface{}); ok {

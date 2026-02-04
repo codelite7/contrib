@@ -84,12 +84,15 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					c := clientFromContext(p.Context, client)
 					query := c.{{ $n.Name }}.Query()
+					{{- $edges := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
+					{{- if $edges }}
 					// Apply eager loading based on selection
 					fields := entgqlgo.CollectFields(p.Info)
-					{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
+					{{- range $e := $edges }}
 					if contains(fields, "{{ camel $e.Name }}") {
 						query = query.With{{ $e.StructField }}()
 					}
+					{{- end }}
 					{{- end }}
 					// Apply where filter
 					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
@@ -310,7 +313,9 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
-			{{- range $n := $gqlNodes }}
+			{{- range $m := gqlgoMutationInputs $.Nodes }}
+			{{- $n := $m.Type }}
+			{{- if $m.IsCreate }}
 			"create{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
@@ -337,6 +342,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					return c.{{ $n.Name }}.Create().SetInputGG(*input).Save(p.Context)
 				},
 			},
+			{{- else }}
 			"update{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
@@ -415,14 +421,18 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 				},
 			},
 			{{- end }}
+			{{- end }}
 		},
 	})
 }
 
 {{/* Generate mutation input types */}}
 var (
-{{- range $n := $gqlNodes }}
+{{- range $m := gqlgoMutationInputs $.Nodes }}
+	{{- $n := $m.Type }}
 	{{- $names := gqlgoNodePaginationNames $n }}
+	{{- $inputEdges := $m.InputEdges }}
+	{{- if $m.IsCreate }}
 	// {{ $n.Name }}CreateInputGGType is the GraphQL input type for creating a {{ $n.Name }}.
 	{{ $n.Name }}CreateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "{{ $n.Name }}CreateInputGG",
@@ -440,7 +450,7 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- /* Edge fields for create - skip if field with same name exists */ -}}
-			{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_create_input") }}
+			{{- range $e := $inputEdges }}
 			{{- if $e.Unique }}
 			{{- if not (gqlgoHasFieldNamed $n (printf "%sID" (camel $e.Name))) }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
@@ -459,6 +469,7 @@ var (
 			{{- end }}
 		},
 	})
+	{{- else }}
 	// {{ $n.Name }}UpdateInputGGType is the GraphQL input type for updating a {{ $n.Name }}.
 	{{ $n.Name }}UpdateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "{{ $n.Name }}UpdateInputGG",
@@ -482,7 +493,7 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- /* Edge fields for update - skip if field with same name exists */ -}}
-			{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_update_input") }}
+			{{- range $e := $inputEdges }}
 			{{- if $e.Unique }}
 			{{- if not (gqlgoHasFieldNamed $n (printf "%sID" (camel $e.Name))) }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
@@ -517,11 +528,15 @@ var (
 			{{- end }}
 		},
 	})
+	{{- end }}
 {{- end }}
 )
 
 {{- /* Generate mutation input parsing helpers */ -}}
-{{- range $n := $gqlNodes }}
+{{- range $m := gqlgoMutationInputs $.Nodes }}
+{{- $n := $m.Type }}
+{{- $inputEdges := $m.InputEdges }}
+{{- if $m.IsCreate }}
 
 // Parse{{ $n.Name }}CreateInputGG parses a map into {{ $n.Name }}CreateInputGG.
 func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}CreateInputGG, error) {
@@ -529,6 +544,7 @@ func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg 
 {{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
+{{- if not $f.IsEdgeField }}
 {{- $isPointer := or $f.Optional $f.Default (not (not $f.DefaultFunc)) }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
 {{- if $f.IsEnum }}
@@ -579,25 +595,50 @@ func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg 
 {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
 	{{- /* Parse edge IDs */ -}}
-	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_create_input") }}
+	{{- range $e := $inputEdges }}
 	{{- if $e.Unique }}
 	if v, ok := input["{{ camel $e.Name }}ID"]; ok && v != nil {
+		{{- if $e.Type.ID.IsInt }}
 		id, err := strconv.Atoi(fmt.Sprint(v))
 		if err != nil {
 			return nil, fmt.Errorf("invalid {{ camel $e.Name }}ID: %w", err)
 		}
+		{{- if $e.Optional }}
 		result.{{ $e.StructField }}ID = &id
+		{{- else }}
+		result.{{ $e.StructField }}ID = id
+		{{- end }}
+		{{- else }}
+		id, err := uuid.Parse(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid {{ camel $e.Name }}ID: %w", err)
+		}
+		{{- if $e.Optional }}
+		result.{{ $e.StructField }}ID = &id
+		{{- else }}
+		result.{{ $e.StructField }}ID = id
+		{{- end }}
+		{{- end }}
 	}
 	{{- else }}
 	if v, ok := input["{{ singular (camel $e.Name) }}IDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				{{- if $e.Type.ID.IsInt }}
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid {{ singular (camel $e.Name) }}ID: %w", err)
 				}
-				result.{{ singular $e.Name | pascal }}IDs = append(result.{{ singular $e.Name | pascal }}IDs, idInt)
+				result.{{ singular $e.Name | pascal }}IDs = append(result.{{ singular $e.Name | pascal }}IDs, id)
+				{{- else }}
+				id, err := uuid.Parse(fmt.Sprint(idVal))
+				if err != nil {
+					return nil, fmt.Errorf("invalid {{ singular (camel $e.Name) }}ID: %w", err)
+				}
+				result.{{ singular $e.Name | pascal }}IDs = append(result.{{ singular $e.Name | pascal }}IDs, id)
+				{{- end }}
 			}
 		}
 	}
@@ -605,6 +646,7 @@ func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg 
 	{{- end }}
 	return result, nil
 }
+{{- else }}
 
 // Parse{{ $n.Name }}UpdateInputGG parses a map into {{ $n.Name }}UpdateInputGG.
 func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}UpdateInputGG, error) {
@@ -612,6 +654,7 @@ func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg 
 {{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
+{{- if not $f.IsEdgeField }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
 {{- if $f.IsEnum }}
 		if str, ok := v.(string); ok {
@@ -651,15 +694,24 @@ func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg 
 {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
 	{{- /* Parse edge IDs for update */ -}}
-	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_update_input") }}
+	{{- range $e := $inputEdges }}
 	{{- if $e.Unique }}
 	if v, ok := input["{{ camel $e.Name }}ID"]; ok && v != nil {
+		{{- if $e.Type.ID.IsInt }}
 		id, err := strconv.Atoi(fmt.Sprint(v))
 		if err != nil {
 			return nil, fmt.Errorf("invalid {{ camel $e.Name }}ID: %w", err)
 		}
 		result.{{ $e.StructField }}ID = &id
+		{{- else }}
+		id, err := uuid.Parse(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid {{ camel $e.Name }}ID: %w", err)
+		}
+		result.{{ $e.StructField }}ID = &id
+		{{- end }}
 	}
 	{{- if $e.Optional }}
 	if v, ok := input["clear{{ $e.StructField }}"]; ok {
@@ -671,23 +723,39 @@ func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg 
 	{{- else }}
 	if v, ok := input["add{{ singular $e.Name | pascal }}IDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				{{- if $e.Type.ID.IsInt }}
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid add{{ singular $e.Name | pascal }}ID: %w", err)
 				}
-				result.Add{{ singular $e.Name | pascal }}IDs = append(result.Add{{ singular $e.Name | pascal }}IDs, idInt)
+				result.Add{{ singular $e.Name | pascal }}IDs = append(result.Add{{ singular $e.Name | pascal }}IDs, id)
+				{{- else }}
+				id, err := uuid.Parse(fmt.Sprint(idVal))
+				if err != nil {
+					return nil, fmt.Errorf("invalid add{{ singular $e.Name | pascal }}ID: %w", err)
+				}
+				result.Add{{ singular $e.Name | pascal }}IDs = append(result.Add{{ singular $e.Name | pascal }}IDs, id)
+				{{- end }}
 			}
 		}
 	}
 	if v, ok := input["remove{{ singular $e.Name | pascal }}IDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				{{- if $e.Type.ID.IsInt }}
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid remove{{ singular $e.Name | pascal }}ID: %w", err)
 				}
-				result.Remove{{ singular $e.Name | pascal }}IDs = append(result.Remove{{ singular $e.Name | pascal }}IDs, idInt)
+				result.Remove{{ singular $e.Name | pascal }}IDs = append(result.Remove{{ singular $e.Name | pascal }}IDs, id)
+				{{- else }}
+				id, err := uuid.Parse(fmt.Sprint(idVal))
+				if err != nil {
+					return nil, fmt.Errorf("invalid remove{{ singular $e.Name | pascal }}ID: %w", err)
+				}
+				result.Remove{{ singular $e.Name | pascal }}IDs = append(result.Remove{{ singular $e.Name | pascal }}IDs, id)
+				{{- end }}
 			}
 		}
 	}
@@ -700,6 +768,7 @@ func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg 
 	{{- end }}
 	return result, nil
 }
+{{- end }}
 {{- end }}
 
 // contains checks if a slice contains a string.
