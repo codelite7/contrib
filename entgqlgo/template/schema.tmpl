@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"{{ $.Config.Package }}"
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	"entgo.io/contrib/entgqlgo"
 )
@@ -158,7 +159,11 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					}
 					return c.{{ $n.Name }}.Get(p.Context, idInt)
 					{{- else }}
-					return c.{{ $n.Name }}.Get(p.Context, fmt.Sprint(id))
+					idUUID, err := uuid.Parse(fmt.Sprint(id))
+					if err != nil {
+						return nil, fmt.Errorf("invalid UUID: %w", err)
+					}
+					return c.{{ $n.Name }}.Get(p.Context, idUUID)
 					{{- end }}
 				},
 			},
@@ -370,7 +375,11 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					}
 					return c.{{ $n.Name }}.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
 					{{- else }}
-					return c.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id)).SetInputGG(*input).Save(p.Context)
+					idUUID, err := uuid.Parse(fmt.Sprint(id))
+					if err != nil {
+						return nil, fmt.Errorf("invalid UUID: %w", err)
+					}
+					return c.{{ $n.Name }}.UpdateOneID(idUUID).SetInputGG(*input).Save(p.Context)
 					{{- end }}
 				},
 			},
@@ -396,7 +405,11 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					}
 					err = c.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
 					{{- else }}
-					err := c.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
+					idUUID, err := uuid.Parse(fmt.Sprint(id))
+					if err != nil {
+						return false, fmt.Errorf("invalid UUID: %w", err)
+					}
+					err = c.{{ $n.Name }}.DeleteOneID(idUUID).Exec(p.Context)
 					{{- end }}
 					return err == nil, err
 				},
@@ -426,18 +439,22 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- end }}
-			{{- /* Edge fields for create */ -}}
+			{{- /* Edge fields for create - skip if field with same name exists */ -}}
 			{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_create_input") }}
 			{{- if $e.Unique }}
+			{{- if not (gqlgoHasFieldNamed $n (printf "%sID" (camel $e.Name))) }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
 				Type: graphql.ID,
 				Description: "ID of the {{ $e.Name }} edge.",
 			},
+			{{- end }}
 			{{- else }}
+			{{- if not (gqlgoHasFieldNamed $n (printf "%sIDs" (singular (camel $e.Name)))) }}
 			"{{ singular (camel $e.Name) }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs of the {{ $e.Name }} edges.",
 			},
+			{{- end }}
 			{{- end }}
 			{{- end }}
 		},
@@ -464,13 +481,15 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- end }}
-			{{- /* Edge fields for update */ -}}
+			{{- /* Edge fields for update - skip if field with same name exists */ -}}
 			{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "mutation_update_input") }}
 			{{- if $e.Unique }}
+			{{- if not (gqlgoHasFieldNamed $n (printf "%sID" (camel $e.Name))) }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
 				Type: graphql.ID,
 				Description: "ID of the {{ $e.Name }} edge.",
 			},
+			{{- end }}
 			{{- if $e.Optional }}
 			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
@@ -478,14 +497,18 @@ var (
 			},
 			{{- end }}
 			{{- else }}
+			{{- if not (gqlgoHasFieldNamed $n (printf "add%sIDs" (singular $e.Name | pascal))) }}
 			"add{{ singular $e.Name | pascal }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs to add to the {{ $e.Name }} edges.",
 			},
+			{{- end }}
+			{{- if not (gqlgoHasFieldNamed $n (printf "remove%sIDs" (singular $e.Name | pascal))) }}
 			"remove{{ singular $e.Name | pascal }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs to remove from the {{ $e.Name }} edges.",
 			},
+			{{- end }}
 			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
 				Description: "Clear all {{ $e.Name }} edges.",

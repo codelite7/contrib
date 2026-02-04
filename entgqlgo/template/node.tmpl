@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"{{ $.Config.Package }}"
+	"github.com/google/uuid"
 	"entgo.io/contrib/entgqlgo"
 	"github.com/graphql-go/graphql"
 )
@@ -120,7 +121,11 @@ func Noder_(client *{{ $entPkg }}.Client, ctx context.Context, id interface{}) (
 			}
 			return client.{{ $n.Name }}.Get(ctx, idInt)
 			{{- else }}
-			return client.{{ $n.Name }}.Get(ctx, localID)
+			idUUID, err := uuid.Parse(localID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid {{ $n.Name }} UUID: %w", err)
+			}
+			return client.{{ $n.Name }}.Get(ctx, idUUID)
 			{{- end }}
 		{{- end }}
 		default:
@@ -138,8 +143,10 @@ func Noder_(client *{{ $entPkg }}.Client, ctx context.Context, id interface{}) (
 		}
 	}
 	{{- else }}
-	if node, err := client.{{ $n.Name }}.Get(ctx, idStr); err == nil {
-		return node, nil
+	if idUUID, err := uuid.Parse(idStr); err == nil {
+		if node, err := client.{{ $n.Name }}.Get(ctx, idUUID); err == nil {
+			return node, nil
+		}
 	}
 	{{- end }}
 	{{- end }}

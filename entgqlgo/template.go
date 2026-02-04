@@ -107,6 +107,7 @@ var (
 		"gqlgoTrimPrefix":          trimPrefix,
 		"gqlgoType":                gqlgoType,
 		"gqlgoScalar":              gqlgoScalar,
+		"gqlgoHasFieldNamed":       hasFieldNamed,
 	}
 
 	//go:embed template/*
@@ -347,6 +348,18 @@ func filterFields(fields []*gen.Field, skip SkipMode) ([]*gen.Field, error) {
 		}
 	}
 	return filteredFields, nil
+}
+
+// hasFieldNamed checks if a type has a field with the given name (case-insensitive camelCase comparison).
+// This is used to avoid generating duplicate edge ID fields in mutation inputs.
+func hasFieldNamed(t *gen.Type, name string) bool {
+	name = strings.ToLower(name)
+	for _, f := range t.Fields {
+		if strings.ToLower(camel(f.Name)) == name {
+			return true
+		}
+	}
+	return false
 }
 
 // OrderTerm is a struct that represents a single GraphQL order term.

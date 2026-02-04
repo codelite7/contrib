@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"{{ $.Config.Package }}"
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	"entgo.io/contrib/entgqlgo"
 )
@@ -82,7 +83,11 @@ func (r *Resolvers) Query{{ $n.Name }}(p graphql.ResolveParams) (interface{}, er
 	}
 	return query.Where({{ $n.Package }}.ID(idInt)).Only(p.Context)
 	{{- else }}
-	return query.Where({{ $n.Package }}.ID(fmt.Sprint(id))).Only(p.Context)
+	idUUID, err := uuid.Parse(fmt.Sprint(id))
+	if err != nil {
+		return nil, fmt.Errorf("invalid UUID: %w", err)
+	}
+	return query.Where({{ $n.Package }}.ID(idUUID)).Only(p.Context)
 	{{- end }}
 }
 
@@ -133,7 +138,11 @@ func (r *Resolvers) Update{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 	}
 	update := client.{{ $n.Name }}.UpdateOneID(idInt)
 	{{- else }}
-	update := client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
+	idUUID, err := uuid.Parse(fmt.Sprint(id))
+	if err != nil {
+		return nil, fmt.Errorf("invalid UUID: %w", err)
+	}
+	update := client.{{ $n.Name }}.UpdateOneID(idUUID)
 	{{- end }}
 
 	{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
@@ -176,7 +185,11 @@ func (r *Resolvers) Delete{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 	}
 	err = client.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
 	{{- else }}
-	err := client.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
+	idUUID, err := uuid.Parse(fmt.Sprint(id))
+	if err != nil {
+		return false, fmt.Errorf("invalid UUID: %w", err)
+	}
+	err = client.{{ $n.Name }}.DeleteOneID(idUUID).Exec(p.Context)
 	{{- end }}
 	return err == nil, err
 }
