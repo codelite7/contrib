@@ -16,7 +16,6 @@ in the LICENSE file in the root directory of this source tree.
 {{ $entPkg := base $.Config.Package }}
 
 import (
-	"context"
 	"fmt"
 
 	"{{ $.Config.Package }}"
@@ -38,7 +37,8 @@ func NewResolvers(client *{{ $entPkg }}.Client) *Resolvers {
 
 // Query{{ plural $n.Name }} resolves the query for listing {{ plural $n.Name }}.
 func (r *Resolvers) Query{{ plural $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
-	query := r.client.{{ $n.Name }}.Query()
+	client := clientFromContext(p.Context, r.client)
+	query := client.{{ $n.Name }}.Query()
 
 	// Apply eager loading based on GraphQL field selection
 	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
@@ -65,7 +65,8 @@ func (r *Resolvers) Query{{ $n.Name }}(p graphql.ResolveParams) (interface{}, er
 		return nil, fmt.Errorf("id argument is required")
 	}
 
-	query := r.client.{{ $n.Name }}.Query()
+	client := clientFromContext(p.Context, r.client)
+	query := client.{{ $n.Name }}.Query()
 
 	// Apply eager loading based on GraphQL field selection
 	{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
@@ -87,7 +88,8 @@ func (r *Resolvers) Query{{ $n.Name }}(p graphql.ResolveParams) (interface{}, er
 
 // Create{{ $n.Name }} resolves the mutation for creating a {{ $n.Name }}.
 func (r *Resolvers) Create{{ $n.Name }}(p graphql.ResolveParams) (interface{}, error) {
-	create := r.client.{{ $n.Name }}.Create()
+	client := clientFromContext(p.Context, r.client)
+	create := client.{{ $n.Name }}.Create()
 
 	{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 	{{- if not $f.Sensitive }}
@@ -123,14 +125,15 @@ func (r *Resolvers) Update{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 		return nil, fmt.Errorf("id argument is required")
 	}
 
+	client := clientFromContext(p.Context, r.client)
 	{{- if $n.ID.IsInt }}
 	idInt, err := toInt(id)
 	if err != nil {
 		return nil, err
 	}
-	update := r.client.{{ $n.Name }}.UpdateOneID(idInt)
+	update := client.{{ $n.Name }}.UpdateOneID(idInt)
 	{{- else }}
-	update := r.client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
+	update := client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id))
 	{{- end }}
 
 	{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
@@ -165,14 +168,15 @@ func (r *Resolvers) Delete{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 		return false, fmt.Errorf("id argument is required")
 	}
 
+	client := clientFromContext(p.Context, r.client)
 	{{- if $n.ID.IsInt }}
 	idInt, err := toInt(id)
 	if err != nil {
 		return false, err
 	}
-	err = r.client.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
+	err = client.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
 	{{- else }}
-	err := r.client.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
+	err := client.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
 	{{- end }}
 	return err == nil, err
 }

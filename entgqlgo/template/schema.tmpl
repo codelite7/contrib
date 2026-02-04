@@ -25,6 +25,15 @@ import (
 	"entgo.io/contrib/entgqlgo"
 )
 
+// clientFromContext returns the client from context if available, otherwise falls back to the provided client.
+// This enables transactional operations when the context contains a transactional client.
+func clientFromContext(ctx context.Context, fallback *{{ $entPkg }}.Client) *{{ $entPkg }}.Client {
+	if c := {{ $entPkg }}.FromContext(ctx); c != nil {
+		return c
+	}
+	return fallback
+}
+
 // NewSchema creates a new GraphQL schema with Query and Mutation types.
 // The client is used for database operations in resolvers.
 func NewSchema(client *{{ $entPkg }}.Client) (graphql.Schema, error) {
@@ -72,7 +81,8 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 				},
 				Description: "Query all {{ plural $n.Name }}.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					query := client.{{ $n.Name }}.Query()
+					c := clientFromContext(p.Context, client)
+					query := c.{{ $n.Name }}.Query()
 					// Apply eager loading based on selection
 					fields := entgqlgo.CollectFields(p.Info)
 					{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
@@ -139,15 +149,16 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
+					c := clientFromContext(p.Context, client)
 					// Convert ID based on type
 					{{- if $n.ID.IsInt }}
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return nil, err
 					}
-					return client.{{ $n.Name }}.Get(p.Context, idInt)
+					return c.{{ $n.Name }}.Get(p.Context, idInt)
 					{{- else }}
-					return client.{{ $n.Name }}.Get(p.Context, fmt.Sprint(id))
+					return c.{{ $n.Name }}.Get(p.Context, fmt.Sprint(id))
 					{{- end }}
 				},
 			},
@@ -194,6 +205,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
+					c := clientFromContext(p.Context, client)
 					{{- if $gqlgoOrderFields }}
 					{{- if $multiOrder }}
 					var orders []*{{ $names.Order }}
@@ -206,7 +218,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 						}
 					}
 					return Paginate{{ plural $n.Name }}WithOrder(
-						client,
+						c,
 						p.Context,
 						args.After,
 						args.Before,
@@ -225,7 +237,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 						}
 					}
 					return Paginate{{ plural $n.Name }}WithOrder(
-						client,
+						c,
 						p.Context,
 						args.After,
 						args.Before,
@@ -236,7 +248,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					{{- end }}
 					{{- else }}
 					return Paginate{{ plural $n.Name }}(
-						client,
+						c,
 						p.Context,
 						args.After,
 						args.Before,
@@ -262,7 +274,8 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
-					return Noder_(client, p.Context, fmt.Sprint(id))
+					c := clientFromContext(p.Context, client)
+					return Noder_(c, p.Context, fmt.Sprint(id))
 				},
 			},
 			"nodes": &graphql.Field{
@@ -279,7 +292,8 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
-					return Noders(client, p.Context, ids)
+					c := clientFromContext(p.Context, client)
+					return Noders(c, p.Context, ids)
 				},
 			},
 		},
@@ -314,7 +328,8 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
-					return client.{{ $n.Name }}.Create().SetInputGG(*input).Save(p.Context)
+					c := clientFromContext(p.Context, client)
+					return c.{{ $n.Name }}.Create().SetInputGG(*input).Save(p.Context)
 				},
 			},
 			"update{{ $n.Name }}": &graphql.Field{
@@ -347,14 +362,15 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
+					c := clientFromContext(p.Context, client)
 					{{- if $n.ID.IsInt }}
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return nil, err
 					}
-					return client.{{ $n.Name }}.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
+					return c.{{ $n.Name }}.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
 					{{- else }}
-					return client.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id)).SetInputGG(*input).Save(p.Context)
+					return c.{{ $n.Name }}.UpdateOneID(fmt.Sprint(id)).SetInputGG(*input).Save(p.Context)
 					{{- end }}
 				},
 			},
@@ -372,14 +388,15 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if !ok {
 						return false, fmt.Errorf("id is required")
 					}
+					c := clientFromContext(p.Context, client)
 					{{- if $n.ID.IsInt }}
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return false, err
 					}
-					err = client.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
+					err = c.{{ $n.Name }}.DeleteOneID(idInt).Exec(p.Context)
 					{{- else }}
-					err := client.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
+					err := c.{{ $n.Name }}.DeleteOneID(fmt.Sprint(id)).Exec(p.Context)
 					{{- end }}
 					return err == nil, err
 				},

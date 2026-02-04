@@ -77,7 +77,8 @@ func (r *NodeResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("id argument is required")
 	}
-	return Noder_(r.client, p.Context, id)
+	client := clientFromContext(p.Context, r.client)
+	return Noder_(client, p.Context, id)
 }
 
 // NodesResolver implements the nodes(ids: [ID!]!) query for Relay.
@@ -96,7 +97,8 @@ func (r *NodesResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("ids argument is required")
 	}
-	return Noders(r.client, p.Context, ids)
+	client := clientFromContext(p.Context, r.client)
+	return Noders(client, p.Context, ids)
 }
 
 // Noder_ returns a node by its global ID.
