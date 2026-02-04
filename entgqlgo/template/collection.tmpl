@@ -4,20 +4,21 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_collection" }}
+{{ define "gqlgo/collection" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 
+	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 	"entgo.io/contrib/entgqlgo"
 )
@@ -29,13 +30,13 @@ import (
 
 // {{ $n.QueryName }}CollectFields adds eager loading to a {{ $n.QueryName }} based on the
 // selected fields in the GraphQL query. This prevents N+1 query problems.
-func {{ $n.QueryName }}CollectFields(ctx context.Context, info graphql.ResolveInfo, query *{{ $n.QueryName }}) *{{ $n.QueryName }} {
+func {{ $n.QueryName }}CollectFields(ctx context.Context, info graphql.ResolveInfo, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
 	fields := entgqlgo.CollectFields(info)
 	return {{ $n.QueryName }}CollectFieldsFromList(ctx, fields, query)
 }
 
 // {{ $n.QueryName }}CollectFieldsFromList adds eager loading for a list of field names.
-func {{ $n.QueryName }}CollectFieldsFromList(ctx context.Context, fields []string, query *{{ $n.QueryName }}) *{{ $n.QueryName }} {
+func {{ $n.QueryName }}CollectFieldsFromList(ctx context.Context, fields []string, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
 	{{- $edges := filterEdges $n.Edges (skipMode "type") }}
 	{{- if $edges }}
 	for _, field := range fields {
@@ -53,14 +54,14 @@ func {{ $n.QueryName }}CollectFieldsFromList(ctx context.Context, fields []strin
 // {{ $n.QueryName }}CollectFieldsNested adds eager loading based on nested field selection.
 // This is useful for Relay connections where you want to eager load based on
 // the selection within edges -> node.
-func {{ $n.QueryName }}CollectFieldsNested(ctx context.Context, info graphql.ResolveInfo, query *{{ $n.QueryName }}, path ...string) *{{ $n.QueryName }} {
+func {{ $n.QueryName }}CollectFieldsNested(ctx context.Context, info graphql.ResolveInfo, query *{{ $entPkg }}.{{ $n.QueryName }}, path ...string) *{{ $entPkg }}.{{ $n.QueryName }} {
 	fields := entgqlgo.CollectNestedFields(info, path...)
 	return {{ $n.QueryName }}CollectFieldsFromList(ctx, fields, query)
 }
 
 // {{ $n.QueryName }}CollectFieldsConnection adds eager loading for Relay connection queries.
 // It looks at edges -> node -> <fields> to determine what to eager load.
-func {{ $n.QueryName }}CollectFieldsConnection(ctx context.Context, info graphql.ResolveInfo, query *{{ $n.QueryName }}) *{{ $n.QueryName }} {
+func {{ $n.QueryName }}CollectFieldsConnection(ctx context.Context, info graphql.ResolveInfo, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
 	// Check direct fields
 	query = {{ $n.QueryName }}CollectFields(ctx, info, query)
 
@@ -73,13 +74,13 @@ func {{ $n.QueryName }}CollectFieldsConnection(ctx context.Context, info graphql
 // {{ $n.QueryName }}CollectFieldsRecursive adds eager loading with support for nested edge selections.
 // It uses CollectFieldsWithArgs to recursively configure eager loading based on the full
 // GraphQL selection tree.
-func {{ $n.QueryName }}CollectFieldsRecursive(ctx context.Context, info graphql.ResolveInfo, query *{{ $n.QueryName }}) *{{ $n.QueryName }} {
+func {{ $n.QueryName }}CollectFieldsRecursive(ctx context.Context, info graphql.ResolveInfo, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
 	fields := entgqlgo.CollectFieldsWithArgs(info)
 	return {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx, fields, query)
 }
 
 // {{ $n.QueryName }}CollectFieldsFromFieldInfos adds eager loading for nested field selections.
-func {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *{{ $n.QueryName }}) *{{ $n.QueryName }} {
+func {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *{{ $entPkg }}.{{ $n.QueryName }}) *{{ $entPkg }}.{{ $n.QueryName }} {
 	{{- $edges := filterEdges $n.Edges (skipMode "type") }}
 	{{- if $edges }}
 	for _, field := range fields {
@@ -87,14 +88,14 @@ func {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx context.Context, fields [
 		{{- range $e := $edges }}
 		case "{{ camel $e.Name }}":
 			{{- if $e.Unique }}
-			query = query.With{{ $e.StructField }}(func(q *{{ $e.Type.QueryName }}) {
+			query = query.With{{ $e.StructField }}(func(q *{{ $entPkg }}.{{ $e.Type.QueryName }}) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					{{ $e.Type.QueryName }}CollectFieldsFromFieldInfos(ctx, field.Children, q)
 				}
 			})
 			{{- else }}
-			query = query.With{{ $e.StructField }}(func(q *{{ $e.Type.QueryName }}) {
+			query = query.With{{ $e.StructField }}(func(q *{{ $entPkg }}.{{ $e.Type.QueryName }}) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					{{ $e.Type.QueryName }}CollectFieldsFromFieldInfos(ctx, field.Children, q)

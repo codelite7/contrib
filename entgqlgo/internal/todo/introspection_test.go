@@ -25,8 +25,8 @@ import (
 	"slices"
 	"testing"
 
-	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/enttest"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/gqlgo"
 
 	"github.com/graphql-go/handler"
 	_ "github.com/mattn/go-sqlite3"
@@ -141,7 +141,7 @@ func TestSchemaIntrospection(t *testing.T) {
 	defer client.Close()
 
 	// Build GraphQL schema
-	schema, err := ent.NewSchema(client)
+	schema, err := gqlgo.NewSchema(client)
 	require.NoError(t, err, "failed to create GraphQL schema")
 
 	// Create HTTP test server

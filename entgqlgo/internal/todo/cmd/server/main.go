@@ -23,6 +23,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/gqlgo"
 )
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 	}
 
 	// Build GraphQL schema using generated code from entgqlgo
-	schema, err := ent.NewSchema(client)
+	schema, err := gqlgo.NewSchema(client)
 	if err != nil {
 		log.Fatalf("failed to build schema: %v", err)
 	}

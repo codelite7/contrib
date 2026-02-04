@@ -4,32 +4,33 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_resolvers" }}
+{{ define "gqlgo/resolvers" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 	"fmt"
 
+	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 	"entgo.io/contrib/entgqlgo"
 )
 
 // Resolvers contains resolver methods for the GraphQL schema.
 type Resolvers struct {
-	client *Client
+	client *{{ $entPkg }}.Client
 }
 
 // NewResolvers creates a new Resolvers instance.
-func NewResolvers(client *Client) *Resolvers {
+func NewResolvers(client *{{ $entPkg }}.Client) *Resolvers {
 	return &Resolvers{client: client}
 }
 
@@ -181,7 +182,7 @@ func (r *Resolvers) Delete{{ $n.Name }}(p graphql.ResolveParams) (interface{}, e
 
 // Resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
 func (r *Resolvers) Resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {
-	source, ok := p.Source.(*{{ $n.Name }})
+	source, ok := p.Source.(*{{ $entPkg }}.{{ $n.Name }})
 	if !ok {
 		return nil, nil
 	}

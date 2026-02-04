@@ -4,22 +4,23 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_node" }}
+{{ define "gqlgo/node" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
 {{ $idType := gqlIDType $gqlNodes $.IDType }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 	"fmt"
 
+	"{{ $.Config.Package }}"
 	"entgo.io/contrib/entgqlgo"
 	"github.com/graphql-go/graphql"
 )
@@ -33,10 +34,10 @@ type Noder interface {
 	IsNode()
 }
 
-{{- range $n := $gqlNodes }}
-// IsNode marks {{ $n.Name }} as a Relay Node.
-func (*{{ $n.Name }}) IsNode() {}
-{{- end }}
+// isNoder is a wrapper that implements Noder for ent types.
+type isNoder struct{}
+
+func (isNoder) IsNode() {}
 
 // NodeInterface is the Relay Node interface for global object identification.
 var NodeInterface = graphql.NewInterface(graphql.InterfaceConfig{
@@ -51,7 +52,7 @@ var NodeInterface = graphql.NewInterface(graphql.InterfaceConfig{
 	ResolveType: func(p graphql.ResolveTypeParams) *graphql.Object {
 		switch p.Value.(type) {
 		{{- range $n := $gqlNodes }}
-		case *{{ $n.Name }}:
+		case *{{ $entPkg }}.{{ $n.Name }}:
 			return {{ $n.Name }}Type
 		{{- end }}
 		default:
@@ -62,11 +63,11 @@ var NodeInterface = graphql.NewInterface(graphql.InterfaceConfig{
 
 // NodeResolver implements the node(id: ID!) query for Relay.
 type NodeResolver struct {
-	client *Client
+	client *{{ $entPkg }}.Client
 }
 
 // NewNodeResolver creates a new NodeResolver.
-func NewNodeResolver(client *Client) *NodeResolver {
+func NewNodeResolver(client *{{ $entPkg }}.Client) *NodeResolver {
 	return &NodeResolver{client: client}
 }
 
@@ -76,16 +77,16 @@ func (r *NodeResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("id argument is required")
 	}
-	return r.client.Noder(p.Context, id)
+	return Noder_(r.client, p.Context, id)
 }
 
 // NodesResolver implements the nodes(ids: [ID!]!) query for Relay.
 type NodesResolver struct {
-	client *Client
+	client *{{ $entPkg }}.Client
 }
 
 // NewNodesResolver creates a new NodesResolver.
-func NewNodesResolver(client *Client) *NodesResolver {
+func NewNodesResolver(client *{{ $entPkg }}.Client) *NodesResolver {
 	return &NodesResolver{client: client}
 }
 
@@ -95,12 +96,12 @@ func (r *NodesResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("ids argument is required")
 	}
-	return r.client.Noders(p.Context, ids)
+	return Noders(r.client, p.Context, ids)
 }
 
-// Noder returns a node by its global ID.
+// Noder_ returns a node by its global ID.
 // The ID is decoded and the appropriate entity is fetched.
-func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
+func Noder_(client *{{ $entPkg }}.Client, ctx context.Context, id interface{}) (interface{}, error) {
 	idStr := fmt.Sprint(id)
 
 	// Try to parse as a global ID (TypeName:LocalID format)
@@ -115,9 +116,9 @@ func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid {{ $n.Name }} ID: %w", err)
 			}
-			return c.{{ $n.Name }}.Get(ctx, idInt)
+			return client.{{ $n.Name }}.Get(ctx, idInt)
 			{{- else }}
-			return c.{{ $n.Name }}.Get(ctx, localID)
+			return client.{{ $n.Name }}.Get(ctx, localID)
 			{{- end }}
 		{{- end }}
 		default:
@@ -130,12 +131,12 @@ func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
 	{{- range $i, $n := $gqlNodes }}
 	{{- if $n.ID.IsInt }}
 	if idInt, err := parseInt(idStr); err == nil {
-		if node, err := c.{{ $n.Name }}.Get(ctx, idInt); err == nil {
+		if node, err := client.{{ $n.Name }}.Get(ctx, idInt); err == nil {
 			return node, nil
 		}
 	}
 	{{- else }}
-	if node, err := c.{{ $n.Name }}.Get(ctx, idStr); err == nil {
+	if node, err := client.{{ $n.Name }}.Get(ctx, idStr); err == nil {
 		return node, nil
 	}
 	{{- end }}
@@ -145,10 +146,10 @@ func (c *Client) Noder(ctx context.Context, id interface{}) (Noder, error) {
 
 // Noders returns nodes by their global IDs.
 // Returns nil for IDs that don't exist (preserving index positions).
-func (c *Client) Noders(ctx context.Context, ids []interface{}) ([]Noder, error) {
-	nodes := make([]Noder, len(ids))
+func Noders(client *{{ $entPkg }}.Client, ctx context.Context, ids []interface{}) ([]interface{}, error) {
+	nodes := make([]interface{}, len(ids))
 	for i, id := range ids {
-		node, err := c.Noder(ctx, id)
+		node, err := Noder_(client, ctx, id)
 		if err != nil {
 			// Return nil for nodes that don't exist (per Relay spec)
 			nodes[i] = nil
@@ -180,7 +181,7 @@ func parseInt(id interface{}) (int, error) {
 }
 
 // NodeField returns the GraphQL field definition for the node query.
-func NodeField(client *Client) *graphql.Field {
+func NodeField(client *{{ $entPkg }}.Client) *graphql.Field {
 	return &graphql.Field{
 		Type:        NodeInterface,
 		Description: "Fetches an object given its globally unique ID.",
@@ -195,7 +196,7 @@ func NodeField(client *Client) *graphql.Field {
 }
 
 // NodesField returns the GraphQL field definition for the nodes query.
-func NodesField(client *Client) *graphql.Field {
+func NodesField(client *{{ $entPkg }}.Client) *graphql.Field {
 	return &graphql.Field{
 		Type:        graphql.NewNonNull(graphql.NewList(NodeInterface)),
 		Description: "Fetches objects given their globally unique IDs.",

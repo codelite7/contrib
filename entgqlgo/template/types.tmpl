@@ -4,18 +4,19 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_types" }}
+{{ define "gqlgo/types" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
+	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 )
 
@@ -83,7 +84,7 @@ func init() {
 // resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
 // It checks if the edge was already eager-loaded to avoid N+1 queries.
 func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {
-	source, ok := p.Source.(*{{ $n.Name }})
+	source, ok := p.Source.(*{{ $entPkg }}.{{ $n.Name }})
 	if !ok {
 		return nil, nil
 	}
@@ -96,7 +97,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 	edge, err := source.Query{{ $e.StructField }}().Only(p.Context)
 	if err != nil {
 		// For optional edges, not found is not an error - return nil
-		if IsNotFound(err) {
+		if {{ $entPkg }}.IsNotFound(err) {
 			return nil, nil
 		}
 		return nil, err

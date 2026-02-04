@@ -4,20 +4,21 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_edge" }}
+{{ define "gqlgo/edge" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 
+	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 )
 
@@ -31,17 +32,17 @@ import (
 // It first checks if the edge was already loaded via eager loading.
 // If not, it falls back to querying the database.
 type {{ $n.Name }}{{ $e.StructField }}Resolver struct {
-	client *Client
+	client *{{ $entPkg }}.Client
 }
 
 // New{{ $n.Name }}{{ $e.StructField }}Resolver creates a new resolver for the {{ $e.Name }} edge.
-func New{{ $n.Name }}{{ $e.StructField }}Resolver(client *Client) *{{ $n.Name }}{{ $e.StructField }}Resolver {
+func New{{ $n.Name }}{{ $e.StructField }}Resolver(client *{{ $entPkg }}.Client) *{{ $n.Name }}{{ $e.StructField }}Resolver {
 	return &{{ $n.Name }}{{ $e.StructField }}Resolver{client: client}
 }
 
 // Resolve implements the edge resolution for {{ $n.Name }}.{{ $e.Name }}.
 func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
-	source, ok := p.Source.(*{{ $n.Name }})
+	source, ok := p.Source.(*{{ $entPkg }}.{{ $n.Name }})
 	if !ok {
 		return nil, nil
 	}
@@ -76,11 +77,11 @@ func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolvePar
 
 // EdgeResolverMap provides a map of edge resolvers for all types.
 type EdgeResolverMap struct {
-	client *Client
+	client *{{ $entPkg }}.Client
 }
 
 // NewEdgeResolverMap creates a new EdgeResolverMap.
-func NewEdgeResolverMap(client *Client) *EdgeResolverMap {
+func NewEdgeResolverMap(client *{{ $entPkg }}.Client) *EdgeResolverMap {
 	return &EdgeResolverMap{client: client}
 }
 

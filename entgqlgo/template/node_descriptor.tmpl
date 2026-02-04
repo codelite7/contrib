@@ -6,20 +6,22 @@ in the LICENSE file in the root directory of this source tree.
 
 {{/* gotype: entgo.io/ent/entc/gen.Graph */}}
 
-{{ define "gqlgo_node_descriptor" }}
-{{ $pkg := base $.Config.Package }}
-{{ template "header" $ }}
+{{ define "gqlgo/node_descriptor" }}
+
+{{- with extend $ "Package" "gqlgo" }}
+        {{ template "header" . }}
+{{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
 {{ $idType := gqlIDType $gqlNodes $.IDType }}
-
-{{ template "import" $ }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"{{ $.Config.Package }}"
 	{{- range $n := $.Nodes }}
 		"{{ $.Config.Package }}/{{ $n.Package }}"
 	{{- end }}
@@ -43,75 +45,72 @@ type Field struct {
 	Value string `json:"value,omitempty"` // stringified value.
 }
 
-// Edges between two nodes.
+// Edge between two nodes.
 type Edge struct {
 	Type string `json:"type,omitempty"` // edge type.
 	Name string `json:"name,omitempty"` // edge name.
 	IDs  []{{ $idType }} `json:"ids,omitempty"`  // node ids (where this edge point to).
 }
 
-{{/* loop over all types and add implement the Node interface. */}}
+{{/* Generate helper functions for each type to get node descriptors */}}
 {{- range $n := $gqlNodes }}
-	{{- $receiver := $n.Receiver }}
-	// Node implements Noder interface
-	func ({{ $receiver }} *{{ $n.Name }}) Node(ctx context.Context) (node *Node, err error) {
-		{{- $fields := filterFields $n.Fields (skipMode "type") }}
-		{{- $edges := filterEdges $n.Edges (skipMode "type") }}
-		node = &Node{
-			ID: {{ $receiver }}.ID,
-			Type: "{{ $n.Name }}",
-			Fields: make([]*Field, {{ len $fields }}),
-			Edges: make([]*Edge, {{ len $edges }}),
-		}
-		{{- with $fields }}
-			var buf []byte
-			{{- range $i, $f := $fields }}
-				if buf, err = json.Marshal({{ $receiver }}.{{ pascal $f.Name }}); err != nil {
-					return nil, err
-				}
-				node.Fields[{{ $i }}] = &Field{
-					Type:  "{{ $f.Type }}",
-					Name:  "{{ $f.Name }}",
-					Value: string(buf),
-				}
-			{{- end }}
-		{{- end }}
-		{{- with $edges }}
-			{{- range $i, $e := $edges }}
-				node.Edges[{{ $i }}] = &Edge{
-					Type: "{{ $e.Type.Name }}",
-					Name: "{{ $e.Name }}",
-				}
-				err = {{ $receiver }}.{{ print "Query" (pascal $e.Name) }}().
-					Select({{ $e.Type.Package }}.FieldID).
-					Scan(ctx, &node.Edges[{{ $i }}].IDs)
-				if err != nil {
-					return nil, err
-				}
-			{{- end }}
-		{{- end }}
-		return node, nil
+{{- $fields := filterFields $n.Fields (skipMode "type") }}
+{{- $edges := filterEdges $n.Edges (skipMode "type") }}
+// {{ $n.Name }}Node returns the Node descriptor for a {{ $n.Name }}.
+func {{ $n.Name }}Node(ctx context.Context, n *{{ $entPkg }}.{{ $n.Name }}) (*Node, error) {
+	node := &Node{
+		ID: n.ID,
+		Type: "{{ $n.Name }}",
+		Fields: make([]*Field, {{ len $fields }}),
+		Edges: make([]*Edge, {{ len $edges }}),
 	}
-{{ end }}
-
-// NodeDescriptor is an interface for nodes that can describe themselves.
-type NodeDescriptor interface {
-	Node(context.Context) (*Node, error)
+	{{- with $fields }}
+	var buf []byte
+	var err error
+	{{- range $i, $f := $fields }}
+	if buf, err = json.Marshal(n.{{ pascal $f.Name }}); err != nil {
+		return nil, err
+	}
+	node.Fields[{{ $i }}] = &Field{
+		Type:  "{{ $f.Type }}",
+		Name:  "{{ $f.Name }}",
+		Value: string(buf),
+	}
+	{{- end }}
+	{{- end }}
+	{{- with $edges }}
+	{{- range $i, $e := $edges }}
+	node.Edges[{{ $i }}] = &Edge{
+		Type: "{{ $e.Type.Name }}",
+		Name: "{{ $e.Name }}",
+	}
+	if err := n.{{ print "Query" (pascal $e.Name) }}().
+		Select({{ $e.Type.Package }}.FieldID).
+		Scan(ctx, &node.Edges[{{ $i }}].IDs); err != nil {
+		return nil, err
+	}
+	{{- end }}
+	{{- end }}
+	return node, nil
 }
+{{- end }}
 
-{{/* Add the node api to the client */}}
 // NodeWithDescriptor returns the node descriptor with given global ID.
 //
 // This API is helpful in case you want to build
 // an administrator tool to browse all types in the system.
-func (c *Client) NodeWithDescriptor(ctx context.Context, id {{ $idType }}) (*Node, error) {
-	n, err := c.Noder(ctx, id)
+func NodeWithDescriptor(client *{{ $entPkg }}.Client, ctx context.Context, id {{ $idType }}) (*Node, error) {
+	n, err := Noder_(client, ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if nd, ok := n.(NodeDescriptor); ok {
-		return nd.Node(ctx)
+	switch v := n.(type) {
+	{{- range $n := $gqlNodes }}
+	case *{{ $entPkg }}.{{ $n.Name }}:
+		return {{ $n.Name }}Node(ctx, v)
+	{{- end }}
+	default:
+		return nil, fmt.Errorf("unknown node type: %T", n)
 	}
-	return nil, fmt.Errorf("node does not implement NodeDescriptor")
 }
 {{ end }}

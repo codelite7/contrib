@@ -296,7 +296,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull({{ $n.Name }}CreateInputType),
+						Type:        graphql.NewNonNull({{ $n.Name }}CreateInputGGType),
 						Description: "Input for creating a {{ $n.Name }}.",
 					},
 				},
@@ -310,7 +310,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := Parse{{ $n.Name }}CreateInput(inputMap)
+					input, err := Parse{{ $n.Name }}CreateInputGG(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
@@ -325,7 +325,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 						Description: "The ID of the {{ $n.Name }} to update.",
 					},
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull({{ $n.Name }}UpdateInputType),
+						Type:        graphql.NewNonNull({{ $n.Name }}UpdateInputGGType),
 						Description: "Input for updating a {{ $n.Name }}.",
 					},
 				},
@@ -343,7 +343,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := Parse{{ $n.Name }}UpdateInput(inputMap)
+					input, err := Parse{{ $n.Name }}UpdateInputGG(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
@@ -393,9 +393,9 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 var (
 {{- range $n := $gqlNodes }}
 	{{- $names := nodePaginationNames $n }}
-	// {{ $n.Name }}CreateInputType is the GraphQL input type for creating a {{ $n.Name }}.
-	{{ $n.Name }}CreateInputType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "{{ $n.Name }}CreateInput",
+	// {{ $n.Name }}CreateInputGGType is the GraphQL input type for creating a {{ $n.Name }}.
+	{{ $n.Name }}CreateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "{{ $n.Name }}CreateInputGG",
 		Fields: graphql.InputObjectConfigFieldMap{
 			{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
 			{{- if not $f.Sensitive }}
@@ -425,9 +425,9 @@ var (
 			{{- end }}
 		},
 	})
-	// {{ $n.Name }}UpdateInputType is the GraphQL input type for updating a {{ $n.Name }}.
-	{{ $n.Name }}UpdateInputType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "{{ $n.Name }}UpdateInput",
+	// {{ $n.Name }}UpdateInputGGType is the GraphQL input type for updating a {{ $n.Name }}.
+	{{ $n.Name }}UpdateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "{{ $n.Name }}UpdateInputGG",
 		Fields: graphql.InputObjectConfigFieldMap{
 			{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
 			{{- if not $f.Sensitive }}
@@ -483,9 +483,9 @@ var (
 {{- /* Generate mutation input parsing helpers */ -}}
 {{- range $n := $gqlNodes }}
 
-// Parse{{ $n.Name }}CreateInput parses a map into {{ $n.Name }}CreateInput.
-func Parse{{ $n.Name }}CreateInput(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}CreateInput, error) {
-	result := &{{ $entPkg }}.{{ $n.Name }}CreateInput{}
+// Parse{{ $n.Name }}CreateInputGG parses a map into {{ $n.Name }}CreateInputGG.
+func Parse{{ $n.Name }}CreateInputGG(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}CreateInputGG, error) {
+	result := &{{ $entPkg }}.{{ $n.Name }}CreateInputGG{}
 {{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
@@ -566,9 +566,9 @@ func Parse{{ $n.Name }}CreateInput(input map[string]interface{}) (*{{ $entPkg }}
 	return result, nil
 }
 
-// Parse{{ $n.Name }}UpdateInput parses a map into {{ $n.Name }}UpdateInput.
-func Parse{{ $n.Name }}UpdateInput(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}UpdateInput, error) {
-	result := &{{ $entPkg }}.{{ $n.Name }}UpdateInput{}
+// Parse{{ $n.Name }}UpdateInputGG parses a map into {{ $n.Name }}UpdateInputGG.
+func Parse{{ $n.Name }}UpdateInputGG(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}UpdateInputGG, error) {
+	result := &{{ $entPkg }}.{{ $n.Name }}UpdateInputGG{}
 {{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}

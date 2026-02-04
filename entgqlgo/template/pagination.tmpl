@@ -4,22 +4,23 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_pagination" }}
+{{ define "gqlgo/pagination" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
 {{ $idType := gqlIDType $gqlNodes $.IDType }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 	"errors"
 
+	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/contrib/entgqlgo"
@@ -108,7 +109,7 @@ func validatePaginationArgs(args *PaginationArgs) error {
 
 // {{ $names.Edge }} represents an edge in a {{ $n.Name }} connection.
 type {{ $names.Edge }} struct {
-	Node   *{{ $n.Name }} `json:"node,omitempty"`
+	Node   *{{ $entPkg }}.{{ $n.Name }} `json:"node,omitempty"`
 	Cursor entgqlgo.Cursor[{{ $idType }}] `json:"cursor"`
 }
 
@@ -157,14 +158,18 @@ var {{ $names.Connection }}Type = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
+// {{ $n.QueryName }}Option is a function that modifies a {{ $n.QueryName }}.
+type {{ $n.QueryName }}Option func(*{{ $entPkg }}.{{ $n.QueryName }})
+
 // Paginate{{ plural $n.Name }} returns a paginated list of {{ plural $n.Name }}.
-func (c *Client) Paginate{{ plural $n.Name }}(
+func Paginate{{ plural $n.Name }}(
+	client *{{ $entPkg }}.Client,
 	ctx context.Context,
 	after, before *entgqlgo.Cursor[{{ $idType }}],
 	first, last *int,
 	opts ...{{ $n.QueryName }}Option,
 ) (*{{ $names.Connection }}, error) {
-	query := c.{{ $n.Name }}.Query()
+	query := client.{{ $n.Name }}.Query()
 	for _, opt := range opts {
 		opt(query)
 	}
@@ -240,7 +245,8 @@ func (c *Client) Paginate{{ plural $n.Name }}(
 {{- if $orderFields }}
 
 // Paginate{{ plural $n.Name }}WithOrder returns a paginated list of {{ plural $n.Name }} with ordering.
-func (c *Client) Paginate{{ plural $n.Name }}WithOrder(
+func Paginate{{ plural $n.Name }}WithOrder(
+	client *{{ $entPkg }}.Client,
 	ctx context.Context,
 	after, before *entgqlgo.Cursor[{{ $idType }}],
 	first, last *int,
@@ -251,7 +257,7 @@ func (c *Client) Paginate{{ plural $n.Name }}WithOrder(
 	{{- end }}
 	opts ...{{ $n.QueryName }}Option,
 ) (*{{ $names.Connection }}, error) {
-	query := c.{{ $n.Name }}.Query()
+	query := client.{{ $n.Name }}.Query()
 	for _, opt := range opts {
 		opt(query)
 	}
@@ -380,9 +386,6 @@ func (c *Client) Paginate{{ plural $n.Name }}WithOrder(
 	return conn, nil
 }
 {{- end }}
-
-// {{ $n.QueryName }}Option is a function that modifies a {{ $n.QueryName }}.
-type {{ $n.QueryName }}Option func(*{{ $n.QueryName }})
 {{- end }}
 
 {{ end }}

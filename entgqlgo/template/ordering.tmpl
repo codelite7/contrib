@@ -4,21 +4,22 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_ordering" }}
+{{ define "gqlgo/ordering" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"github.com/graphql-go/graphql"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/contrib/entgqlgo"
+	"{{ $.Config.Package }}"
 	{{- range $n := $gqlNodes }}
 	{{- $orderFields := orderFields $n }}
 	{{- if $orderFields }}
@@ -142,7 +143,7 @@ func Parse{{ $names.Order }}List(list []interface{}) ([]*{{ $names.Order }}, err
 }
 
 // Apply{{ $names.Order }}List applies multiple order options to a query.
-func Apply{{ $names.Order }}List(query *{{ $n.QueryName }}, orders []*{{ $names.Order }}) *{{ $n.QueryName }} {
+func Apply{{ $names.Order }}List(query *{{ $entPkg }}.{{ $n.QueryName }}, orders []*{{ $names.Order }}) *{{ $entPkg }}.{{ $n.QueryName }} {
 	for _, o := range orders {
 		query = query.Order(o.ToOrderOption())
 	}

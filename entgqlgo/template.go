@@ -198,9 +198,9 @@ func (m *MutationDescriptor) Input() (string, error) {
 		return "", err
 	}
 	if m.IsCreate {
-		return fmt.Sprintf("%sCreateInput", gqlType), nil
+		return fmt.Sprintf("%sCreateInputGG", gqlType), nil
 	}
-	return fmt.Sprintf("%sUpdateInput", gqlType), nil
+	return fmt.Sprintf("%sUpdateInputGG", gqlType), nil
 }
 
 // Builders return the builder's names to apply the input.
