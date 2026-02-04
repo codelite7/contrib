@@ -4,29 +4,30 @@ This source code is licensed under the Apache 2.0 license found
 in the LICENSE file in the root directory of this source tree.
 */}}
 
-{{ define "gqlgo_schema" }}
+{{ define "gqlgo/schema" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $entPkg := base $.Config.Package }}
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 
+	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 	"entgo.io/contrib/entgqlgo"
 )
 
 // NewSchema creates a new GraphQL schema with Query and Mutation types.
 // The client is used for database operations in resolvers.
-func NewSchema(client *Client) (graphql.Schema, error) {
+func NewSchema(client *{{ $entPkg }}.Client) (graphql.Schema, error) {
 	return graphql.NewSchema(graphql.SchemaConfig{
 		Query:    newQueryType(client),
 		Mutation: newMutationType(client),
@@ -34,7 +35,7 @@ func NewSchema(client *Client) (graphql.Schema, error) {
 }
 
 // newQueryType creates the root Query type.
-func newQueryType(client *Client) *graphql.Object {
+func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Query",
 		Fields: graphql.Fields{
@@ -204,7 +205,8 @@ func newQueryType(client *Client) *graphql.Object {
 							}
 						}
 					}
-					return client.Paginate{{ plural $n.Name }}WithOrder(
+					return Paginate{{ plural $n.Name }}WithOrder(
+						client,
 						p.Context,
 						args.After,
 						args.Before,
@@ -222,7 +224,8 @@ func newQueryType(client *Client) *graphql.Object {
 							}
 						}
 					}
-					return client.Paginate{{ plural $n.Name }}WithOrder(
+					return Paginate{{ plural $n.Name }}WithOrder(
+						client,
 						p.Context,
 						args.After,
 						args.Before,
@@ -232,7 +235,8 @@ func newQueryType(client *Client) *graphql.Object {
 					)
 					{{- end }}
 					{{- else }}
-					return client.Paginate{{ plural $n.Name }}(
+					return Paginate{{ plural $n.Name }}(
+						client,
 						p.Context,
 						args.After,
 						args.Before,
@@ -258,7 +262,7 @@ func newQueryType(client *Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
-					return client.Noder(p.Context, fmt.Sprint(id))
+					return Noder_(client, p.Context, fmt.Sprint(id))
 				},
 			},
 			"nodes": &graphql.Field{
@@ -275,7 +279,7 @@ func newQueryType(client *Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
-					return client.Noders(p.Context, ids)
+					return Noders(client, p.Context, ids)
 				},
 			},
 		},
@@ -283,7 +287,7 @@ func newQueryType(client *Client) *graphql.Object {
 }
 
 // newMutationType creates the root Mutation type.
-func newMutationType(client *Client) *graphql.Object {
+func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
@@ -292,7 +296,7 @@ func newMutationType(client *Client) *graphql.Object {
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull(Create{{ $n.Name }}InputType),
+						Type:        graphql.NewNonNull({{ $n.Name }}CreateInputType),
 						Description: "Input for creating a {{ $n.Name }}.",
 					},
 				},
@@ -306,7 +310,7 @@ func newMutationType(client *Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := ParseCreate{{ $n.Name }}Input(inputMap)
+					input, err := Parse{{ $n.Name }}CreateInput(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
@@ -321,7 +325,7 @@ func newMutationType(client *Client) *graphql.Object {
 						Description: "The ID of the {{ $n.Name }} to update.",
 					},
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull(Update{{ $n.Name }}InputType),
+						Type:        graphql.NewNonNull({{ $n.Name }}UpdateInputType),
 						Description: "Input for updating a {{ $n.Name }}.",
 					},
 				},
@@ -339,7 +343,7 @@ func newMutationType(client *Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := ParseUpdate{{ $n.Name }}Input(inputMap)
+					input, err := Parse{{ $n.Name }}UpdateInput(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
@@ -389,9 +393,9 @@ func newMutationType(client *Client) *graphql.Object {
 var (
 {{- range $n := $gqlNodes }}
 	{{- $names := nodePaginationNames $n }}
-	// Create{{ $n.Name }}InputType is the GraphQL input type for creating a {{ $n.Name }}.
-	Create{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "Create{{ $n.Name }}Input",
+	// {{ $n.Name }}CreateInputType is the GraphQL input type for creating a {{ $n.Name }}.
+	{{ $n.Name }}CreateInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "{{ $n.Name }}CreateInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			{{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
 			{{- if not $f.Sensitive }}
@@ -421,9 +425,9 @@ var (
 			{{- end }}
 		},
 	})
-	// Update{{ $n.Name }}InputType is the GraphQL input type for updating a {{ $n.Name }}.
-	Update{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "Update{{ $n.Name }}Input",
+	// {{ $n.Name }}UpdateInputType is the GraphQL input type for updating a {{ $n.Name }}.
+	{{ $n.Name }}UpdateInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "{{ $n.Name }}UpdateInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			{{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
 			{{- if not $f.Sensitive }}
@@ -479,9 +483,9 @@ var (
 {{- /* Generate mutation input parsing helpers */ -}}
 {{- range $n := $gqlNodes }}
 
-// ParseCreate{{ $n.Name }}Input parses a map into Create{{ $n.Name }}Input.
-func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.Name }}Input, error) {
-	result := &Create{{ $n.Name }}Input{}
+// Parse{{ $n.Name }}CreateInput parses a map into {{ $n.Name }}CreateInput.
+func Parse{{ $n.Name }}CreateInput(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}CreateInput, error) {
+	result := &{{ $entPkg }}.{{ $n.Name }}CreateInput{}
 {{- range $f := filterFields $n.Fields (skipMode "mutation_create_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
@@ -562,9 +566,9 @@ func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.N
 	return result, nil
 }
 
-// ParseUpdate{{ $n.Name }}Input parses a map into Update{{ $n.Name }}Input.
-func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.Name }}Input, error) {
-	result := &Update{{ $n.Name }}Input{}
+// Parse{{ $n.Name }}UpdateInput parses a map into {{ $n.Name }}UpdateInput.
+func Parse{{ $n.Name }}UpdateInput(input map[string]interface{}) (*{{ $entPkg }}.{{ $n.Name }}UpdateInput, error) {
+	result := &{{ $entPkg }}.{{ $n.Name }}UpdateInput{}
 {{- range $f := filterFields $n.Fields (skipMode "mutation_update_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
