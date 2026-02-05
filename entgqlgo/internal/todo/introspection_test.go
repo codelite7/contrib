@@ -323,3 +323,44 @@ func sortStrings(items []interface{}) {
 		return 0
 	})
 }
+
+
+// TestNoSingularByIDQueries verifies that the schema does not contain singular
+// by-ID query fields (e.g., category(id: ID!), todo(id: ID!)). Single-entity
+// lookups should use node(id: ID!) instead, matching gqlgen behavior.
+func TestNoSingularByIDQueries(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := gqlgo.NewSchema(client)
+	require.NoError(t, err, "failed to create GraphQL schema")
+
+	queryType := schema.QueryType()
+	require.NotNil(t, queryType, "schema should have a Query type")
+
+	fields := queryType.Fields()
+
+	singularNames := []string{"category", "todo"}
+	for _, name := range singularNames {
+		_, exists := fields[name]
+		require.False(t, exists, "singular by-ID query %%q should not exist; use node(id: ID!) instead", name)
+	}
+
+	connectionNames := []string{"categoriesConnection", "todosConnection"}
+	for _, name := range connectionNames {
+		_, exists := fields[name]
+		require.False(t, exists, "Connection query %%q should not exist", name)
+	}
+
+	pluralNames := []string{"categories", "todos"}
+	for _, name := range pluralNames {
+		_, exists := fields[name]
+		require.True(t, exists, "plural list query %%q should exist", name)
+	}
+
+	relayNames := []string{"node", "nodes"}
+	for _, name := range relayNames {
+		_, exists := fields[name]
+		require.True(t, exists, "relay query %%q should exist", name)
+	}
+}
