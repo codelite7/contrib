@@ -59,11 +59,55 @@ func init() {
 				{{- end }}
 				{{- /* Edge fields */ -}}
 				{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
+				{{- $isRC := gqlgoIsRelayConn $e }}
 				"{{ camel $e.Name }}": &graphql.Field{
+					{{- if $isRC }}
+					{{- $edgeNames := gqlgoNodePaginationNames $e.Type }}
+					Type: {{ $edgeNames.Connection }}Type,
+					Args: graphql.FieldConfigArgument{
+						"first": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the first n elements from the list.",
+						},
+						"last": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the last n elements from the list.",
+						},
+						"after": &graphql.ArgumentConfig{
+							Type:        CursorScalar,
+							Description: "Returns the elements that come after the specified cursor.",
+						},
+						"before": &graphql.ArgumentConfig{
+							Type:        CursorScalar,
+							Description: "Returns the elements that come before the specified cursor.",
+						},
+						{{- $edgeHasWhere := gqlgoHasWhereInput $e }}
+						{{- if $edgeHasWhere }}
+						"where": &graphql.ArgumentConfig{
+							Type:        {{ $edgeNames.WhereInput }}Type,
+							Description: "Filter {{ $e.Type.Name }} by conditions.",
+						},
+						{{- end }}
+						{{- $edgeOrderFields := gqlgoOrderFields $e.Type }}
+						{{- if $edgeOrderFields }}
+						{{- $edgeMultiOrder := $e.Type.Annotations.EntGQL.MultiOrder }}
+						"orderBy": &graphql.ArgumentConfig{
+							{{- if $edgeMultiOrder }}
+							Type:        graphql.NewList({{ $edgeNames.Order }}InputType),
+							Description: "Ordering options for {{ $e.Type.Name }}. Multiple orders can be specified.",
+							{{- else }}
+							Type:        {{ $edgeNames.Order }}InputType,
+							Description: "Ordering options for {{ $e.Type.Name }}.",
+							{{- end }}
+						},
+						{{- end }}
+					},
+					{{- else }}
 					{{- if $e.Unique }}
 					Type: {{ $e.Type.Name }}Type,
 					{{- else }}
 					Type: graphql.NewList({{ $e.Type.Name }}Type),
+					{{- end }}
 					{{- end }}
 					{{- if $e.Comment }}
 					Description: "{{ $e.Comment }}",
