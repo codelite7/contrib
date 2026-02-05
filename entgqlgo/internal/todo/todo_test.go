@@ -2775,15 +2775,15 @@ func TestSkipMutationCreateInput(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	// Create a todo using the generated TodoCreateInputGG
+	// Create a todo using the generated CreateTodoInput
 	// Note: created_at should NOT be in the input type due to skip annotation
-	input := ent.TodoCreateInputGG{
+	input := ent.CreateTodoInput{
 		Status:   todo.StatusPending,
 		Text:     "Test todo",
 		Priority: intPtr(5),
 	}
 
-	created, err := client.Todo.Create().SetInputGG(input).Save(ctx)
+	created, err := client.Todo.Create().SetInput(input).Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to create todo with input: %v", err)
 	}
