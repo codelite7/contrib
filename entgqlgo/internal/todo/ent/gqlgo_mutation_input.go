@@ -21,15 +21,15 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 )
 
-// CategoryCreateInputGG represents a mutation input for creating categories.
-type CategoryCreateInputGG struct {
+// CreateCategoryInput represents a mutation input for creating categories.
+type CreateCategoryInput struct {
 	Text    string
 	Status  *category.Status
 	TodoIDs []int
 }
 
-// Mutate applies the CategoryCreateInputGG on the CategoryMutation builder.
-func (i *CategoryCreateInputGG) Mutate(m *CategoryMutation) {
+// Mutate applies the CreateCategoryInput on the CategoryMutation builder.
+func (i *CreateCategoryInput) Mutate(m *CategoryMutation) {
 	m.SetText(i.Text)
 	if v := i.Status; v != nil {
 		m.SetStatus(*v)
@@ -39,14 +39,14 @@ func (i *CategoryCreateInputGG) Mutate(m *CategoryMutation) {
 	}
 }
 
-// SetInputGG applies the change-set in the CategoryCreateInputGG on the CategoryCreate builder.
-func (c *CategoryCreate) SetInputGG(i CategoryCreateInputGG) *CategoryCreate {
+// SetInput applies the change-set in the CreateCategoryInput on the CategoryCreate builder.
+func (c *CategoryCreate) SetInput(i CreateCategoryInput) *CategoryCreate {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// CategoryUpdateInputGG represents a mutation input for updating categories.
-type CategoryUpdateInputGG struct {
+// UpdateCategoryInput represents a mutation input for updating categories.
+type UpdateCategoryInput struct {
 	Text          *string
 	Status        *category.Status
 	ClearTodos    bool
@@ -54,8 +54,8 @@ type CategoryUpdateInputGG struct {
 	RemoveTodoIDs []int
 }
 
-// Mutate applies the CategoryUpdateInputGG on the CategoryMutation builder.
-func (i *CategoryUpdateInputGG) Mutate(m *CategoryMutation) {
+// Mutate applies the UpdateCategoryInput on the CategoryMutation builder.
+func (i *UpdateCategoryInput) Mutate(m *CategoryMutation) {
 	if v := i.Text; v != nil {
 		m.SetText(*v)
 	}
@@ -73,20 +73,20 @@ func (i *CategoryUpdateInputGG) Mutate(m *CategoryMutation) {
 	}
 }
 
-// SetInputGG applies the change-set in the CategoryUpdateInputGG on the CategoryUpdate builder.
-func (c *CategoryUpdate) SetInputGG(i CategoryUpdateInputGG) *CategoryUpdate {
+// SetInput applies the change-set in the UpdateCategoryInput on the CategoryUpdate builder.
+func (c *CategoryUpdate) SetInput(i UpdateCategoryInput) *CategoryUpdate {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// SetInputGG applies the change-set in the CategoryUpdateInputGG on the CategoryUpdateOne builder.
-func (c *CategoryUpdateOne) SetInputGG(i CategoryUpdateInputGG) *CategoryUpdateOne {
+// SetInput applies the change-set in the UpdateCategoryInput on the CategoryUpdateOne builder.
+func (c *CategoryUpdateOne) SetInput(i UpdateCategoryInput) *CategoryUpdateOne {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// TodoCreateInputGG represents a mutation input for creating todos.
-type TodoCreateInputGG struct {
+// CreateTodoInput represents a mutation input for creating todos.
+type CreateTodoInput struct {
 	Status     todo.Status
 	Priority   *int
 	Text       string
@@ -95,8 +95,8 @@ type TodoCreateInputGG struct {
 	CategoryID *int
 }
 
-// Mutate applies the TodoCreateInputGG on the TodoMutation builder.
-func (i *TodoCreateInputGG) Mutate(m *TodoMutation) {
+// Mutate applies the CreateTodoInput on the TodoMutation builder.
+func (i *CreateTodoInput) Mutate(m *TodoMutation) {
 	m.SetStatus(i.Status)
 	if v := i.Priority; v != nil {
 		m.SetPriority(*v)
@@ -113,14 +113,14 @@ func (i *TodoCreateInputGG) Mutate(m *TodoMutation) {
 	}
 }
 
-// SetInputGG applies the change-set in the TodoCreateInputGG on the TodoCreate builder.
-func (c *TodoCreate) SetInputGG(i TodoCreateInputGG) *TodoCreate {
+// SetInput applies the change-set in the CreateTodoInput on the TodoCreate builder.
+func (c *TodoCreate) SetInput(i CreateTodoInput) *TodoCreate {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// TodoUpdateInputGG represents a mutation input for updating todos.
-type TodoUpdateInputGG struct {
+// UpdateTodoInput represents a mutation input for updating todos.
+type UpdateTodoInput struct {
 	Status         *todo.Status
 	Priority       *int
 	Text           *string
@@ -133,8 +133,8 @@ type TodoUpdateInputGG struct {
 	CategoryID     *int
 }
 
-// Mutate applies the TodoUpdateInputGG on the TodoMutation builder.
-func (i *TodoUpdateInputGG) Mutate(m *TodoMutation) {
+// Mutate applies the UpdateTodoInput on the TodoMutation builder.
+func (i *UpdateTodoInput) Mutate(m *TodoMutation) {
 	if v := i.Status; v != nil {
 		m.SetStatus(*v)
 	}
@@ -167,14 +167,14 @@ func (i *TodoUpdateInputGG) Mutate(m *TodoMutation) {
 	}
 }
 
-// SetInputGG applies the change-set in the TodoUpdateInputGG on the TodoUpdate builder.
-func (c *TodoUpdate) SetInputGG(i TodoUpdateInputGG) *TodoUpdate {
+// SetInput applies the change-set in the UpdateTodoInput on the TodoUpdate builder.
+func (c *TodoUpdate) SetInput(i UpdateTodoInput) *TodoUpdate {
 	i.Mutate(c.Mutation())
 	return c
 }
 
-// SetInputGG applies the change-set in the TodoUpdateInputGG on the TodoUpdateOne builder.
-func (c *TodoUpdateOne) SetInputGG(i TodoUpdateInputGG) *TodoUpdateOne {
+// SetInput applies the change-set in the UpdateTodoInput on the TodoUpdateOne builder.
+func (c *TodoUpdateOne) SetInput(i UpdateTodoInput) *TodoUpdateOne {
 	i.Mutate(c.Mutation())
 	return c
 }

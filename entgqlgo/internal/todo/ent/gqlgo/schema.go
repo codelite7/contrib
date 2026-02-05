@@ -17,6 +17,7 @@
 package gqlgo
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -26,6 +27,15 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"github.com/graphql-go/graphql"
 )
+
+// clientFromContext returns the client from context if available, otherwise falls back to the provided client.
+// This enables transactional operations when the context contains a transactional client.
+func clientFromContext(ctx context.Context, fallback *ent.Client) *ent.Client {
+	if c := ent.FromContext(ctx); c != nil {
+		return c
+	}
+	return fallback
+}
 
 // NewSchema creates a new GraphQL schema with Query and Mutation types.
 // The client is used for database operations in resolvers.
@@ -63,7 +73,8 @@ func newQueryType(client *ent.Client) *graphql.Object {
 				},
 				Description: "Query all Categories.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					query := client.Category.Query()
+					c := clientFromContext(p.Context, client)
+					query := c.Category.Query()
 					// Apply eager loading based on selection
 					fields := entgqlgo.CollectFields(p.Info)
 					if contains(fields, "todos") {
@@ -124,7 +135,8 @@ func newQueryType(client *ent.Client) *graphql.Object {
 				},
 				Description: "Query all Todos.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					query := client.Todo.Query()
+					c := clientFromContext(p.Context, client)
+					query := c.Todo.Query()
 					// Apply eager loading based on selection
 					fields := entgqlgo.CollectFields(p.Info)
 					if contains(fields, "parent") {
@@ -168,8 +180,7 @@ func newQueryType(client *ent.Client) *graphql.Object {
 					}
 					return query.All(p.Context)
 				},
-			},
-			"node": &graphql.Field{
+			}, "node": &graphql.Field{
 				Type: NodeInterface,
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -183,7 +194,8 @@ func newQueryType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
-					return Noder_(client, p.Context, fmt.Sprint(id))
+					c := clientFromContext(p.Context, client)
+					return Noder_(c, p.Context, fmt.Sprint(id))
 				},
 			},
 			"nodes": &graphql.Field{
@@ -200,7 +212,8 @@ func newQueryType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return nil, nil
 					}
-					return Noders(client, p.Context, ids)
+					c := clientFromContext(p.Context, client)
+					return Noders(c, p.Context, ids)
 				},
 			},
 		},
@@ -216,7 +229,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 				Type: CategoryType,
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull(CategoryCreateInputGGType),
+						Type:        graphql.NewNonNull(CreateCategoryInputType),
 						Description: "Input for creating a Category.",
 					},
 				},
@@ -230,11 +243,12 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := ParseCategoryCreateInputGG(inputMap)
+					input, err := ParseCreateCategoryInput(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
-					return client.Category.Create().SetInputGG(*input).Save(p.Context)
+					c := clientFromContext(p.Context, client)
+					return c.Category.Create().SetInput(*input).Save(p.Context)
 				},
 			},
 			"updateCategory": &graphql.Field{
@@ -245,7 +259,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 						Description: "The ID of the Category to update.",
 					},
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull(CategoryUpdateInputGGType),
+						Type:        graphql.NewNonNull(UpdateCategoryInputType),
 						Description: "Input for updating a Category.",
 					},
 				},
@@ -263,15 +277,16 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := ParseCategoryUpdateInputGG(inputMap)
+					input, err := ParseUpdateCategoryInput(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
+					c := clientFromContext(p.Context, client)
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return nil, err
 					}
-					return client.Category.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
+					return c.Category.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
 				},
 			},
 			"deleteCategory": &graphql.Field{
@@ -288,11 +303,12 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return false, fmt.Errorf("id is required")
 					}
+					c := clientFromContext(p.Context, client)
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return false, err
 					}
-					err = client.Category.DeleteOneID(idInt).Exec(p.Context)
+					err = c.Category.DeleteOneID(idInt).Exec(p.Context)
 					return err == nil, err
 				},
 			},
@@ -300,7 +316,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 				Type: TodoType,
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull(TodoCreateInputGGType),
+						Type:        graphql.NewNonNull(CreateTodoInputType),
 						Description: "Input for creating a Todo.",
 					},
 				},
@@ -314,11 +330,12 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := ParseTodoCreateInputGG(inputMap)
+					input, err := ParseCreateTodoInput(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
-					return client.Todo.Create().SetInputGG(*input).Save(p.Context)
+					c := clientFromContext(p.Context, client)
+					return c.Todo.Create().SetInput(*input).Save(p.Context)
 				},
 			},
 			"updateTodo": &graphql.Field{
@@ -329,7 +346,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 						Description: "The ID of the Todo to update.",
 					},
 					"input": &graphql.ArgumentConfig{
-						Type:        graphql.NewNonNull(TodoUpdateInputGGType),
+						Type:        graphql.NewNonNull(UpdateTodoInputType),
 						Description: "Input for updating a Todo.",
 					},
 				},
@@ -347,15 +364,16 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return nil, fmt.Errorf("input must be an object")
 					}
-					input, err := ParseTodoUpdateInputGG(inputMap)
+					input, err := ParseUpdateTodoInput(inputMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
+					c := clientFromContext(p.Context, client)
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return nil, err
 					}
-					return client.Todo.UpdateOneID(idInt).SetInputGG(*input).Save(p.Context)
+					return c.Todo.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
 				},
 			},
 			"deleteTodo": &graphql.Field{
@@ -372,11 +390,12 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					if !ok {
 						return false, fmt.Errorf("id is required")
 					}
+					c := clientFromContext(p.Context, client)
 					idInt, err := strconv.Atoi(fmt.Sprint(id))
 					if err != nil {
 						return false, err
 					}
-					err = client.Todo.DeleteOneID(idInt).Exec(p.Context)
+					err = c.Todo.DeleteOneID(idInt).Exec(p.Context)
 					return err == nil, err
 				},
 			},
@@ -385,9 +404,9 @@ func newMutationType(client *ent.Client) *graphql.Object {
 }
 
 var (
-	// CategoryCreateInputGGType is the GraphQL input type for creating a Category.
-	CategoryCreateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "CategoryCreateInputGG",
+	// CreateCategoryInputType is the GraphQL input type for creating a Category.
+	CreateCategoryInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "CreateCategoryInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			"text": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(graphql.String),
@@ -401,9 +420,9 @@ var (
 			},
 		},
 	})
-	// CategoryUpdateInputGGType is the GraphQL input type for updating a Category.
-	CategoryUpdateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "CategoryUpdateInputGG",
+	// UpdateCategoryInputType is the GraphQL input type for updating a Category.
+	UpdateCategoryInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "UpdateCategoryInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			"text": &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
@@ -425,9 +444,9 @@ var (
 			},
 		},
 	})
-	// TodoCreateInputGGType is the GraphQL input type for creating a Todo.
-	TodoCreateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "TodoCreateInputGG",
+	// CreateTodoInputType is the GraphQL input type for creating a Todo.
+	CreateTodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "CreateTodoInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			"status": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(TodoStatusEnum),
@@ -452,9 +471,9 @@ var (
 			},
 		},
 	})
-	// TodoUpdateInputGGType is the GraphQL input type for updating a Todo.
-	TodoUpdateInputGGType = graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: "TodoUpdateInputGG",
+	// UpdateTodoInputType is the GraphQL input type for updating a Todo.
+	UpdateTodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "UpdateTodoInput",
 		Fields: graphql.InputObjectConfigFieldMap{
 			"status": &graphql.InputObjectFieldConfig{
 				Type: TodoStatusEnum,
@@ -497,9 +516,9 @@ var (
 	})
 )
 
-// ParseCategoryCreateInputGG parses a map into CategoryCreateInputGG.
-func ParseCategoryCreateInputGG(input map[string]interface{}) (*ent.CategoryCreateInputGG, error) {
-	result := &ent.CategoryCreateInputGG{}
+// ParseCreateCategoryInput parses a map into CreateCategoryInput.
+func ParseCreateCategoryInput(input map[string]interface{}) (*ent.CreateCategoryInput, error) {
+	result := &ent.CreateCategoryInput{}
 	if v, ok := input["text"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			result.Text = str
@@ -513,21 +532,21 @@ func ParseCategoryCreateInputGG(input map[string]interface{}) (*ent.CategoryCrea
 	}
 	if v, ok := input["todoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid todoID: %w", err)
 				}
-				result.TodoIDs = append(result.TodoIDs, idInt)
+				result.TodoIDs = append(result.TodoIDs, id)
 			}
 		}
 	}
 	return result, nil
 }
 
-// ParseCategoryUpdateInputGG parses a map into CategoryUpdateInputGG.
-func ParseCategoryUpdateInputGG(input map[string]interface{}) (*ent.CategoryUpdateInputGG, error) {
-	result := &ent.CategoryUpdateInputGG{}
+// ParseUpdateCategoryInput parses a map into UpdateCategoryInput.
+func ParseUpdateCategoryInput(input map[string]interface{}) (*ent.UpdateCategoryInput, error) {
+	result := &ent.UpdateCategoryInput{}
 	if v, ok := input["text"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			s := str
@@ -542,23 +561,23 @@ func ParseCategoryUpdateInputGG(input map[string]interface{}) (*ent.CategoryUpda
 	}
 	if v, ok := input["addTodoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid addTodoID: %w", err)
 				}
-				result.AddTodoIDs = append(result.AddTodoIDs, idInt)
+				result.AddTodoIDs = append(result.AddTodoIDs, id)
 			}
 		}
 	}
 	if v, ok := input["removeTodoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid removeTodoID: %w", err)
 				}
-				result.RemoveTodoIDs = append(result.RemoveTodoIDs, idInt)
+				result.RemoveTodoIDs = append(result.RemoveTodoIDs, id)
 			}
 		}
 	}
@@ -570,9 +589,9 @@ func ParseCategoryUpdateInputGG(input map[string]interface{}) (*ent.CategoryUpda
 	return result, nil
 }
 
-// ParseTodoCreateInputGG parses a map into TodoCreateInputGG.
-func ParseTodoCreateInputGG(input map[string]interface{}) (*ent.TodoCreateInputGG, error) {
-	result := &ent.TodoCreateInputGG{}
+// ParseCreateTodoInput parses a map into CreateTodoInput.
+func ParseCreateTodoInput(input map[string]interface{}) (*ent.CreateTodoInput, error) {
+	result := &ent.CreateTodoInput{}
 	if v, ok := input["status"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			result.Status = todo.Status(str)
@@ -601,12 +620,12 @@ func ParseTodoCreateInputGG(input map[string]interface{}) (*ent.TodoCreateInputG
 	}
 	if v, ok := input["childIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid childID: %w", err)
 				}
-				result.ChildIDs = append(result.ChildIDs, idInt)
+				result.ChildIDs = append(result.ChildIDs, id)
 			}
 		}
 	}
@@ -620,9 +639,9 @@ func ParseTodoCreateInputGG(input map[string]interface{}) (*ent.TodoCreateInputG
 	return result, nil
 }
 
-// ParseTodoUpdateInputGG parses a map into TodoUpdateInputGG.
-func ParseTodoUpdateInputGG(input map[string]interface{}) (*ent.TodoUpdateInputGG, error) {
-	result := &ent.TodoUpdateInputGG{}
+// ParseUpdateTodoInput parses a map into UpdateTodoInput.
+func ParseUpdateTodoInput(input map[string]interface{}) (*ent.UpdateTodoInput, error) {
+	result := &ent.UpdateTodoInput{}
 	if v, ok := input["status"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			val := todo.Status(str)
@@ -659,23 +678,23 @@ func ParseTodoUpdateInputGG(input map[string]interface{}) (*ent.TodoUpdateInputG
 	}
 	if v, ok := input["addChildIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid addChildID: %w", err)
 				}
-				result.AddChildIDs = append(result.AddChildIDs, idInt)
+				result.AddChildIDs = append(result.AddChildIDs, id)
 			}
 		}
 	}
 	if v, ok := input["removeChildIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
-			for _, id := range ids {
-				idInt, err := strconv.Atoi(fmt.Sprint(id))
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
 					return nil, fmt.Errorf("invalid removeChildID: %w", err)
 				}
-				result.RemoveChildIDs = append(result.RemoveChildIDs, idInt)
+				result.RemoveChildIDs = append(result.RemoveChildIDs, id)
 			}
 		}
 	}
