@@ -53,7 +53,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 			{{- $names := gqlgoNodePaginationNames $n }}
 			{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
 			{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
-			"{{ plural (camel $n.Name) }}": &graphql.Field{
+			"{{ camel (plural $n.Name) }}": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList({{ $n.Name }}Type)),
 				Args: graphql.FieldConfigArgument{
 					"first": &graphql.ArgumentConfig{
@@ -189,7 +189,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 			{{- range $m := gqlgoMutationInputs $.Nodes }}
 			{{- $n := $m.Type }}
 			{{- if $m.IsCreate }}
-			"create{{ $n.Name }}": &graphql.Field{
+			"Create{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
@@ -216,7 +216,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 				},
 			},
 			{{- else }}
-			"update{{ $n.Name }}": &graphql.Field{
+			"Update{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -262,7 +262,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					{{- end }}
 				},
 			},
-			"delete{{ $n.Name }}": &graphql.Field{
+			"Delete{{ $n.Name }}": &graphql.Field{
 				Type: graphql.Boolean,
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{

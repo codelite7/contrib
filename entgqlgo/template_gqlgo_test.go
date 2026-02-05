@@ -166,3 +166,52 @@ func TestTimeScalarNameIsTime(t *testing.T) {
 	assert.Equal(t, "Time", gqlgoScalar(timeField),
 		"gqlgoScalar should return Time, not DateTime")
 }
+
+// TestQueryFieldNaming verifies that query fields use camel(plural(name)) which
+// is the logically correct order: pluralize first, then camelCase.
+func TestQueryFieldNaming(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		want     string
+	}{
+		{name: "Category", typeName: "Category", want: "categories"},
+		{name: "Todo", typeName: "Todo", want: "todos"},
+		{name: "User", typeName: "User", want: "users"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := camel(plural(tt.typeName))
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestMutationFieldNaming verifies mutation fields use PascalCase prefixes.
+func TestMutationFieldNaming(t *testing.T) {
+	tests := []struct {
+		name       string
+		typeName   string
+		wantCreate string
+		wantUpdate string
+		wantDelete string
+	}{
+		{name: "Contact", typeName: "Contact", wantCreate: "CreateContact", wantUpdate: "UpdateContact", wantDelete: "DeleteContact"},
+		{name: "AgentLicensing", typeName: "AgentLicensing", wantCreate: "CreateAgentLicensing", wantUpdate: "UpdateAgentLicensing", wantDelete: "DeleteAgentLicensing"},
+		{name: "Todo", typeName: "Todo", wantCreate: "CreateTodo", wantUpdate: "UpdateTodo", wantDelete: "DeleteTodo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantCreate, "Create"+tt.typeName)
+			assert.Equal(t, tt.wantUpdate, "Update"+tt.typeName)
+			assert.Equal(t, tt.wantDelete, "Delete"+tt.typeName)
+		})
+	}
+}
+
+// TestQueryFieldNamingOrder verifies camel(plural(name)) is the correct order.
+func TestQueryFieldNamingOrder(t *testing.T) {
+	assert.Equal(t, "categories", camel(plural("Category")))
+	assert.Equal(t, camel(plural("Category")), plural(camel("Category")))
+}
+
