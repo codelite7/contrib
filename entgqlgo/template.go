@@ -200,9 +200,9 @@ func (m *MutationDescriptor) Input() (string, error) {
 		return "", err
 	}
 	if m.IsCreate {
-		return fmt.Sprintf("%sCreateInputGG", gqlType), nil
+		return fmt.Sprintf("Create%sInput", gqlType), nil
 	}
-	return fmt.Sprintf("%sUpdateInputGG", gqlType), nil
+	return fmt.Sprintf("Update%sInput", gqlType), nil
 }
 
 // Builders return the builder's names to apply the input.
@@ -673,19 +673,58 @@ func gqlgoType(f *gen.Field) string {
 	case t == field.TypeBool:
 		return "graphql.Boolean"
 	case t == field.TypeTime:
-		return "graphql.DateTime"
+		return "TimeScalar"
 	case t == field.TypeUUID:
-		return "graphql.String" // UUID serialized as string
+		return "graphql.ID" // UUID maps to ID to match gqlgen convention
 	case t == field.TypeBytes:
 		return "graphql.String" // Bytes serialized as base64 string
 	case t == field.TypeJSON:
+		// Check for custom type annotation first.
+		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
+			return ant.Type
+		}
+		// Check if the underlying Go type is a slice (e.g. []string, []int).
+		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
+			return "graphql.NewList(graphql.NewNonNull(" + inner + "))"
+		}
 		return "graphql.String" // JSON serialized as string; use entgqlgo.Type() annotation for custom scalars
 	case t == field.TypeEnum:
 		return "graphql.String" // Enums handled separately in templates
 	case t == field.TypeOther:
+		// Check for custom type annotation first.
+		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
+			return ant.Type
+		}
+		// Check if the underlying Go type is a slice (e.g. []string, []int).
+		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
+			return "graphql.NewList(graphql.NewNonNull(" + inner + "))"
+		}
 		return "graphql.String" // Other types require entgqlgo.Type() annotation
 	default:
 		return "graphql.String"
+	}
+}
+
+// sliceElementGraphQLType checks if a Go type string represents a slice and returns
+// the corresponding graphql-go scalar type for the element type.
+// For example, "[]string" returns ("graphql.String", true).
+func sliceElementGraphQLType(goType string) (string, bool) {
+	if !strings.HasPrefix(goType, "[]") {
+		return "", false
+	}
+	elem := goType[2:]
+	switch elem {
+	case "string":
+		return "graphql.String", true
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64":
+		return "graphql.Int", true
+	case "float32", "float64":
+		return "graphql.Float", true
+	case "bool":
+		return "graphql.Boolean", true
+	default:
+		return "graphql.String", true // Default to String for unknown element types
 	}
 }
 
@@ -706,7 +745,7 @@ func gqlgoScalar(f *gen.Field) string {
 	case t == field.TypeBool:
 		return "Boolean"
 	case t == field.TypeTime:
-		return "DateTime"
+		return "Time"
 	case t == field.TypeUUID:
 		return "String" // UUID serialized as string
 	case t == field.TypeBytes:
