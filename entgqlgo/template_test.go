@@ -61,12 +61,12 @@ func TestGqlgoType(t *testing.T) {
 			expected: "graphql.Boolean",
 		},
 		{
-			name: "time field",
+			name: "time field maps to TimeScalar",
 			field: &gen.Field{
 				Name: "created_at",
 				Type: &field.TypeInfo{Type: field.TypeTime},
 			},
-			expected: "graphql.DateTime",
+			expected: "TimeScalar",
 		},
 		{
 			name: "uuid field maps to ID",

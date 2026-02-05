@@ -43,7 +43,11 @@ func init() {
 				{{- range $f := $fields }}
 				{{- if not $f.Sensitive }}
 				"{{ camel $f.Name }}": &graphql.Field{
+					{{- if or $f.Optional $f.Nillable }}
 					Type: {{ gqlgoType $f }},
+					{{- else }}
+					Type: graphql.NewNonNull({{ gqlgoType $f }}),
+					{{- end }}
 					{{- if $f.Comment }}
 					Description: "{{ $f.Comment }}",
 					{{- end }}
@@ -104,9 +108,13 @@ func init() {
 					},
 					{{- else }}
 					{{- if $e.Unique }}
+					{{- if $e.Optional }}
 					Type: {{ $e.Type.Name }}Type,
 					{{- else }}
-					Type: graphql.NewList({{ $e.Type.Name }}Type),
+					Type: graphql.NewNonNull({{ $e.Type.Name }}Type),
+					{{- end }}
+					{{- else }}
+					Type: graphql.NewList(graphql.NewNonNull({{ $e.Type.Name }}Type)),
 					{{- end }}
 					{{- end }}
 					{{- if $e.Comment }}
