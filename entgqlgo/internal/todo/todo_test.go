@@ -199,13 +199,15 @@ func (s *TodoTestSuite) TestQuerySingleTodo() {
 		Save(s.ctx)
 	s.Require().NoError(err)
 
-	// Query by ID via GraphQL
+	// Query by ID via GraphQL using node() with inline fragment
 	result := s.executeQuery(fmt.Sprintf(`
 		query {
 			node(id: "%d") {
 				id
-				text
-				status
+				... on Todo {
+					text
+					status
+				}
 			}
 		}
 	`, created.ID))
