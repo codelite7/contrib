@@ -80,3 +80,54 @@ func TestAnnotationDecode(t *testing.T) {
 	require.NotNil(t, err)
 	require.Equal(t, err.Error(), "json: cannot unmarshal string into Go value of type entgql.Annotation")
 }
+
+func TestSkipIndex_NoArgs_SkipsAll(t *testing.T) {
+	t.Parallel()
+	a := entgql.SkipIndex()
+	require.Equal(t, entgql.SkipAllIndexes, a.SkipIndex)
+}
+
+func TestSkipIndex_SingleMode(t *testing.T) {
+	t.Parallel()
+	a := entgql.SkipIndex(entgql.SkipIndexOrder)
+	require.Equal(t, entgql.SkipIndexOrder, a.SkipIndex)
+	require.True(t, a.SkipIndex.Is(entgql.SkipIndexOrder))
+	require.False(t, a.SkipIndex.Is(entgql.SkipIndexEquality))
+	require.False(t, a.SkipIndex.Is(entgql.SkipIndexContains))
+}
+
+func TestSkipIndex_MultiMode_OrFolded(t *testing.T) {
+	t.Parallel()
+	a := entgql.SkipIndex(entgql.SkipIndexOrder, entgql.SkipIndexContains)
+	require.True(t, a.SkipIndex.Is(entgql.SkipIndexOrder))
+	require.True(t, a.SkipIndex.Is(entgql.SkipIndexContains))
+	require.False(t, a.SkipIndex.Is(entgql.SkipIndexEquality))
+}
+
+func TestSkipIndexMode_Any(t *testing.T) {
+	t.Parallel()
+	require.False(t, entgql.SkipIndexMode(0).Any())
+	require.True(t, entgql.SkipIndexOrder.Any())
+	require.True(t, entgql.SkipAllIndexes.Any())
+}
+
+func TestAnnotationMerge_SkipIndex_OrFolds(t *testing.T) {
+	t.Parallel()
+	a := entgql.SkipIndex(entgql.SkipIndexOrder)
+	b := entgql.SkipIndex(entgql.SkipIndexEquality)
+	merged := a.Merge(b).(entgql.Annotation)
+	require.True(t, merged.SkipIndex.Is(entgql.SkipIndexOrder))
+	require.True(t, merged.SkipIndex.Is(entgql.SkipIndexEquality))
+	require.False(t, merged.SkipIndex.Is(entgql.SkipIndexContains))
+}
+
+func TestAnnotationDecode_SkipIndex(t *testing.T) {
+	t.Parallel()
+	ann := &entgql.Annotation{}
+	err := ann.Decode(map[string]interface{}{
+		"SkipIndex": int(entgql.SkipIndexOrder | entgql.SkipIndexContains),
+	})
+	require.NoError(t, err)
+	require.True(t, ann.SkipIndex.Is(entgql.SkipIndexOrder))
+	require.True(t, ann.SkipIndex.Is(entgql.SkipIndexContains))
+}
