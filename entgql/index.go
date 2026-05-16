@@ -105,7 +105,7 @@ func buildIndexConfig(g *gen.Graph, ex *Extension) (IndexConfig, error) {
 	for _, node := range g.Nodes {
 		entSkipped, err := isEntSQLSkipped(node.Annotations)
 		if err != nil {
-			return cfg, fmt.Errorf("entgql/index: decode entsql annotation on node %s: %w", node.Name, err)
+			return cfg, fmt.Errorf("entgql: decode entsql annotation on node %s: %w", node.Name, err)
 		}
 		if entSkipped {
 			continue
@@ -132,7 +132,7 @@ func buildIndexConfig(g *gen.Graph, ex *Extension) (IndexConfig, error) {
 
 			gqlAnt, err := annotation(f.Annotations)
 			if err != nil {
-				return cfg, fmt.Errorf("entgql/index: decode entgql annotation on %s.%s: %w", node.Name, f.Name, err)
+				return cfg, fmt.Errorf("entgql: decode entgql annotation on %s.%s: %w", node.Name, f.Name, err)
 			}
 			if len(gqlAnt.OrderField) == 0 {
 				continue
@@ -143,7 +143,7 @@ func buildIndexConfig(g *gen.Graph, ex *Extension) (IndexConfig, error) {
 
 			fieldSkipped, err := isEntSQLSkipped(f.Annotations)
 			if err != nil {
-				return cfg, fmt.Errorf("entgql/index: decode entsql annotation on %s.%s: %w", node.Name, f.Name, err)
+				return cfg, fmt.Errorf("entgql: decode entsql annotation on %s.%s: %w", node.Name, f.Name, err)
 			}
 			if fieldSkipped {
 				continue
@@ -206,23 +206,24 @@ func nodeHasColumn(node *gen.Type, col string) bool {
 // emitIndexFile renders the index template with cfg and writes the result to
 // the given path. Creates parent directories as needed. The template lives at
 // template/indexes.tmpl and is embedded via the package-wide _templates FS in
-// template.go.
+// template.go. The write is atomic (temp-file + rename), matching the
+// writeFileAtomic helper used for the GraphQL schema output.
 func emitIndexFile(path string, cfg IndexConfig) error {
 	tmpl, err := template.New("indexes.tmpl").ParseFS(_templates, "template/indexes.tmpl")
 	if err != nil {
-		return fmt.Errorf("entgql/index: parse template: %w", err)
+		return fmt.Errorf("entgql: parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, cfg); err != nil {
-		return fmt.Errorf("entgql/index: execute template: %w", err)
+		return fmt.Errorf("entgql: execute template: %w", err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("entgql/index: create dir %s: %w", filepath.Dir(path), err)
+		return fmt.Errorf("entgql: create dir %s: %w", filepath.Dir(path), err)
 	}
 
-	return os.WriteFile(path, buf.Bytes(), 0o644)
+	return writeFileAtomic(path, buf.Bytes(), 0o644)
 }
 
 // emitIndexFileHook returns a gen.Hook that builds the IndexConfig
@@ -238,10 +239,10 @@ func (e *Extension) emitIndexFileHook() gen.Hook {
 		return gen.GenerateFunc(func(g *gen.Graph) error {
 			cfg, err := buildIndexConfig(g, e)
 			if err != nil {
-				return fmt.Errorf("entgql/index: build config: %w", err)
+				return fmt.Errorf("entgql: build config: %w", err)
 			}
 			if err := emitIndexFile(e.indexOutputPath, cfg); err != nil {
-				return fmt.Errorf("entgql/index: emit file: %w", err)
+				return fmt.Errorf("entgql: emit file: %w", err)
 			}
 			return next.Generate(g)
 		})
