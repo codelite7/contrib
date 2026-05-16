@@ -78,6 +78,10 @@ type (
 	// SkipMode is a bit flag for the Skip annotation.
 	SkipMode int
 
+	// SkipIndexMode is a bit flag for the SkipIndex annotation. It controls which
+	// classes of index the WithIndexOutput writer emits for a field.
+	SkipIndexMode int
+
 	FieldConfig struct {
 		// Name is the name of the field in the Query object.
 		Name string `json:"Name,omitempty"`
@@ -122,10 +126,6 @@ const (
 		SkipMutationUpdateInput
 )
 
-// SkipIndexMode is a bit flag for the SkipIndex annotation. It controls which
-// classes of index the WithIndexOutput writer emits for a field.
-type SkipIndexMode int
-
 const (
 	// SkipIndexOrder skips the composite (col, id) btree pagination index
 	// for fields annotated with OrderField.
@@ -141,12 +141,6 @@ const (
 	// arguments — skips every index variant for the annotated field.
 	SkipAllIndexes = SkipIndexOrder | SkipIndexEquality | SkipIndexContains
 )
-
-// Any reports whether any index-skip flag is set.
-func (m SkipIndexMode) Any() bool { return m != 0 }
-
-// Is reports whether m contains the given mode flag.
-func (m SkipIndexMode) Is(mode SkipIndexMode) bool { return m&mode != 0 }
 
 // Name implements ent.Annotation interface.
 func (Annotation) Name() string {
@@ -601,6 +595,16 @@ func (f SkipMode) Any() bool {
 
 // Is checks if the skip annotation has a specific flag.
 func (f SkipMode) Is(mode SkipMode) bool {
+	return f&mode != 0
+}
+
+// Any reports whether any index-skip flag is set.
+func (f SkipIndexMode) Any() bool {
+	return f != 0
+}
+
+// Is reports whether f contains the given mode flag.
+func (f SkipIndexMode) Is(mode SkipIndexMode) bool {
 	return f&mode != 0
 }
 
