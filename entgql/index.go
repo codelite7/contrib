@@ -15,10 +15,14 @@
 package entgql
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"text/template"
 
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
@@ -197,4 +201,26 @@ func nodeHasColumn(node *gen.Type, col string) bool {
 		}
 	}
 	return false
+}
+
+// emitIndexFile renders the index template with cfg and writes the result to
+// the given path. Creates parent directories as needed. The template lives at
+// template/indexes.tmpl and is embedded via the package-wide _templates FS in
+// template.go.
+func emitIndexFile(path string, cfg IndexConfig) error {
+	tmpl, err := template.New("indexes.tmpl").ParseFS(_templates, "template/indexes.tmpl")
+	if err != nil {
+		return fmt.Errorf("entgql/index: parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, cfg); err != nil {
+		return fmt.Errorf("entgql/index: execute template: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("entgql/index: create dir %s: %w", filepath.Dir(path), err)
+	}
+
+	return os.WriteFile(path, buf.Bytes(), 0o644)
 }

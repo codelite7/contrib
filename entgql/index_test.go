@@ -16,6 +16,8 @@ package entgql
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"unsafe"
@@ -315,6 +317,71 @@ func TestBuildIndexConfig_DisabledSoftDelete_NoPartial(t *testing.T) {
 	cfg, err := buildIndexConfig(g, ex)
 	require.NoError(t, err)
 	require.Empty(t, cfg.Tables[0].Indexes[0].Where)
+}
+
+// --- emitIndexFile golden tests ---
+
+func TestEmitIndexFile_Escrows_Golden(t *testing.T) {
+	t.Parallel()
+	cfg := IndexConfig{
+		Tables: []IndexTable{
+			{
+				Name: "escrows",
+				Indexes: []Index{
+					{Name: "idx_order_escrows_close_date_id", Field: "close_date", Where: "deleted_at IS NULL"},
+					{Name: "idx_order_escrows_created_at_id", Field: "created_at", Where: "deleted_at IS NULL"},
+				},
+			},
+		},
+	}
+	assertGoldenMatch(t, cfg, "testdata/indexes/escrows.expected.sql")
+}
+
+func TestEmitIndexFile_SyncPositions_Golden(t *testing.T) {
+	t.Parallel()
+	cfg := IndexConfig{
+		Tables: []IndexTable{
+			{
+				Name: "sync_positions",
+				Indexes: []Index{
+					{Name: "idx_order_sync_positions_name_id", Field: "name"},
+				},
+			},
+		},
+	}
+	assertGoldenMatch(t, cfg, "testdata/indexes/sync_positions.expected.sql")
+}
+
+func TestEmitIndexFile_Properties_Golden(t *testing.T) {
+	t.Parallel()
+	cfg := IndexConfig{
+		Tables: []IndexTable{
+			{
+				Name: "properties",
+				Indexes: []Index{
+					{Name: "idx_order_properties_created_at_id", Field: "created_at", Where: "deleted_at IS NULL"},
+					{Name: "idx_order_properties_description_id", Field: "description", Expression: `left("description", 256)`, Where: "deleted_at IS NULL"},
+				},
+			},
+		},
+	}
+	assertGoldenMatch(t, cfg, "testdata/indexes/properties.expected.sql")
+}
+
+// assertGoldenMatch renders cfg to a temp file via emitIndexFile, then asserts
+// the bytes equal the golden file at goldenPath (path relative to package dir).
+func assertGoldenMatch(t *testing.T, cfg IndexConfig, goldenPath string) {
+	t.Helper()
+	tmpFile := filepath.Join(t.TempDir(), "indexes.sql")
+	err := emitIndexFile(tmpFile, cfg)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(tmpFile)
+	require.NoError(t, err)
+	want, err := os.ReadFile(goldenPath)
+	require.NoError(t, err, "missing golden file %s — create it from the actual emitter output once you trust it", goldenPath)
+	require.Equal(t, string(want), string(got),
+		"output for %s does not match golden", goldenPath)
 }
 
 // --- OrderFieldExpr injection tests (side-effect contract) ---
