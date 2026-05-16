@@ -317,6 +317,69 @@ func TestBuildIndexConfig_DisabledSoftDelete_NoPartial(t *testing.T) {
 	require.Empty(t, cfg.Tables[0].Indexes[0].Where)
 }
 
+// --- OrderFieldExpr injection tests (side-effect contract) ---
+
+func TestBuildIndexConfig_InjectsOrderFieldExpr_OnUnboundedText(t *testing.T) {
+	t.Parallel()
+	ex, err := NewExtension()
+	require.NoError(t, err)
+
+	textField := makeTextSchemaTypeField("description", "text")
+	gqlAnt := Annotation{OrderField: []string{"DESCRIPTION"}}
+	buf, _ := json.Marshal(gqlAnt)
+	var raw any
+	_ = json.Unmarshal(buf, &raw)
+	textField.Annotations = gen.Annotations{gqlAnt.Name(): raw}
+
+	g := &gen.Graph{
+		Nodes: []*gen.Type{
+			makeIndexNode("Property", "properties", false, textField),
+		},
+	}
+
+	cfg, err := buildIndexConfig(g, ex)
+	require.NoError(t, err)
+	require.Len(t, cfg.Tables[0].Indexes, 1)
+	require.Equal(t, `left("description", 256)`, cfg.Tables[0].Indexes[0].Expression)
+
+	// Side effect: the field's gen.Annotations map now carries
+	// OrderFieldExpr = left("description", 256).
+	postAnt, err := annotation(textField.Annotations)
+	require.NoError(t, err)
+	require.Equal(t, `left("description", 256)`, postAnt.OrderFieldExpr,
+		"buildIndexConfig should inject OrderFieldExpr on unbounded-text OrderField columns")
+}
+
+func TestBuildIndexConfig_DoesNotOverwriteExistingOrderFieldExpr(t *testing.T) {
+	t.Parallel()
+	ex, err := NewExtension()
+	require.NoError(t, err)
+
+	textField := makeTextSchemaTypeField("description", "text")
+	gqlAnt := Annotation{
+		OrderField:     []string{"DESCRIPTION"},
+		OrderFieldExpr: `lower("description")`, // consumer-provided
+	}
+	buf, _ := json.Marshal(gqlAnt)
+	var raw any
+	_ = json.Unmarshal(buf, &raw)
+	textField.Annotations = gen.Annotations{gqlAnt.Name(): raw}
+
+	g := &gen.Graph{
+		Nodes: []*gen.Type{
+			makeIndexNode("Property", "properties", false, textField),
+		},
+	}
+
+	_, err = buildIndexConfig(g, ex)
+	require.NoError(t, err)
+
+	postAnt, err := annotation(textField.Annotations)
+	require.NoError(t, err)
+	require.Equal(t, `lower("description")`, postAnt.OrderFieldExpr,
+		"consumer-provided OrderFieldExpr must never be overwritten")
+}
+
 // --- more test helpers ---
 
 func makeIndexNode(name, table string, hasSoftDelete bool, fields ...*gen.Field) *gen.Type {
