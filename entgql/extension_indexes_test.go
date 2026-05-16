@@ -83,21 +83,8 @@ func TestWithIndexSoftDeleteColumn_EmptyDisables(t *testing.T) {
 	require.Empty(t, ex.indexSoftDeleteColumn)
 }
 
-func TestIndexOptions_HooksUnchanged(t *testing.T) {
-	t.Parallel()
-	// Baseline: no index options.
-	baseline, err := NewExtension()
-	require.NoError(t, err)
-	baselineHooks := len(baseline.Hooks())
-
-	// All three index options set, but no writer hook is wired in this PR.
-	// Hook count must NOT change — that arrives in the next PR.
-	ex, err := NewExtension(
-		WithIndexOutput("out/indexes.sql"),
-		WithIndexTableNameStrip("_view$"),
-		WithIndexSoftDeleteColumn("removed_at"),
-	)
-	require.NoError(t, err)
-	require.Equal(t, baselineHooks, len(ex.Hooks()),
-		"PR 1 must not wire any hook; that arrives in PR 2")
-}
+// Hook-wiring assertions live in index_test.go now that the writer hook is
+// wired:
+//   - TestNewExtension_NoIndexOutput_HooksUnchanged (no hook when path is empty)
+//   - TestNewExtension_WithIndexOutput_AppendsHook (one hook appended)
+//   - TestEmitIndexFileHook_WritesFileAndChainsNext (end-to-end behavior)
