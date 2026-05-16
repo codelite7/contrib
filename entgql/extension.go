@@ -58,9 +58,9 @@ type (
 		// Index DDL output (see WithIndexOutput / WithIndexTableNameStrip /
 		// WithIndexSoftDeleteColumn). The writer hook is conditionally
 		// appended in NewExtension when indexOutputPath != "".
-		indexOutputPath        string
-		indexTableNameStrip    *regexp.Regexp
-		indexSoftDeleteColumn  string
+		indexOutputPath       string
+		indexTableNameStrip   *regexp.Regexp
+		indexSoftDeleteColumn string
 	}
 
 	// ExtensionOption allows for managing the Extension configuration

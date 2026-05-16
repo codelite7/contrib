@@ -39,15 +39,18 @@ func WithIndexOutput(path string) ExtensionOption {
 	}
 }
 
-// WithIndexTableNameStrip configures a regular expression whose matches in
-// node.Table() are removed when computing the physical table name for index
-// emission. Use this when ent entities are backed by views but indexes
-// target the underlying base table.
+// WithIndexTableNameStrip configures a regular expression whose full-match
+// substrings are deleted from node.Table() when computing the physical table
+// name for index emission. Use this when ent entities are backed by views
+// but indexes target the underlying base table.
 //
 //	entgql.WithIndexTableNameStrip("_view$")
+//	// node.Table() = "escrows_view"   -> index target = "escrows"
+//	// node.Table() = "sync_positions" -> index target = "sync_positions" (unchanged)
 //
 // Empty pattern (the default) disables stripping. An invalid regex returns
-// an error at option-apply time.
+// an error at option-apply time, so misconfiguration fails fast during
+// NewExtension rather than during codegen.
 func WithIndexTableNameStrip(pattern string) ExtensionOption {
 	return func(ex *Extension) error {
 		if pattern == "" {
@@ -65,7 +68,9 @@ func WithIndexTableNameStrip(pattern string) ExtensionOption {
 
 // WithIndexSoftDeleteColumn names the column whose presence on an entity
 // triggers partial-index emission ("WHERE <col> IS NULL"). Default:
-// "deleted_at". Empty string disables partial-index emission entirely.
+// "deleted_at". Empty string disables partial-index emission entirely —
+// there is no fallback to the default, so pass "deleted_at" explicitly
+// to restore the default after disabling.
 //
 // Match is by StorageKey() on any field of the entity; the column does
 // not need to be exposed in the GraphQL schema.
