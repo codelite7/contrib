@@ -329,6 +329,9 @@ func NewExtension(opts ...ExtensionOption) (*Extension, error) {
 		ex.hooks = append(ex.hooks, ex.genSplitGoFilesHook())
 	}
 	ex.hooks = append(ex.hooks, ex.genSchemaHook(), removeOldAssets)
+	if ex.indexOutputPath != "" {
+		ex.hooks = append(ex.hooks, ex.emitIndexFileHook())
+	}
 	return ex, nil
 }
 

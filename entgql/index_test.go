@@ -319,6 +319,76 @@ func TestBuildIndexConfig_DisabledSoftDelete_NoPartial(t *testing.T) {
 	require.Empty(t, cfg.Tables[0].Indexes[0].Where)
 }
 
+// --- hook wiring + end-to-end tests ---
+
+func TestNewExtension_NoIndexOutput_HooksUnchanged(t *testing.T) {
+	t.Parallel()
+	baseline, err := NewExtension()
+	require.NoError(t, err)
+	baselineCount := len(baseline.Hooks())
+
+	// All options EXCEPT WithIndexOutput.
+	ex, err := NewExtension(
+		WithIndexTableNameStrip("_view$"),
+		WithIndexSoftDeleteColumn("removed_at"),
+	)
+	require.NoError(t, err)
+	require.Equal(t, baselineCount, len(ex.Hooks()),
+		"index hook must NOT be wired when WithIndexOutput is empty")
+}
+
+func TestNewExtension_WithIndexOutput_AppendsHook(t *testing.T) {
+	t.Parallel()
+	baseline, err := NewExtension()
+	require.NoError(t, err)
+	baselineCount := len(baseline.Hooks())
+
+	ex, err := NewExtension(WithIndexOutput("out/indexes.sql"))
+	require.NoError(t, err)
+	require.Equal(t, baselineCount+1, len(ex.Hooks()),
+		"WithIndexOutput should append exactly one hook")
+}
+
+func TestEmitIndexFileHook_WritesFileAndChainsNext(t *testing.T) {
+	t.Parallel()
+	outDir := t.TempDir()
+	outPath := filepath.Join(outDir, "indexes.sql")
+
+	ex, err := NewExtension(
+		WithIndexOutput(outPath),
+		WithIndexTableNameStrip("_view$"),
+	)
+	require.NoError(t, err)
+
+	hooks := ex.Hooks()
+	// The index hook is the last one appended.
+	indexHook := hooks[len(hooks)-1]
+
+	g := &gen.Graph{
+		Nodes: []*gen.Type{
+			makeIndexNode("Escrow", "escrows_view", true,
+				makeOrderFieldGen("created_at", "CREATED_AT"),
+			),
+		},
+	}
+
+	nextCalled := false
+	noop := gen.GenerateFunc(func(_ *gen.Graph) error {
+		nextCalled = true
+		return nil
+	})
+
+	err = indexHook(noop).Generate(g)
+	require.NoError(t, err)
+	require.True(t, nextCalled, "index hook must chain next.Generate(g)")
+
+	data, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `CREATE INDEX "idx_order_escrows_created_at_id"`)
+	require.Contains(t, string(data), `ON "escrows"`)
+	require.Contains(t, string(data), `WHERE (deleted_at IS NULL)`)
+}
+
 // --- emitIndexFile golden tests ---
 
 func TestEmitIndexFile_Escrows_Golden(t *testing.T) {

@@ -224,3 +224,26 @@ func emitIndexFile(path string, cfg IndexConfig) error {
 
 	return os.WriteFile(path, buf.Bytes(), 0o644)
 }
+
+// emitIndexFileHook returns a gen.Hook that builds the IndexConfig
+// (mutating the graph by injecting OrderFieldExpr where appropriate),
+// writes the SQL file, then chains next.Generate(g).
+//
+// It is a pre-hook: own work first, then next.Generate. Must be appended
+// LAST in Extension.Hooks() so that next.Generate inside it invokes ent's
+// base template generator — that way the OrderFieldExpr injection is
+// visible to the pagination templates.
+func (e *Extension) emitIndexFileHook() gen.Hook {
+	return func(next gen.Generator) gen.Generator {
+		return gen.GenerateFunc(func(g *gen.Graph) error {
+			cfg, err := buildIndexConfig(g, e)
+			if err != nil {
+				return fmt.Errorf("entgql/index: build config: %w", err)
+			}
+			if err := emitIndexFile(e.indexOutputPath, cfg); err != nil {
+				return fmt.Errorf("entgql/index: emit file: %w", err)
+			}
+			return next.Generate(g)
+		})
+	}
+}
