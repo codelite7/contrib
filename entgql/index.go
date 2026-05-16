@@ -17,6 +17,7 @@ package entgql
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"entgo.io/ent/dialect"
@@ -82,4 +83,118 @@ func isEntSQLSkipped(ants gen.Annotations) (bool, error) {
 		return false, fmt.Errorf("unmarshal entsql annotation: %w", err)
 	}
 	return ant.Skip, nil
+}
+
+// buildIndexConfig walks g and produces the deterministic IndexConfig the
+// writer renders. In this PR it emits only composite (col, id) order
+// indexes — equality and GIN indexes arrive in later PRs.
+//
+// As a side effect, for any OrderField-annotated field whose Postgres
+// SchemaType is "text" and which has no existing OrderFieldExpr, this
+// function injects entgql.OrderFieldExpr(left("col", 256)) into the
+// field's annotation map so the pagination templates (PR #18) emit
+// ORDER BY expressions that match the generated indexes. A
+// consumer-provided OrderFieldExpr is never overwritten.
+func buildIndexConfig(g *gen.Graph, ex *Extension) (IndexConfig, error) {
+	var cfg IndexConfig
+
+	for _, node := range g.Nodes {
+		entSkipped, err := isEntSQLSkipped(node.Annotations)
+		if err != nil {
+			return cfg, fmt.Errorf("entgql/index: decode entsql annotation on node %s: %w", node.Name, err)
+		}
+		if entSkipped {
+			continue
+		}
+
+		tableName := node.Table()
+		if ex.indexTableNameStrip != nil {
+			tableName = ex.indexTableNameStrip.ReplaceAllString(tableName, "")
+		}
+
+		var where string
+		if ex.indexSoftDeleteColumn != "" && nodeHasColumn(node, ex.indexSoftDeleteColumn) {
+			where = fmt.Sprintf("%s IS NULL", ex.indexSoftDeleteColumn)
+		}
+
+		var indexes []Index
+		for _, f := range node.Fields {
+			if f.Name == "id" {
+				continue
+			}
+			if ex.indexSoftDeleteColumn != "" && f.StorageKey() == ex.indexSoftDeleteColumn {
+				continue
+			}
+
+			gqlAnt, err := annotation(f.Annotations)
+			if err != nil {
+				return cfg, fmt.Errorf("entgql/index: decode entgql annotation on %s.%s: %w", node.Name, f.Name, err)
+			}
+			if len(gqlAnt.OrderField) == 0 {
+				continue
+			}
+			if gqlAnt.SkipIndex.Is(SkipIndexOrder) {
+				continue
+			}
+
+			fieldSkipped, err := isEntSQLSkipped(f.Annotations)
+			if err != nil {
+				return cfg, fmt.Errorf("entgql/index: decode entsql annotation on %s.%s: %w", node.Name, f.Name, err)
+			}
+			if fieldSkipped {
+				continue
+			}
+
+			col := f.StorageKey()
+			idx := Index{
+				Name:  fmt.Sprintf("idx_order_%s_%s_id", tableName, col),
+				Field: col,
+				Where: where,
+			}
+
+			if isUnboundedTextField(f) {
+				idx.Expression = fmt.Sprintf(`left("%s", %d)`, col, defaultTextPrefixLen)
+				// Auto-inject OrderFieldExpr so ORDER BY matches the index.
+				// Never overwrite a consumer-provided expression.
+				if gqlAnt.OrderFieldExpr == "" {
+					gqlAnt.OrderFieldExpr = idx.Expression
+					if f.Annotations == nil {
+						f.Annotations = gen.Annotations{}
+					}
+					f.Annotations[gqlAnt.Name()] = gqlAnt
+				}
+			}
+
+			indexes = append(indexes, idx)
+		}
+
+		if len(indexes) > 0 {
+			cfg.Tables = append(cfg.Tables, IndexTable{
+				Name:    tableName,
+				Indexes: indexes,
+			})
+		}
+	}
+
+	// Deterministic sort: tables alphabetical; indexes within a table by Field.
+	sort.Slice(cfg.Tables, func(i, j int) bool {
+		return cfg.Tables[i].Name < cfg.Tables[j].Name
+	})
+	for i := range cfg.Tables {
+		sort.Slice(cfg.Tables[i].Indexes, func(a, b int) bool {
+			return cfg.Tables[i].Indexes[a].Field < cfg.Tables[i].Indexes[b].Field
+		})
+	}
+
+	return cfg, nil
+}
+
+// nodeHasColumn reports whether any field on node has the given StorageKey.
+func nodeHasColumn(node *gen.Type, col string) bool {
+	for _, f := range node.Fields {
+		if f.StorageKey() == col {
+			return true
+		}
+	}
+	return false
 }
