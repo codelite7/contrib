@@ -216,6 +216,9 @@ func (_m *ProjectQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
+			// Needed for ignoredEdges path (build() never runs); harmless when build() runs since it overwrites.
+			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
+			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
