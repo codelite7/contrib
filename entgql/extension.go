@@ -992,7 +992,9 @@ func (e *Extension) generateCollectionDispatchPkg(g *gen.Graph) error {
 	path := filepath.Join(dir, "dispatch.go")
 
 	var buf bytes.Buffer
-	if err := CollectionDispatchPkgTemplate.ExecuteTemplate(&buf, "gql_collection_dispatch_pkg", struct{}{}); err != nil {
+	if err := CollectionDispatchPkgTemplate.ExecuteTemplate(&buf, "gql_collection_dispatch_pkg", struct {
+		*gen.Graph
+	}{g}); err != nil {
 		return fmt.Errorf("entgql: execute collection_dispatch_pkg template: %w", err)
 	}
 	content, err := e.processImports(path, buf.Bytes())
