@@ -220,7 +220,7 @@ func (_m *UserQuery) Paginate(
 	}
 	conn := &UserConnection{Edges: []*UserEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := _m.Clone()
@@ -228,6 +228,7 @@ func (_m *UserQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
+			// Needed for ignoredEdges path (build() never runs); harmless when build() runs since it overwrites.
 			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
 			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}

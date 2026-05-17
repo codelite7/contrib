@@ -3314,3 +3314,103 @@ func TestPrivateFieldSelectionForPagination(t *testing.T) {
 		"SELECT `todos`.`id`, `todos`.`text`, `todos`.`status` FROM `todos` LEFT JOIN `categories` AS `t1` ON `todos`.`category_id` = `t1`.`id` WHERE `todos`.`status` IS NOT NULL AND `todos`.`status` < ? OR (`todos`.`status` = ? AND (`todos`.`id` > ? OR `todos`.`id` IS NULL)) GROUP BY `todos`.`id` ORDER BY `todos`.`status` DESC NULLS LAST, `todos`.`id` LIMIT 3",
 	}, rec.queries)
 }
+
+// TestPaginate_PageInfoAloneDoesNotTriggerCount is a regression guard for
+// a bug that lived in the Paginate template until commit de91c392: selecting
+// only pageInfo + edges (no totalCount) silently triggered a full COUNT(*)
+// against the entity, because the template gated the count on
+// `hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField)`.
+// hasNextPage / hasPreviousPage are computed correctly via the N+1 row trick
+// in (c *TodoConnection).build, so the count's PageInfo assignments were
+// dead code AND the count itself was wasted work.
+//
+// With the bug, this test fails with countOps == 1.
+// With the fix, this test passes with countOps == 0.
+//
+// The sibling assertion (selecting totalCount fires exactly one count)
+// guards against over-correcting in the other direction.
+func TestPaginate_PageInfoAloneDoesNotTriggerCount(t *testing.T) {
+	ctx := context.Background()
+	ec := enttest.Open(
+		t, dialect.SQLite,
+		fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", t.Name()),
+		enttest.WithMigrateOptions(migrate.WithGlobalUniqueID(true)),
+	)
+	for i := 1; i <= 5; i++ {
+		ec.Todo.Create().SetText(strconv.Itoa(i)).SetStatus(todo.StatusInProgress).SaveX(ctx)
+	}
+
+	var todoCountOps atomic.Int64
+	ec.Intercept(ent.InterceptFunc(func(next ent.Querier) ent.Querier {
+		return ent.QuerierFunc(func(ctx context.Context, q ent.Query) (ent.Value, error) {
+			result, err := next.Query(ctx, q)
+			if err == nil {
+				if _, isTodo := q.(*ent.TodoQuery); isTodo {
+					if _, isCount := result.(int); isCount {
+						todoCountOps.Add(1)
+					}
+				}
+			}
+			return result, err
+		})
+	}))
+
+	srv := handler.NewDefaultServer(gen.NewSchema(ec))
+	gqlc := client.New(srv)
+
+	// Phase 1: select only pageInfo + edges — must NOT fire COUNT.
+	{
+		query := `query {
+			todos(first: 3) {
+				edges { node { id } }
+				pageInfo { hasNextPage endCursor }
+			}
+		}`
+		var rsp struct {
+			Todos struct {
+				Edges []struct {
+					Node struct{ ID string }
+				}
+				PageInfo struct {
+					HasNextPage bool
+					EndCursor   *string
+				}
+			}
+		}
+		require.NoError(t, gqlc.Post(query, &rsp))
+		require.Len(t, rsp.Todos.Edges, 3, "first=3 against 5 rows should return 3 edges")
+		require.True(t, rsp.Todos.PageInfo.HasNextPage, "5 rows / first=3 means hasNextPage=true via N+1 row trick")
+		require.Equal(t, int64(0), todoCountOps.Load(),
+			"selecting only pageInfo + edges (no totalCount) must not fire a COUNT against the entity")
+	}
+
+	// Phase 2: select totalCount with pagination args — must fire exactly ONE
+	// COUNT. (Without pagination args + edges selected, the template derives
+	// totalCount from len(rows) and skips the COUNT query — that's also
+	// correct behavior, just a different code path.)
+	{
+		query := `query {
+			todos(first: 3) {
+				totalCount
+				edges { node { id } }
+				pageInfo { hasNextPage }
+			}
+		}`
+		var rsp struct {
+			Todos struct {
+				TotalCount int
+				Edges      []struct {
+					Node struct{ ID string }
+				}
+				PageInfo struct {
+					HasNextPage bool
+				}
+			}
+		}
+		require.NoError(t, gqlc.Post(query, &rsp))
+		require.Equal(t, 5, rsp.Todos.TotalCount)
+		require.True(t, rsp.Todos.PageInfo.HasNextPage)
+		require.Equal(t, int64(1), todoCountOps.Load(),
+			"selecting totalCount with pagination args should fire exactly one COUNT (phase 1 fired zero)")
+	}
+}

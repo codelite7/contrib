@@ -290,7 +290,7 @@ func (bp *BillProductQuery) Paginate(
 	}
 	conn := &BillProductConnection{Edges: []*BillProductEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := bp.Clone()
@@ -298,6 +298,7 @@ func (bp *BillProductQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
+			// Needed for ignoredEdges path (build() never runs); harmless when build() runs since it overwrites.
 			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
 			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
@@ -588,7 +589,7 @@ func (c *CategoryQuery) Paginate(
 	}
 	conn := &CategoryConnection{Edges: []*CategoryEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := c.Clone()
@@ -596,8 +597,6 @@ func (c *CategoryQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
-			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
-			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
@@ -961,7 +960,7 @@ func (f *FriendshipQuery) Paginate(
 	}
 	conn := &FriendshipConnection{Edges: []*FriendshipEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := f.Clone()
@@ -969,8 +968,6 @@ func (f *FriendshipQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
-			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
-			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
@@ -1210,7 +1207,7 @@ func (gr *GroupQuery) Paginate(
 	}
 	conn := &GroupConnection{Edges: []*GroupEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := gr.Clone()
@@ -1218,8 +1215,6 @@ func (gr *GroupQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
-			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
-			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
@@ -1459,7 +1454,7 @@ func (pe *PetQuery) Paginate(
 	}
 	conn := &PetConnection{Edges: []*PetEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := pe.Clone()
@@ -1467,8 +1462,6 @@ func (pe *PetQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
-			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
-			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
@@ -1757,7 +1750,7 @@ func (t *TodoQuery) Paginate(
 	}
 	conn := &TodoConnection{Edges: []*TodoEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := t.Clone()
@@ -1765,8 +1758,6 @@ func (t *TodoQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
-			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
-			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
@@ -2187,7 +2178,7 @@ func (u *UserQuery) Paginate(
 	}
 	conn := &UserConnection{Edges: []*UserEdge{}}
 	ignoredEdges := !hasCollectedField(ctx, edgesField)
-	if hasCollectedField(ctx, totalCountField) || hasCollectedField(ctx, pageInfoField) {
+	if hasCollectedField(ctx, totalCountField) {
 		hasPagination := after != nil || first != nil || before != nil || last != nil
 		if hasPagination || ignoredEdges {
 			c := u.Clone()
@@ -2195,8 +2186,6 @@ func (u *UserQuery) Paginate(
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}
-			conn.PageInfo.HasNextPage = first != nil && conn.TotalCount > 0
-			conn.PageInfo.HasPreviousPage = last != nil && conn.TotalCount > 0
 		}
 	}
 	if ignoredEdges || (first != nil && *first == 0) || (last != nil && *last == 0) {
