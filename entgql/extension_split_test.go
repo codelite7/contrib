@@ -1019,3 +1019,30 @@ func TestGenerateSplitWhereInputs_ParallelFlag(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+
+func TestGenerateCollectionDispatchPkg_WritesFileWithExpectedContent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "entgql_collection_dispatch_pkg_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	ex, err := NewExtension(WithSplitGoFiles(true))
+	require.NoError(t, err)
+
+	// Minimal graph: only Target matters for this one-shot generator.
+	g := &gen.Graph{Config: &gen.Config{Target: tmpDir}}
+	err = ex.generateCollectionDispatchPkg(g)
+	require.NoError(t, err)
+
+	outPath := filepath.Join(tmpDir, "internal", "collectiondispatch", "dispatch.go")
+	out, err := os.ReadFile(outPath)
+	require.NoError(t, err, "dispatch.go should be written under internal/collectiondispatch/")
+
+	content := string(out)
+	require.Contains(t, content, "package collectiondispatch")
+	require.Contains(t, content, "type EntityCollector interface")
+	require.Contains(t, content, "NewQuery(config any) any")
+	require.Contains(t, content, "CollectFields(ctx context.Context")
+	require.Contains(t, content, "func Register(entity string, c EntityCollector)")
+	require.Contains(t, content, "func Get(entity string) EntityCollector")
+	require.Contains(t, content, "var registry = make(map[string]EntityCollector)")
+}

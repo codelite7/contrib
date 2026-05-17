@@ -97,6 +97,13 @@ var (
 	// Initialized in init() to avoid initialization order issues.
 	CollectionEntityTemplate *template.Template
 
+	// CollectionDispatchPkgTemplate generates the import-free
+	// <gen>/internal/collectiondispatch/dispatch.go file (used in split mode).
+	// It defines the EntityCollector interface plus Register/Get so per-entity
+	// sub-packages can dispatch into each other without forming an import cycle.
+	// Initialized in init() to avoid initialization order issues.
+	CollectionDispatchPkgTemplate *template.Template
+
 	// EdgeEntityTemplate generates edge resolver code for a single entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
 	EdgeEntityTemplate *template.Template
@@ -179,6 +186,7 @@ func init() {
 	PaginationSharedTemplate = parseEntityTemplate("template/pagination_shared.tmpl", "gql_pagination_shared")
 	CollectionSharedTemplate = parseEntityTemplate("template/collection_shared.tmpl", "gql_collection_shared")
 	CollectionEntityTemplate = parseEntityTemplate("template/collection_entity.tmpl", "gql_collection_entity")
+	CollectionDispatchPkgTemplate = parseEntityTemplate("template/collection_dispatch_pkg.tmpl", "gql_collection_dispatch_pkg")
 	EdgeEntityTemplate = parseEntityTemplate("template/edge_entity.tmpl", "gql_edge_entity")
 	NodeDescriptorSharedTemplate = parseEntityTemplate("template/node_descriptor_shared.tmpl", "gql_node_descriptor_shared")
 	NodeDescriptorEntityTemplate = parseEntityTemplate("template/node_descriptor_entity.tmpl", "gql_node_descriptor_entity")

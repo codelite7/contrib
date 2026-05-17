@@ -979,6 +979,29 @@ func (e *Extension) generateCollectionSharedFile(g *gen.Graph) error {
 	return os.WriteFile(path, content, 0644)
 }
 
+// generateCollectionDispatchPkg writes <g.Target>/internal/collectiondispatch/dispatch.go.
+// Called once per codegen run (not per entity). The emitted package is the
+// import-free seam through which per-entity sub-packages dispatch into each
+// other; no entity sub-package is imported here, which breaks the cross-entity
+// import cycles that the codegen-reduction sub-package split would otherwise create.
+func (e *Extension) generateCollectionDispatchPkg(g *gen.Graph) error {
+	dir := filepath.Join(g.Target, "internal", "collectiondispatch")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("entgql: create collectiondispatch dir: %w", err)
+	}
+	path := filepath.Join(dir, "dispatch.go")
+
+	var buf bytes.Buffer
+	if err := CollectionDispatchPkgTemplate.ExecuteTemplate(&buf, "gql_collection_dispatch_pkg", struct{}{}); err != nil {
+		return fmt.Errorf("entgql: execute collection_dispatch_pkg template: %w", err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format collection_dispatch_pkg: %w", err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
 // generateCollectionEntityFile generates a collection file for a single entity.
 func (e *Extension) generateCollectionEntityFile(g *gen.Graph, n *gen.Type) error {
 	filename := fmt.Sprintf("gql_collection_%s.go", snake(n.Name))

@@ -1522,3 +1522,67 @@ func TestNodeEntityTemplateMultipleEntities(t *testing.T) {
 	require.Contains(t, catOutput, "registerNodeResolver(category.Table")
 	require.NotContains(t, catOutput, "todoNoder")
 }
+
+func TestCollectionDispatchPkgTemplateParsed(t *testing.T) {
+	// Verify the CollectionDispatchPkgTemplate was parsed successfully during init().
+	require.NotNil(t, CollectionDispatchPkgTemplate, "CollectionDispatchPkgTemplate should be parsed during init()")
+	// Verify the template has the expected name.
+	require.Equal(t, "gql_collection_dispatch_pkg", CollectionDispatchPkgTemplate.Name())
+	// Verify it has the expected define block.
+	tmpl := CollectionDispatchPkgTemplate.Lookup("gql_collection_dispatch_pkg")
+	require.NotNil(t, tmpl, "template should contain 'gql_collection_dispatch_pkg' define block")
+}
+
+func TestCollectionDispatchPkgTemplateContent(t *testing.T) {
+	// Verify the template source contains all expected EntityCollector method signatures
+	// and the Register/Get/registry declarations.
+	tmpl := CollectionDispatchPkgTemplate.Lookup("gql_collection_dispatch_pkg")
+	require.NotNil(t, tmpl)
+	src := tmpl.Tree.Root.String()
+
+	// Package + imports.
+	require.Contains(t, src, "package collectiondispatch")
+	require.Contains(t, src, `"context"`)
+	require.Contains(t, src, `"github.com/99designs/gqlgen/graphql"`)
+
+	// Interface + selected method signatures.
+	require.Contains(t, src, "type EntityCollector interface")
+	require.Contains(t, src, "NewQuery(config any) any")
+	require.Contains(t, src, "NewPaginateArgs(rv any) any")
+	require.Contains(t, src, "PaginateArgsFirst(args any) *int")
+	require.Contains(t, src, "PaginateArgsLast(args any) *int")
+	require.Contains(t, src, "PaginateArgsAfter(args any) any")
+	require.Contains(t, src, "PaginateArgsBefore(args any) any")
+	require.Contains(t, src, "PaginateArgsOpts(args any) any")
+	require.Contains(t, src, "NewPager(opts any, last bool) (any, error)")
+	require.Contains(t, src, "CloneQuery(query any) any")
+	require.Contains(t, src, "ApplyFilter(pager any, query any) (any, error)")
+	require.Contains(t, src, "ApplyCursors(pager any, query any, after, before any) (any, error)")
+	require.Contains(t, src, "ApplyOrder(pager any, query any) any")
+	require.Contains(t, src, "ApplyLimit(query any, n int) any")
+	require.Contains(t, src, "OrderExpr(pager any, query any) any")
+	require.Contains(t, src, "AddQueryModifier(query any, modifier any)")
+	require.Contains(t, src, "CollectFields(ctx context.Context")
+	require.Contains(t, src, "IDColumnName() string")
+
+	// Registry + Register/Get declarations.
+	require.Contains(t, src, "var registry = make(map[string]EntityCollector)")
+	require.Contains(t, src, "func Register(entity string, c EntityCollector)")
+	require.Contains(t, src, "func Get(entity string) EntityCollector")
+}
+
+func TestCollectionDispatchPkgTemplateExecution(t *testing.T) {
+	// Execute the template (it takes no data) and verify the rendered output.
+	var buf bytes.Buffer
+	err := CollectionDispatchPkgTemplate.ExecuteTemplate(&buf, "gql_collection_dispatch_pkg", struct{}{})
+	require.NoError(t, err)
+	out := buf.String()
+
+	require.Contains(t, out, "package collectiondispatch")
+	require.Contains(t, out, "type EntityCollector interface")
+	require.Contains(t, out, "NewQuery(config any) any")
+	require.Contains(t, out, "CollectFields(ctx context.Context")
+	require.Contains(t, out, "func Register(entity string, c EntityCollector)")
+	require.Contains(t, out, "func Get(entity string) EntityCollector")
+	require.Contains(t, out, "var registry = make(map[string]EntityCollector)")
+}
