@@ -1,0 +1,107 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gql_collection_dispatch" }}
+
+{{- /*gotype: entgo.io/contrib/entgql.collectionEntityData*/ -}}
+
+{{ $.Config.Header }}
+
+package {{ $.Node.Package }}
+
+import (
+	"context"
+
+	"github.com/99designs/gqlgen/graphql"
+	"{{ $.Config.Package }}/internal/collectiondispatch"
+)
+
+{{ $node := $.Node -}}
+{{ $query := $node.QueryName -}}
+{{ $client := print "New" $node.Name "Client" -}}
+
+// collector implements collectiondispatch.EntityCollector for this entity.
+// All EntityCollector method parameters are typed as `any` at the registry
+// boundary; each method type-asserts back to the concrete local types.
+// This is the indirection that breaks cross-entity import cycles.
+//
+// Many methods are stubbed pending Task 5, which adds the subpkg-local
+// paginateArgs/pager/collectField scaffolding this dispatch needs.
+type collector struct{}
+
+func (collector) NewQuery(config any) any {
+	return {{ $client }}(*config.(*Config)).Query()
+}
+
+func (collector) NewPaginateArgs(rv any) any {
+	panic("TODO Task 5: needs subpkg-local paginateArgs type")
+}
+
+func (collector) PaginateArgsFirst(args any) *int {
+	panic("TODO Task 5: needs subpkg-local paginateArgs")
+}
+
+func (collector) PaginateArgsLast(args any) *int {
+	panic("TODO Task 5: needs subpkg-local paginateArgs")
+}
+
+func (collector) PaginateArgsAfter(args any) any {
+	panic("TODO Task 5: needs subpkg-local paginateArgs")
+}
+
+func (collector) PaginateArgsBefore(args any) any {
+	panic("TODO Task 5: needs subpkg-local paginateArgs")
+}
+
+func (collector) PaginateArgsOpts(args any) any {
+	panic("TODO Task 5: needs subpkg-local paginateArgs")
+}
+
+func (collector) NewPager(opts any, last bool) (any, error) {
+	panic("TODO Task 5: needs subpkg-local pager / newPager")
+}
+
+func (collector) CloneQuery(query any) any {
+	return query.(*{{ $query }}).Clone()
+}
+
+func (collector) ApplyFilter(pager any, query any) (any, error) {
+	panic("TODO Task 5: needs subpkg-local pager.applyFilter")
+}
+
+func (collector) ApplyCursors(pager any, query any, after, before any) (any, error) {
+	panic("TODO Task 5: needs subpkg-local pager.applyCursors + Cursor placement")
+}
+
+func (collector) ApplyOrder(pager any, query any) any {
+	panic("TODO Task 5: needs subpkg-local pager.applyOrder")
+}
+
+func (collector) ApplyLimit(query any, n int) any {
+	return query.(*{{ $query }}).Limit(n)
+}
+
+func (collector) OrderExpr(pager any, query any) any {
+	panic("TODO Task 5: needs subpkg-local pager.orderExpr")
+}
+
+func (collector) AddQueryModifier(query any, modifier any) {
+	panic("TODO Task 5: needs access to subpkg-local Query.modifiers field")
+}
+
+func (collector) CollectFields(ctx context.Context, q any, oneNode bool, opCtx *graphql.OperationContext, collected graphql.CollectedField, path []string, satisfies ...string) error {
+	panic("TODO Task 5: needs (*{{ $query }}).collectField method")
+}
+
+func (collector) IDColumnName() string {
+	return {{ printf "%q" $node.ID.StorageKey }}
+}
+
+func init() {
+	collectiondispatch.Register({{ printf "%q" $node.Package }}, collector{})
+}
+
+{{ end }}

@@ -104,6 +104,12 @@ var (
 	// Initialized in init() to avoid initialization order issues.
 	CollectionDispatchPkgTemplate *template.Template
 
+	// CollectionDispatchTemplate generates per-entity gql_collection_dispatch.go
+	// files. Each entity sub-package gets a collector{} struct implementing
+	// EntityCollector and an init() that registers it with collectiondispatch.
+	// Initialized in init() to avoid initialization order issues.
+	CollectionDispatchTemplate *template.Template
+
 	// EdgeEntityTemplate generates edge resolver code for a single entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
 	EdgeEntityTemplate *template.Template
@@ -187,6 +193,7 @@ func init() {
 	CollectionSharedTemplate = parseEntityTemplate("template/collection_shared.tmpl", "gql_collection_shared")
 	CollectionEntityTemplate = parseEntityTemplate("template/collection_entity.tmpl", "gql_collection_entity")
 	CollectionDispatchPkgTemplate = parseEntityTemplate("template/collection_dispatch_pkg.tmpl", "gql_collection_dispatch_pkg")
+	CollectionDispatchTemplate = parseEntityTemplate("template/collection_dispatch.tmpl", "gql_collection_dispatch")
 	EdgeEntityTemplate = parseEntityTemplate("template/edge_entity.tmpl", "gql_edge_entity")
 	NodeDescriptorSharedTemplate = parseEntityTemplate("template/node_descriptor_shared.tmpl", "gql_node_descriptor_shared")
 	NodeDescriptorEntityTemplate = parseEntityTemplate("template/node_descriptor_entity.tmpl", "gql_node_descriptor_entity")

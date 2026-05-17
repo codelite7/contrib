@@ -1598,3 +1598,103 @@ func TestCollectionDispatchPkgTemplateExecution(t *testing.T) {
 	require.Contains(t, out, "func Get(entity string) EntityCollector")
 	require.Contains(t, out, "var registry = make(map[string]EntityCollector)")
 }
+
+func TestCollectionDispatchTemplateParsed(t *testing.T) {
+	// Verify the CollectionDispatchTemplate was parsed successfully during init().
+	require.NotNil(t, CollectionDispatchTemplate, "CollectionDispatchTemplate should be parsed during init()")
+	// Verify the template has the expected name.
+	require.Equal(t, "gql_collection_dispatch", CollectionDispatchTemplate.Name())
+	// Verify it has the expected define block.
+	tmpl := CollectionDispatchTemplate.Lookup("gql_collection_dispatch")
+	require.NotNil(t, tmpl, "template should contain 'gql_collection_dispatch' define block")
+}
+
+func TestCollectionDispatchTemplateContent(t *testing.T) {
+	// Verify the template source contains all the structural elements we expect:
+	// the collector struct, the registration call, references to the
+	// EntityCollector interface, and the Task-5 stub markers.
+	tmpl := CollectionDispatchTemplate.Lookup("gql_collection_dispatch")
+	require.NotNil(t, tmpl)
+	src := tmpl.Tree.Root.String()
+
+	// Header comes from Config.Header like every other split-mode template.
+	// Note: text/template normalizes inner whitespace, so action delimiters
+	// in the rendered source appear as `{{...}}` without padding.
+	require.Contains(t, src, "$.Config.Header")
+
+	// Package declaration is driven by $.Node.Package (the snake_case
+	// sub-package directory). Imports include collectiondispatch (the registry
+	// seam) and the gqlgen graphql package needed by CollectFields.
+	require.Contains(t, src, "package {{$.Node.Package}}")
+	require.Contains(t, src, `"context"`)
+	require.Contains(t, src, `"github.com/99designs/gqlgen/graphql"`)
+	require.Contains(t, src, "/internal/collectiondispatch")
+
+	// The collector struct + Task-5 stub markers + registration.
+	require.Contains(t, src, "type collector struct{}")
+	require.Contains(t, src, "collectiondispatch.Register(")
+	require.Contains(t, src, "EntityCollector")
+	require.Contains(t, src, `panic("TODO Task 5`)
+
+	// Entity-prefixed identifiers come from $node.QueryName and
+	// `print "New" $node.Name "Client"` per the verified PR 6 naming.
+	require.Contains(t, src, "$query")
+	require.Contains(t, src, `print "New" $node.Name "Client"`)
+}
+
+func TestCollectionDispatchTemplateExecution(t *testing.T) {
+	// Execute the template against the real todo schema graph for BillProduct
+	// and verify the rendered output uses entity-prefixed names, registers
+	// the collector under the snake_case entity name, and emits stubs for
+	// the methods that depend on Task 5.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+		Package: "entgo.io/contrib/entgql/internal/todo/ent",
+	})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "BillProduct" {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node, "BillProduct node should exist in the schema")
+
+	var buf bytes.Buffer
+	err = CollectionDispatchTemplate.ExecuteTemplate(&buf, "gql_collection_dispatch", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{graph, node, true})
+	require.NoError(t, err)
+	output := buf.String()
+
+	// Package + collectiondispatch import use the per-entity values.
+	require.Contains(t, output, "package billproduct")
+	require.Contains(t, output, `"entgo.io/contrib/entgql/internal/todo/ent/internal/collectiondispatch"`)
+
+	// Collector skeleton + registration under the snake_case entity name.
+	require.Contains(t, output, "type collector struct{}")
+	require.Contains(t, output, `collectiondispatch.Register("billproduct", collector{})`)
+
+	// Methods we can implement today depend on the entity-prefixed types
+	// confirmed in the regenerated subpkg (BillProductClient, BillProductQuery).
+	require.Contains(t, output, "NewBillProductClient(*config.(*Config)).Query()")
+	require.Contains(t, output, "query.(*BillProductQuery).Clone()")
+	require.Contains(t, output, "query.(*BillProductQuery).Limit(n)")
+
+	// IDColumnName returns the storage key for the entity's ID column.
+	require.Contains(t, output, `return "id"`)
+
+	// Methods that depend on Task 5 work must be stubbed with a clear marker
+	// so the boundary stays compilable until Task 5 fills them in.
+	require.Contains(t, output, `panic("TODO Task 5`)
+
+	// init() registers the collector exactly once.
+	require.Contains(t, output, "func init() {")
+}

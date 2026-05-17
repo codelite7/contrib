@@ -1004,6 +1004,34 @@ func (e *Extension) generateCollectionDispatchPkg(g *gen.Graph) error {
 	return os.WriteFile(path, content, 0644)
 }
 
+// generateCollectionDispatchFile generates per-entity gql_collection_dispatch.go
+// inside the entity's sub-package directory. The emitted collector{} struct
+// implements collectiondispatch.EntityCollector and registers itself in init();
+// most method bodies are stubbed pending Task 5 wiring (subpkg-local
+// paginateArgs/pager/collectField). If the sub-package directory does not
+// exist (i.e. the PR 6 split hasn't run for this graph), the file is skipped.
+func (e *Extension) generateCollectionDispatchFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, n.Package())
+	if _, err := os.Stat(subPkgDir); os.IsNotExist(err) {
+		return nil // sub-package doesn't exist (no PR 6 split), skip
+	}
+	path := filepath.Join(subPkgDir, "gql_collection_dispatch.go")
+
+	var buf bytes.Buffer
+	if err := CollectionDispatchTemplate.ExecuteTemplate(&buf, "gql_collection_dispatch", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{g, n, e.genWhereInput}); err != nil {
+		return fmt.Errorf("entgql: execute collection_dispatch template for %s: %w", n.Name, err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format collection_dispatch for %s: %w", n.Name, err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
 // generateCollectionEntityFile generates a collection file for a single entity.
 func (e *Extension) generateCollectionEntityFile(g *gen.Graph, n *gen.Type) error {
 	filename := fmt.Sprintf("gql_collection_%s.go", snake(n.Name))
