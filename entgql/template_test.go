@@ -615,40 +615,92 @@ func TestCollectionEntityTemplateParsed(t *testing.T) {
 }
 
 func TestCollectionEntityTemplateContent(t *testing.T) {
-	// Verify the template source contains the expected per-entity code elements
-	// and does not contain monolithic template artifacts.
+	// After lever B-3d, the entity template is a thin var-forwarder shim;
+	// the body lives in CollectionSubpkgTemplate.
 	tmpl := CollectionEntityTemplate.Lookup("gql_collection_entity")
 	require.NotNil(t, tmpl)
 	src := tmpl.Tree.Root.String()
 
-	// Verify per-entity collection code is present.
+	// The shim references gqlcollections and forwards CollectFields.
+	require.Contains(t, src, "gqlcollections")
+	require.Contains(t, src, "QueryName")
+
+	// No load_total helper template call.
+	require.NotContains(t, src, `template "gql_pagination/helper/load_total"`)
+
+	// No Scope references remain.
+	require.NotContains(t, src, "Scope")
+
+	// References $.Node for single entity.
+	require.Contains(t, src, "$.Node")
+}
+
+func TestCollectionSubpkgTemplateContent(t *testing.T) {
+	// Verify the subpkg template (body owner after B-3d) contains the per-entity logic.
+	tmpl := CollectionSubpkgTemplate.Lookup("gql_collection_subpkg")
+	require.NotNil(t, tmpl)
+	src := tmpl.Tree.Root.String()
+
 	require.Contains(t, src, "CollectFields")
 	require.Contains(t, src, "collectField")
 	require.Contains(t, src, "PaginateArgs")
+	require.Contains(t, src, "package gqlcollections")
 
 	// Verify load_total helper is inlined (no template call).
-	require.NotContains(t, src, `template "gql_pagination/helper/load_total"`,
-		"load_total helper should be inlined, not called as a sub-template")
+	require.NotContains(t, src, `template "gql_pagination/helper/load_total"`)
 
 	// Verify no $Scope references remain.
-	require.NotContains(t, src, "Scope",
-		"entity template should not contain $Scope references")
+	require.NotContains(t, src, "Scope")
 
-	// Verify hasTemplate is not used.
-	require.NotContains(t, src, "hasTemplate",
-		"entity template should use $.HasWhereInputTemplate instead of hasTemplate")
-
-	// Verify $.HasWhereInputTemplate is used instead.
-	require.Contains(t, src, "HasWhereInputTemplate",
-		"entity template should reference HasWhereInputTemplate")
+	// Verify $.HasWhereInputTemplate is used.
+	require.Contains(t, src, "HasWhereInputTemplate")
 
 	// Verify it references $.Node (single entity, not range loop).
-	require.Contains(t, src, "$.Node",
-		"entity template should reference $.Node for the single entity")
+	require.Contains(t, src, "$.Node")
 }
 
 func TestCollectionEntityTemplateExecution(t *testing.T) {
-	// Execute the template against the real todo schema graph and verify
+	// After lever B-3d, the entity template is a thin shim. Verify it forwards
+	// to the gqlcollections sibling subpackage.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	tmpl := CollectionEntityTemplate
+	var buf bytes.Buffer
+	err = tmpl.ExecuteTemplate(&buf, "gql_collection_entity", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+		HasPaginationSubpkg   bool
+	}{graph, todoNode, true, false})
+	require.NoError(t, err)
+
+	output := buf.String()
+
+	// Verify the generated output contains the package declaration.
+	require.Contains(t, output, "package ent")
+
+	// Verify the shim imports gqlcollections and forwards CollectFields.
+	require.Contains(t, output, "gqlcollections")
+	require.Contains(t, output, "TodoQueryCollectFields = gqlcollections.TodoQueryCollectFields")
+}
+
+func TestCollectionSubpkgTemplateExecution(t *testing.T) {
+	// Execute the subpkg template against the real todo schema graph and verify
 	// the generated output contains expected per-entity code.
 	s, err := gen.NewStorage("sql")
 	require.NoError(t, err)
@@ -668,9 +720,9 @@ func TestCollectionEntityTemplateExecution(t *testing.T) {
 	}
 	require.NotNil(t, todoNode, "Todo node should exist in the schema")
 
-	tmpl := CollectionEntityTemplate
+	tmpl := CollectionSubpkgTemplate
 	var buf bytes.Buffer
-	err = tmpl.ExecuteTemplate(&buf, "gql_collection_entity", struct {
+	err = tmpl.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
 		*gen.Graph
 		Node                  *gen.Type
 		HasWhereInputTemplate bool
@@ -680,14 +732,12 @@ func TestCollectionEntityTemplateExecution(t *testing.T) {
 
 	output := buf.String()
 
-	// Verify the generated output contains the package declaration.
-	require.Contains(t, output, "package ent")
+	// Verify the generated output contains the gqlcollections package declaration.
+	require.Contains(t, output, "package gqlcollections")
 
 	// Verify CollectFields free function is generated for the Todo query.
-	// Post-Pivot-A: emitted as free functions (not methods) so the gen package
-	// can declare them on the *TodoQuery alias without Bug 9.
-	require.Contains(t, output, "func TodoQueryCollectFields(_q *TodoQuery, ctx context.Context, satisfies ...string) (*TodoQuery, error)")
-	require.Contains(t, output, "func collectFieldTodoQuery(_q *TodoQuery, ctx context.Context, oneNode bool")
+	require.Contains(t, output, "func TodoQueryCollectFields(_q *todo.TodoQuery, ctx context.Context, satisfies ...string) (*todo.TodoQuery, error)")
+	require.Contains(t, output, "func collectFieldTodoQuery(_q *todo.TodoQuery, ctx context.Context, oneNode bool")
 
 	// Verify PaginateArgs struct is generated.
 	require.Contains(t, output, "todoPaginateArgs")
@@ -707,8 +757,8 @@ func TestCollectionEntityTemplateExecution(t *testing.T) {
 }
 
 func TestCollectionEntityTemplateNoWhereInput(t *testing.T) {
-	// Execute the template with HasWhereInputTemplate=false and verify
-	// the where input filter code is not generated.
+	// After lever B-3d, the entity template is a thin shim. Verify it forwards
+	// to gqlcollections even when HasWhereInputTemplate=false.
 	s, err := gen.NewStorage("sql")
 	require.NoError(t, err)
 
@@ -717,7 +767,6 @@ func TestCollectionEntityTemplateNoWhereInput(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Find the BillProduct node (simple entity with no edges).
 	var node *gen.Type
 	for _, n := range graph.Nodes {
 		if n.Name == "BillProduct" {
@@ -734,27 +783,58 @@ func TestCollectionEntityTemplateNoWhereInput(t *testing.T) {
 		Node                  *gen.Type
 		HasWhereInputTemplate bool
 		HasPaginationSubpkg   bool
-	}{graph, node, false, false}) // HasPaginationSubpkg=false: todo fixture has no gql_pagination.go in subpkg
+	}{graph, node, false, false})
 	require.NoError(t, err)
 
 	output := buf.String()
 
-	// Verify the generated output contains the package declaration.
 	require.Contains(t, output, "package ent")
+	require.Contains(t, output, "BillProductQueryCollectFields = gqlcollections.BillProductQueryCollectFields")
+}
 
-	// Verify CollectFields free function is present (Pivot A: free function form).
-	require.Contains(t, output, "func BillProductQueryCollectFields(_q *BillProductQuery, ctx context.Context, satisfies ...string) (*BillProductQuery, error)")
+func TestCollectionSubpkgTemplateNoWhereInput(t *testing.T) {
+	// Execute the subpkg template with HasWhereInputTemplate=false and verify
+	// the where input filter code is not generated.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
 
-	// Verify PaginateArgs struct is generated for this entity.
-	// Note: camel("BillProduct") produces "billproduct" for the struct type name.
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "BillProduct" {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node, "BillProduct node should exist in the schema")
+
+	tmpl := CollectionSubpkgTemplate
+	var buf bytes.Buffer
+	err = tmpl.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+		HasPaginationSubpkg   bool
+	}{graph, node, false, false})
+	require.NoError(t, err)
+
+	output := buf.String()
+
+	require.Contains(t, output, "package gqlcollections")
+
+	// Verify CollectFields free function is present.
+	require.Contains(t, output, "func BillProductQueryCollectFields(_q *billproduct.BillProductQuery, ctx context.Context, satisfies ...string) (*billproduct.BillProductQuery, error)")
+
+	// Verify PaginateArgs struct is generated.
 	require.Contains(t, output, "billproductPaginateArgs")
 	require.Contains(t, output, "newBillProductPaginateArgs")
 
-	// Since HasWhereInputTemplate=false, the where filter block should not appear
-	// in the newPaginateArgs function.
-	// Check that the output does NOT contain the where input filter assignment.
-	require.NotContains(t, output, "BillProductWhereInput",
-		"where input filter should not be generated when HasWhereInputTemplate=false")
+	// HasWhereInputTemplate=false: no where input filter assignment.
+	require.NotContains(t, output, "BillProductWhereInput")
 }
 
 func TestEdgeEntityTemplateParsed(t *testing.T) {
@@ -768,50 +848,58 @@ func TestEdgeEntityTemplateParsed(t *testing.T) {
 }
 
 func TestEdgeEntityTemplateContent(t *testing.T) {
-	// Verify the template source contains the expected per-entity code elements
-	// and does not contain monolithic template artifacts.
+	// After lever B-3c, the entity template is a thin var-forwarder shim;
+	// the body lives in EdgeSubpkgTemplate.
 	tmpl := EdgeEntityTemplate.Lookup("gql_edge_entity")
 	require.NotNil(t, tmpl)
 	src := tmpl.Tree.Root.String()
 
+	// The shim references gqledges and forwards Resolve* funcs.
+	require.Contains(t, src, "gqledges")
+	require.Contains(t, src, "Register")
+	require.Contains(t, src, "ClientFromCtx")
+	require.Contains(t, src, "Resolve")
+
+	// No Scope references remain.
+	require.NotContains(t, src, "$.Scope")
+
+	// References $.Node for single entity.
+	require.Contains(t, src, "$.Node")
+}
+
+func TestEdgeSubpkgTemplateContent(t *testing.T) {
+	// Verify the subpkg template (body owner after B-3c) contains the per-edge logic.
+	tmpl := EdgeSubpkgTemplate.Lookup("gql_edge_subpkg")
+	require.NotNil(t, tmpl)
+	src := tmpl.Tree.Root.String()
+
+	require.Contains(t, src, "package gqledges")
+
 	// Verify the paginate helper is inlined (no template call).
-	require.NotContains(t, src, `template "gql_edge/helper/paginate"`,
-		"paginate helper should be inlined, not called as a sub-template")
+	require.NotContains(t, src, `template "gql_edge/helper/paginate"`)
 
-	// Verify no $Scope references remain.
-	require.NotContains(t, src, "$.Scope",
-		"entity template should not contain $.Scope references")
+	// Verify no Scope references remain.
+	require.NotContains(t, src, "$.Scope")
 
-	// Verify hasTemplate is not used.
-	require.NotContains(t, src, "hasTemplate",
-		"entity template should use $.HasWhereInputTemplate instead of hasTemplate")
+	// Verify $.HasWhereInputTemplate is used.
+	require.Contains(t, src, "HasWhereInputTemplate")
 
-	// Verify $.HasWhereInputTemplate is used instead.
-	require.Contains(t, src, "HasWhereInputTemplate",
-		"entity template should reference HasWhereInputTemplate")
-
-	// Verify it references $.Node (single entity, not range loop).
-	require.Contains(t, src, "$.Node",
-		"entity template should reference $.Node for the single entity")
+	// Verify it references $.Node.
+	require.Contains(t, src, "$.Node")
 
 	// Verify all three edge types are handled.
-	require.Contains(t, src, "isRelayConn",
-		"template should handle Relay connection edges")
-	require.Contains(t, src, "IsNotLoaded",
-		"template should handle non-Relay edges with IsNotLoaded fallback")
-	require.Contains(t, src, "MaskNotFound",
-		"template should handle optional unique edges with MaskNotFound")
+	require.Contains(t, src, "isRelayConn")
+	require.Contains(t, src, "IsNotLoaded")
+	require.Contains(t, src, "MaskNotFound")
 
 	// Verify Relay connection inlined code has expected elements.
-	require.Contains(t, src, "nodePaginationNames",
-		"template should use nodePaginationNames for Relay edges")
-	require.Contains(t, src, "Paginate",
-		"template should call Paginate as fallback for Relay edges")
+	require.Contains(t, src, "nodePaginationNames")
+	require.Contains(t, src, "Paginate")
 }
 
 func TestEdgeEntityTemplateExecution(t *testing.T) {
-	// Execute the template against the real todo schema graph for Todo entity
-	// and verify the generated output contains expected edge resolver code.
+	// After lever B-3c, the entity template is a thin shim. Verify it forwards
+	// to the gqledges sibling subpackage.
 	s, err := gen.NewStorage("sql")
 	require.NoError(t, err)
 
@@ -820,7 +908,6 @@ func TestEdgeEntityTemplateExecution(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Find the Todo node.
 	var todoNode *gen.Type
 	for _, n := range graph.Nodes {
 		if n.Name == "Todo" {
@@ -841,13 +928,52 @@ func TestEdgeEntityTemplateExecution(t *testing.T) {
 
 	output := buf.String()
 
-	// Verify the generated output contains the package declaration.
 	require.Contains(t, output, "package ent")
 
+	// The shim forwards Resolve* funcs to gqledges and registers a client accessor.
+	require.Contains(t, output, "gqledges.ResolveTodo")
+	require.Contains(t, output, "gqledges.RegisterTodoClientFromCtx")
+}
+
+func TestEdgeSubpkgTemplateExecution(t *testing.T) {
+	// Execute the subpkg template against the real todo schema graph for Todo entity
+	// and verify the generated output contains expected edge resolver code.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	tmpl := EdgeSubpkgTemplate
+	var buf bytes.Buffer
+	err = tmpl.ExecuteTemplate(&buf, "gql_edge_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{graph, todoNode, true})
+	require.NoError(t, err)
+
+	output := buf.String()
+
+	require.Contains(t, output, "package gqledges")
+
 	// Verify edge resolver standalone functions are generated.
-	// Todo has edges: parent, children, category, secret.
-	// Children is a Relay connection edge, so it should have pagination params.
 	require.Contains(t, output, "func ResolveTodo")
+
+	// Verify per-entity client accessor wiring.
+	require.Contains(t, output, "RegisterTodoClientFromCtx")
+	require.Contains(t, output, "todoClientFromCtx")
 
 	// Verify import statements.
 	require.Contains(t, output, `"context"`)
@@ -861,8 +987,8 @@ func TestEdgeEntityTemplateExecution(t *testing.T) {
 }
 
 func TestEdgeEntityTemplateNoWhereInput(t *testing.T) {
-	// Execute the template with HasWhereInputTemplate=false and verify
-	// the where input filter code is not generated.
+	// After B-3c the entity template is a thin shim. The HasWhereInputTemplate flag
+	// matters only for the subpkg template. Verify the shim still produces forwarders.
 	s, err := gen.NewStorage("sql")
 	require.NoError(t, err)
 
@@ -871,7 +997,6 @@ func TestEdgeEntityTemplateNoWhereInput(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Find the Todo node.
 	var todoNode *gen.Type
 	for _, n := range graph.Nodes {
 		if n.Name == "Todo" {
@@ -891,14 +1016,43 @@ func TestEdgeEntityTemplateNoWhereInput(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-
-	// Verify the generated output contains the package declaration.
 	require.Contains(t, output, "package ent")
+	require.Contains(t, output, "gqledges.ResolveTodo")
+}
 
-	// Verify edge resolver standalone functions are generated.
+func TestEdgeSubpkgTemplateNoWhereInput(t *testing.T) {
+	// Execute the subpkg template with HasWhereInputTemplate=false and verify the where
+	// input filter code is not generated.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	tmpl := EdgeSubpkgTemplate
+	var buf bytes.Buffer
+	err = tmpl.ExecuteTemplate(&buf, "gql_edge_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{graph, todoNode, false})
+	require.NoError(t, err)
+
+	output := buf.String()
+
+	require.Contains(t, output, "package gqledges")
 	require.Contains(t, output, "func ResolveTodo")
-
-	// Since HasWhereInputTemplate=false, the where input filter should not appear.
 	require.NotContains(t, output, "WhereInput",
 		"where input should not be generated when HasWhereInputTemplate=false")
 }
@@ -949,12 +1103,12 @@ func TestEdgeEntityTemplateMultipleEntities(t *testing.T) {
 	require.NoError(t, err)
 	catOutput := catBuf.String()
 
-	// Verify Todo output has Todo-specific standalone functions.
-	require.Contains(t, todoOutput, "func ResolveTodo")
+	// Verify Todo output has Todo-specific forwarders.
+	require.Contains(t, todoOutput, "ResolveTodo")
 	require.NotContains(t, todoOutput, "ResolveCategory")
 
-	// Verify Category output has Category-specific standalone functions.
-	require.Contains(t, catOutput, "func ResolveCategory")
+	// Verify Category output has Category-specific forwarders.
+	require.Contains(t, catOutput, "ResolveCategory")
 	require.NotContains(t, catOutput, "ResolveTodo")
 }
 

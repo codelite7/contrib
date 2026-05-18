@@ -1,0 +1,296 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gql_collection_subpkg_runtime" }}
+
+{{- /*gotype: entgo.io/contrib/entgql.collectionSubpkgRuntimeData*/ -}}
+
+{{- $maxPageSize := 0 }}
+{{- $extAnn := index $.Annotations "EntGQLExtension" }}
+{{- if $extAnn }}{{- $maxPageSize = $extAnn.MaxPageSize }}{{- end }}
+
+{{ $.Config.Header }}
+
+package gqlcollections
+
+{{ $gqlNodes := filterNodes $.Nodes (skipMode "type") }}
+{{ $idType := gqlIDType $gqlNodes $.IDType }}
+
+import (
+	"context"
+	"encoding/json"
+	"reflect"
+
+	"entgo.io/contrib/entgql"
+	"entgo.io/ent/dialect/sql"
+	"github.com/99designs/gqlgen/graphql"
+	"github.com/99designs/gqlgen/graphql/errcode"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+	"{{ $.Config.Package }}/internal"
+	{{- if $idType.PkgPath }}
+	"{{ $idType.PkgPath }}"
+	{{- end }}
+)
+
+// Cursor matches the root gen.Cursor alias. Local definition avoids importing root.
+type Cursor = entgql.Cursor[{{ $idType }}]
+
+// AggregateFunc matches the root gen.AggregateFunc alias.
+type AggregateFunc = internal.AggregateFunc
+
+// Count applies the "count" aggregation function on each group.
+// Local copy of root gen.Count to avoid importing root.
+func Count() AggregateFunc {
+	return func(s *sql.Selector) string {
+		return sql.Count("*")
+	}
+}
+
+const (
+	{{- range $field := list "after" "first" "before" "last" "orderBy" "direction" "field" "where" "edges" "node" "pageInfo" "totalCount" }}
+		{{ $field }}Field = "{{ $field }}"
+	{{- end }}
+)
+
+const errInvalidPagination = "INVALID_PAGINATION"
+
+func validateFirstLast(first, last *int) (err *gqlerror.Error) {
+	switch {
+	case first != nil && last != nil:
+		err = &gqlerror.Error{
+			Message: "Passing both `first` and `last` to paginate a connection is not supported.",
+		}
+	{{- range $arg := list "first" "last" }}
+		case {{ $arg }} != nil && *{{ $arg }} < 0:
+			err = &gqlerror.Error{
+				Message: "`{{ $arg }}` on a connection cannot be less than zero.",
+			}
+			errcode.Set(err, errInvalidPagination)
+	{{- end }}
+	}
+	return err
+}
+
+func collectedField(ctx context.Context, path ...string) *graphql.CollectedField {
+	fc := graphql.GetFieldContext(ctx)
+	if fc == nil {
+		return nil
+	}
+	field := fc.Field
+	oc := graphql.GetOperationContext(ctx)
+walk:
+	for _, name := range path {
+		for _, f := range graphql.CollectFields(oc, field.Selections, nil) {
+			if f.Alias == name {
+				field = f
+				continue walk
+			}
+		}
+		return nil
+	}
+	return &field
+}
+
+func hasCollectedField(ctx context.Context, path ...string) bool {
+	if graphql.GetFieldContext(ctx) == nil {
+		return true
+	}
+	return collectedField(ctx, path...) != nil
+}
+
+func paginateLimit(first, last *int) int {
+{{- if gt $maxPageSize 0 }}
+	const _maxPageSize = {{ $maxPageSize }}
+{{- end }}
+	var limit int
+	if first != nil {
+		limit = *first + 1
+	} else if last != nil {
+		limit = *last + 1
+	}
+{{- if gt $maxPageSize 0 }}
+	if limit == 0 || limit > _maxPageSize+1 {
+		limit = _maxPageSize + 1
+	}
+{{- end }}
+	return limit
+}
+
+type gqlInputUnmarshaler interface {
+	UnmarshalGQL(any) error
+}
+
+var gqlInputUnmarshalerType = reflect.TypeOf((*gqlInputUnmarshaler)(nil)).Elem()
+
+func fieldArgs(ctx context.Context, whereInput any, path ...string) map[string]any {
+	if args := parsedFieldArgs(ctx, path...); args != nil {
+		return unmarshalArgs(ctx, whereInput, args)
+	}
+	field := collectedField(ctx, path...)
+	if field == nil || field.Arguments == nil {
+		return nil
+	}
+	oc := graphql.GetOperationContext(ctx)
+	if oc == nil {
+		return nil
+	}
+	args := field.ArgumentMap(oc.Variables)
+	return unmarshalArgs(ctx, whereInput, args)
+}
+
+func parsedFieldArgs(ctx context.Context, path ...string) map[string]any {
+	fc := graphql.GetFieldContext(ctx)
+	if fc == nil {
+		return nil
+	}
+	if len(path) == 0 {
+		return cloneArgsMap(fc.Args)
+	}
+	oc := graphql.GetOperationContext(ctx)
+	if oc == nil {
+		return nil
+	}
+
+walk:
+	for _, name := range path {
+		if fc.Child == nil {
+			return nil
+		}
+		for _, field := range graphql.CollectFields(oc, fc.Field.Selections, nil) {
+			if field.Alias != name {
+				continue
+			}
+			child, err := fc.Child(ctx, field)
+			if err != nil || child == nil {
+				return nil
+			}
+			fc = child
+			continue walk
+		}
+		return nil
+	}
+
+	return cloneArgsMap(fc.Args)
+}
+
+func cloneArgsMap(args map[string]any) map[string]any {
+	if args == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(args))
+	for k, v := range args {
+		cloned[k] = v
+	}
+	return cloned
+}
+
+func unmarshalArgs(ctx context.Context, whereInput any, args map[string]any) map[string]any {
+	for _, k := range []string{firstField, lastField} {
+		v, ok := args[k]
+		if !ok || v == nil {
+			continue
+		}
+		i, err := graphql.UnmarshalInt(v)
+		if err == nil {
+			args[k] = &i
+		}
+	}
+	for _, k := range []string{beforeField, afterField} {
+		v, ok := args[k]
+		if !ok {
+			continue
+		}
+		c := &Cursor{}
+		if c.UnmarshalGQL(v) == nil {
+			args[k] = c
+		}
+	}
+	if v, ok := args[whereField]; ok && whereInput != nil {
+		if err := graphql.UnmarshalInputFromContext(ctx, v, whereInput); err == nil {
+			args[whereField] = whereInput
+		} else if rawJSON, marshalErr := json.Marshal(v); marshalErr == nil {
+			if unmarshalErr := json.Unmarshal(rawJSON, whereInput); unmarshalErr == nil {
+				if normalizeErr := normalizeInputEnums(reflect.ValueOf(whereInput)); normalizeErr == nil {
+					args[whereField] = whereInput
+				}
+			}
+		}
+	}
+
+	return args
+}
+
+func normalizeInputEnums(v reflect.Value) error {
+	if !v.IsValid() {
+		return nil
+	}
+
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
+		if v.Type().Implements(gqlInputUnmarshalerType) {
+			u := v.Interface().(gqlInputUnmarshaler)
+			if v.Elem().Kind() == reflect.String {
+				return u.UnmarshalGQL(v.Elem().String())
+			}
+		}
+		return normalizeInputEnums(v.Elem())
+	}
+
+	if reflect.PointerTo(v.Type()).Implements(gqlInputUnmarshalerType) {
+		if v.Kind() == reflect.String {
+			ptr := reflect.New(v.Type())
+			ptr.Elem().Set(v)
+			u := ptr.Interface().(gqlInputUnmarshaler)
+			if err := u.UnmarshalGQL(v.String()); err != nil {
+				return err
+			}
+			if v.CanSet() {
+				v.Set(ptr.Elem())
+			}
+			return nil
+		}
+	}
+
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if !field.CanSet() && field.Kind() != reflect.Ptr {
+				continue
+			}
+			if err := normalizeInputEnums(field); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			if err := normalizeInputEnums(v.Index(i)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// mayAddCondition appends another type condition to the satisfies list
+// if it does not exist in the list.
+func mayAddCondition(satisfies []string, typeCond []string) []string {
+Cond:
+	for _, c := range typeCond {
+		for _, s := range satisfies {
+			if c == s {
+				continue Cond
+			}
+		}
+		satisfies = append(satisfies, c)
+	}
+	return satisfies
+}
+
+{{ end }}

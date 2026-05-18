@@ -351,14 +351,15 @@ const (
 
 {{ $query := $node.QueryName }}
 
-// collectFieldFn{{ $query }} is set by root gen's collection entity file via Register{{ $query }}CollectFieldFn.
-// It breaks the subpkg→gen import cycle: gen/gql_collection_<entity>.go defines the function and
-// registers it here at package-init time, avoiding a direct import of root gen from this subpackage.
-var collectFieldFn{{ $query }} func(*{{ $query }}, context.Context, bool, *graphql.OperationContext, graphql.CollectedField, []string) error
+// collectFieldFn{{ $query }} is set by the gqlcollections sibling subpackage via Register{{ $query }}CollectFieldFn.
+// It breaks the subpkg→gqlcollections import cycle: gen/gqlcollections/<entity>.go defines the function and
+// registers it here at package-init time, avoiding a direct import of gqlcollections from this entity subpackage.
+// The last parameter is variadic to match the codegen-emitted collectField signature.
+var collectFieldFn{{ $query }} func(*{{ $query }}, context.Context, bool, *graphql.OperationContext, graphql.CollectedField, []string, ...string) error
 
 // Register{{ $query }}CollectFieldFn registers the per-entity collectField helper.
-// Called from root gen's gql_collection_<entity>.go init() (lever B-2 split).
-func Register{{ $query }}CollectFieldFn(fn func(*{{ $query }}, context.Context, bool, *graphql.OperationContext, graphql.CollectedField, []string) error) {
+// Called from gqlcollections's gen/gqlcollections/<entity>.go init() (lever B-3d split).
+func Register{{ $query }}CollectFieldFn(fn func(*{{ $query }}, context.Context, bool, *graphql.OperationContext, graphql.CollectedField, []string, ...string) error) {
 	collectFieldFn{{ $query }} = fn
 }
 

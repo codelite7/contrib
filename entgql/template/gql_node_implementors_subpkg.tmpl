@@ -1,0 +1,23 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gql_node_implementors_subpkg" }}
+
+{{- /*gotype: entgo.io/contrib/entgql.nodeEntityData*/ -}}
+
+{{ $.Config.Header }}
+
+{{ $node := $.Node }}
+{{ $names := nodePaginationNames $node }}
+
+package {{ $node.Package }}
+
+// Implementors lists the GraphQL interfaces implemented by {{ $node.Name }}.
+// Used by gqlcollections to compute the "satisfies" set when traversing the GraphQL schema.
+// Root gen keeps a forwarder var <name>Implementors = <pkg>.Implementors for back-compat.
+var Implementors = []string{"{{ $names.Node }}"{{ range $iface := nodeImplementors $node }}, "{{ $iface }}"{{ end }}}
+
+{{ end }}

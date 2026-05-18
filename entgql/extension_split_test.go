@@ -547,14 +547,15 @@ func TestEdgeEntityFile(t *testing.T) {
 	contentStr := string(content)
 
 	require.Contains(t, contentStr, "package ent")
+	// After lever B-3c the entity file is a thin shim with var forwarders to gqledges.
 	// Todo has Parent, Children, and Category edges.
-	require.Contains(t, contentStr, "func ResolveTodoParent(")
-	require.Contains(t, contentStr, "func ResolveTodoChildren(")
-	require.Contains(t, contentStr, "func ResolveTodoCategory(")
+	require.Contains(t, contentStr, "ResolveTodoParent")
+	require.Contains(t, contentStr, "ResolveTodoChildren")
+	require.Contains(t, contentStr, "ResolveTodoCategory")
+	require.Contains(t, contentStr, "gqledges")
 
-	// Should NOT contain other entity edge resolvers.
-	require.NotContains(t, contentStr, "ResolveCategory")
-	require.NotContains(t, contentStr, "ResolveUser")
+	// Should NOT define cross-entity edge resolvers in this file.
+	require.NotContains(t, contentStr, "ResolveCategoryTodos")
 }
 
 func TestEdgeEntityFile_HasWhereInputTemplate(t *testing.T) {
@@ -590,10 +591,11 @@ func TestEdgeEntityFile_HasWhereInputTemplate(t *testing.T) {
 	require.NoError(t, err)
 	contentStr := string(content)
 	require.Contains(t, contentStr, "package ent")
-	// With where inputs enabled, the edge should have a where parameter.
-	require.Contains(t, contentStr, "where *TodoWhereInput")
+	// After lever B-3c the entity file is a shim; signatures (where *TodoWhereInput) live
+	// in gqledges. Verify the shim wires up forwarders regardless of where-input mode.
+	require.Contains(t, contentStr, "gqledges.ResolveCategory")
 
-	// Test with genWhereInput = false
+	// Test with genWhereInput = false (shim is mode-agnostic, still emits forwarders).
 	ex2, err := NewExtension(
 		WithSchemaGenerator(),
 		WithWhereInputs(false),
@@ -608,8 +610,7 @@ func TestEdgeEntityFile_HasWhereInputTemplate(t *testing.T) {
 	require.NoError(t, err)
 	contentStr2 := string(content2)
 	require.Contains(t, contentStr2, "package ent")
-	// Without where inputs, the where parameter should not be present.
-	require.NotContains(t, contentStr2, "WhereInput")
+	require.Contains(t, contentStr2, "gqledges.ResolveCategory")
 }
 
 func TestGenerateSplitNodeDescriptor(t *testing.T) {

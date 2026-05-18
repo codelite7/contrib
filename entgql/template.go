@@ -120,6 +120,37 @@ var (
 	// Initialized in init() to avoid initialization order issues.
 	EdgeEntityTemplate *template.Template
 
+	// EdgeSubpkgTemplate generates edge resolver bodies in the sibling subpackage
+	// gen/gqledges/<entity>.go (lever B-3c). Companion to EdgeEntityTemplate which
+	// now emits thin var forwarders + per-entity client registration in root.
+	// Initialized in init() to avoid initialization order issues.
+	EdgeSubpkgTemplate *template.Template
+
+	// EdgeSubpkgRuntimeTemplate generates the shared runtime helpers (IsNotLoaded,
+	// MaskNotFound, IsNotFound) in gen/gqledges/runtime.go (lever B-3c). Emitted once
+	// per generation, not per-entity.
+	// Initialized in init() to avoid initialization order issues.
+	EdgeSubpkgRuntimeTemplate *template.Template
+
+	// CollectionSubpkgTemplate generates the per-entity collectField bodies in the
+	// sibling subpackage gen/gqlcollections/<entity>.go (lever B-3d). Companion to
+	// CollectionEntityTemplate which now emits thin var forwarders in root.
+	// Initialized in init() to avoid initialization order issues.
+	CollectionSubpkgTemplate *template.Template
+
+	// CollectionSubpkgRuntimeTemplate generates the shared runtime helpers (Cursor,
+	// Count, paginateLimit, validateFirstLast, hasCollectedField, fieldArgs,
+	// mayAddCondition, etc.) in gen/gqlcollections/runtime.go (lever B-3d). Emitted
+	// once per generation, not per-entity.
+	// Initialized in init() to avoid initialization order issues.
+	CollectionSubpkgRuntimeTemplate *template.Template
+
+	// NodeImplementorsSubpkgTemplate generates the per-entity Implementors slice in
+	// gen/<entity>/gql_node_implementors.go. Required so sibling sub-packages can
+	// reference {{ $entity }}.Implementors without importing root gen (lever B-3d).
+	// Initialized in init() to avoid initialization order issues.
+	NodeImplementorsSubpkgTemplate *template.Template
+
 	// NodeDescriptorSharedTemplate generates the shared node descriptor code (Node/Field/Edge structs
 	// and Client.Node() method) that doesn't repeat per entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
@@ -202,6 +233,11 @@ func init() {
 	CollectionSharedTemplate = parseEntityTemplate("template/collection_shared.tmpl", "gql_collection_shared")
 	CollectionEntityTemplate = parseEntityTemplate("template/collection_entity.tmpl", "gql_collection_entity")
 	EdgeEntityTemplate = parseEntityTemplate("template/edge_entity.tmpl", "gql_edge_entity")
+	EdgeSubpkgTemplate = parseEntityTemplate("template/gql_edge_subpkg.tmpl", "gql_edge_subpkg")
+	EdgeSubpkgRuntimeTemplate = parseEntityTemplate("template/gql_edge_subpkg_runtime.tmpl", "gql_edge_subpkg_runtime")
+	CollectionSubpkgTemplate = parseEntityTemplate("template/gql_collection_subpkg.tmpl", "gql_collection_subpkg")
+	CollectionSubpkgRuntimeTemplate = parseEntityTemplate("template/gql_collection_subpkg_runtime.tmpl", "gql_collection_subpkg_runtime")
+	NodeImplementorsSubpkgTemplate = parseEntityTemplate("template/gql_node_implementors_subpkg.tmpl", "gql_node_implementors_subpkg")
 	NodeDescriptorSharedTemplate = parseEntityTemplate("template/node_descriptor_shared.tmpl", "gql_node_descriptor_shared")
 	NodeDescriptorEntityTemplate = parseEntityTemplate("template/node_descriptor_entity.tmpl", "gql_node_descriptor_entity")
 	NodeSharedTemplate = parseEntityTemplate("template/node_shared.tmpl", "gql_node_shared")
