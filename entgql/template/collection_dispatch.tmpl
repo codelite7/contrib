@@ -34,12 +34,16 @@ import (
 // Task 5 wired up every method that operates on subpkg-local state
 // (paginateArgs accessors, CollectFields, AddQueryModifier). The pager-
 // shaped methods (NewPager / ApplyFilter / ApplyCursors / ApplyOrder /
-// OrderExpr) still panic — they need the gen-package pager (typed
-// *<entity>Pager), which the subpkg cannot import without a cycle.
-// Task 6 finishes them via gen-package shim functions that accept []any
-// opts and return any pager. Until then, Relay-paginated collection
-// edges fail at runtime with a clear stub message instead of silently
-// returning empty.
+// OrderExpr) and AssignEagerLoad still panic — they need access to
+// gen-package types (typed *<entity>Pager, per-entity edge-load helpers
+// like loadTodoChildren) which the subpkg cannot import without a
+// cycle (gen has type aliases pointing back to subpkg).
+//
+// Resolving this requires moving the pager type and per-edge load
+// helpers into the subpkg too — a follow-up architectural task. Until
+// then, Relay-paginated collection edges and cross-entity edge eager
+// loading fail at runtime with a clear stub message instead of
+// silently returning empty.
 type collector struct{}
 
 func (collector) NewQuery(config any) any {
@@ -132,6 +136,24 @@ func (collector) CollectFields(ctx context.Context, q any, oneNode bool, opCtx *
 
 func (collector) IDColumnName() string {
 	return {{ printf "%q" $node.ID.StorageKey }}
+}
+
+func (collector) AssignEagerLoad(parentQuery any, edgeName, alias string, otherQuery any) {
+	// Cross-entity eager-load wiring goes through the parent subpkg's
+	// StoreEager seam, but the closure body must execute per-edge SQL
+	// using load helpers that today live in the gen-package facade
+	// (e.g. loadTodoChildren, loadTodoCategory). The subpkg cannot
+	// import the gen package without re-introducing the cross-entity
+	// cycle this dispatch design exists to break.
+	//
+	// Implementing this method requires moving the per-edge load
+	// helpers into the subpkg (or a shared internal package the subpkg
+	// owns). That's a separate architectural task — until then this
+	// stub keeps callers honest: any attempt to walk a collection edge
+	// through the new subpkg dispatch path fails fast instead of
+	// silently dropping the eager-load configuration.
+	_, _, _, _ = parentQuery, edgeName, alias, otherQuery
+	panic("TODO: AssignEagerLoad needs per-edge load helpers in subpkg (currently in gen-package facade); subpkg → gen import would cycle. See collection_dispatch.tmpl for full scope.")
 }
 
 func init() {

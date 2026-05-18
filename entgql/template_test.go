@@ -1568,6 +1568,10 @@ func TestCollectionDispatchPkgTemplateContent(t *testing.T) {
 	require.Contains(t, src, "AddQueryModifier(query any, modifier any)")
 	require.Contains(t, src, "CollectFields(ctx context.Context")
 	require.Contains(t, src, "IDColumnName() string")
+	// AssignEagerLoad is the cross-entity edge-wiring seam (interface-shaped
+	// today, stub-implemented in the subpkg dispatch collector pending the
+	// per-edge load helper migration into the subpkg).
+	require.Contains(t, src, "AssignEagerLoad(parentQuery any, edgeName, alias string, otherQuery any)")
 
 	// Registry + Register/Get declarations.
 	require.Contains(t, src, "var registry = make(map[string]EntityCollector)")
@@ -1594,6 +1598,7 @@ func TestCollectionDispatchPkgTemplateExecution(t *testing.T) {
 	require.Contains(t, out, "type EntityCollector interface")
 	require.Contains(t, out, "NewQuery(config any) any")
 	require.Contains(t, out, "CollectFields(ctx context.Context")
+	require.Contains(t, out, "AssignEagerLoad(parentQuery any, edgeName, alias string, otherQuery any)")
 	require.Contains(t, out, "func Register(entity string, c EntityCollector)")
 	require.Contains(t, out, "func Get(entity string) EntityCollector")
 	require.Contains(t, out, "var registry = make(map[string]EntityCollector)")
@@ -1637,6 +1642,11 @@ func TestCollectionDispatchTemplateContent(t *testing.T) {
 	require.Contains(t, src, "collectiondispatch.Register(")
 	require.Contains(t, src, "EntityCollector")
 	require.Contains(t, src, `panic("TODO Task 6`)
+	// AssignEagerLoad stub: cross-entity edge wiring is blocked on the
+	// per-edge load helper migration into the subpkg (see template
+	// comment for the full scope).
+	require.Contains(t, src, "AssignEagerLoad(parentQuery any, edgeName, alias string, otherQuery any)")
+	require.Contains(t, src, `panic("TODO: AssignEagerLoad`)
 
 	// Entity-prefixed identifiers come from $node.QueryName and
 	// `print "New" $node.Name "Client"` per the verified PR 6 naming.
@@ -1705,6 +1715,11 @@ func TestCollectionDispatchTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "args.(*paginateArgs).opts")
 	require.Contains(t, output, ".collectField(ctx, oneNode, opCtx, collected, path, satisfies...)")
 	require.Contains(t, output, "q.modifiers = append(q.modifiers, mod)")
+
+	// AssignEagerLoad is rendered as a stub (per-edge load helpers still
+	// live in the gen-package facade; subpkg → gen import would cycle).
+	require.Contains(t, output, "func (collector) AssignEagerLoad(parentQuery any, edgeName, alias string, otherQuery any)")
+	require.Contains(t, output, `panic("TODO: AssignEagerLoad`)
 
 	// init() registers the collector exactly once.
 	require.Contains(t, output, "func init() {")

@@ -43,6 +43,24 @@ type EntityCollector interface {
 	AddQueryModifier(query any, modifier any)
 	CollectFields(ctx context.Context, q any, oneNode bool, opCtx *graphql.OperationContext, collected graphql.CollectedField, path []string, satisfies ...string) error
 	IDColumnName() string
+	// AssignEagerLoad registers an eager-load callback for edgeName on
+	// parentQuery using otherQuery as the materialized sibling sub-query.
+	// alias is the GraphQL response alias (used by named non-Unique edges
+	// to bucket results into per-alias slots; Unique edges ignore it).
+	//
+	// The contract is intentionally untyped so subpkg dispatch collectors
+	// can wire cross-entity edges without importing sibling sub-packages
+	// (the cycle the dispatch design exists to break). Implementations
+	// type-assert parentQuery and otherQuery to their concrete subpkg
+	// *Query types and call into the parent subpkg's StoreEager seam.
+	//
+	// Bug 9 status: stubbed pending the pager-subpkg migration that
+	// follow-up tasks own — cross-entity edge wiring depends on edge-load
+	// helpers that today live in the gen-package facade (e.g.
+	// loadTodoChildren), and the subpkg cannot import the gen package
+	// without re-introducing the very cycle this interface routes around.
+	// See template comments in collection_dispatch.tmpl for the full scope.
+	AssignEagerLoad(parentQuery any, edgeName, alias string, otherQuery any)
 }
 
 var registry = make(map[string]EntityCollector)

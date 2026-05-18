@@ -49,12 +49,29 @@ const (
 // (gen).{{ $query }} = ({{ $node.Package }}).{{ $query }}, so existing
 // callers using ent.{{ $query }}.CollectFields continue to work.
 //
-// Edge handling is deliberately deferred to follow-up tasks (6/7).
-// Today this method walks scalar field selections so a query that
-// requests only own-entity fields gets a precise SELECT clause; for
-// edge sub-selections it simply leaves the eager-load configuration
-// untouched. The acceptance criterion for this task is the Bug 9
-// `go build` check — full Relay/eager-load wiring is the next step.
+// Edge handling is deliberately deferred. Today this method walks
+// scalar field selections so a query that requests only own-entity
+// fields gets a precise SELECT clause; for edge sub-selections it
+// acknowledges the field (so unknownSeen stays false) but leaves the
+// eager-load configuration untouched.
+//
+// Full cross-entity edge wiring requires either:
+//   (a) calling parent.StoreEager(name, loader) from this subpkg with a
+//       loader that uses per-edge load helpers — but those helpers
+//       (loadXChildren, loadXCategory, …) live in the gen-package
+//       facade today, and the subpkg cannot import gen without a cycle
+//       (gen has type aliases pointing back to subpkg); or
+//   (b) routing through collectiondispatch.Get(otherPkg).AssignEagerLoad
+//       — which is interface-shaped today but stubbed at the
+//       implementation site for the same reason: the implementation
+//       lives in the OTHER subpkg's gql_collection_dispatch.go and
+//       still needs typed access to gen-package load helpers.
+//
+// The unblocker is moving per-edge load helpers into the subpkg too.
+// That's a separate architectural task; this template ships the
+// scalar-field narrowing now so callers requesting only own-entity
+// columns benefit from precise SELECTs and the Bug 9 `go build` check
+// passes.
 func (q *{{ $query }}) CollectFields(ctx context.Context, satisfies ...string) (*{{ $query }}, error) {
 	fc := graphql.GetFieldContext(ctx)
 	if fc == nil {
@@ -96,9 +113,16 @@ func (q *{{ $query }}) collectField(ctx context.Context, oneNode bool, opCtx *gr
 				{{- range $i, $fc := $collects }}
 					{{- $e := $fc.Edge }}
 					case {{ range $i, $value := $fc.Mapping }}{{ if $i }}, {{ end }}"{{ $value }}"{{ end }}:
-						// Edge {{ $e.Name }}: eager-load wiring deferred to follow-up tasks.
-						// Acknowledge the field so the default branch does not flip
-						// unknownSeen — that would suppress the SELECT narrowing.
+						// Edge {{ $e.Name }}: eager-load wiring is blocked on the
+						// subpkg → gen-package import cycle. The per-edge load
+						// helpers (loadX{{ $e.StructField }}) live in the gen
+						// facade and can't be reached from this subpkg without a
+						// cycle. Acknowledge the field so the default branch does
+						// not flip unknownSeen (which would suppress the SELECT
+						// narrowing for the scalar fields below). When per-edge
+						// load helpers move into the subpkg (separate follow-up
+						// task), this branch fills in via
+						// collectiondispatch.Get(otherPkg).AssignEagerLoad.
 						_ = field
 						{{- with $e.Field }}
 							if _, ok := fieldSeen[{{ .Constant }}]; !ok {
