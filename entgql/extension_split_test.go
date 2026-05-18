@@ -448,8 +448,14 @@ func TestCollectionEntityFile(t *testing.T) {
 
 	require.Contains(t, contentStr, "package ent")
 
-	// Should NOT contain other entity types.
-	require.NotContains(t, contentStr, "CategoryQuery")
+	// Should NOT define a Category-entity collectField/CollectFields helper
+	// in the Todo file. Cross-entity calls to collectFieldCategoryQuery are
+	// expected (and required) for eager-loading Category edges from Todo —
+	// Pivot A converted those calls from `query.collectField(...)` (method
+	// on alias, Bug 9) to free-function form. The per-entity file
+	// boundary still holds: only the Todo helpers are *defined* here.
+	require.NotContains(t, contentStr, "func collectFieldCategoryQuery(")
+	require.NotContains(t, contentStr, "func CategoryQueryCollectFields(")
 }
 
 func TestGenerateSplitEdge(t *testing.T) {

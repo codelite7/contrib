@@ -685,9 +685,11 @@ func TestCollectionEntityTemplateExecution(t *testing.T) {
 	// Verify the generated output contains the package declaration.
 	require.Contains(t, output, "package ent")
 
-	// Verify CollectFields method is generated for the Todo query.
-	require.Contains(t, output, "CollectFields(ctx context.Context, satisfies ...string)")
-	require.Contains(t, output, "collectField(ctx context.Context, oneNode bool")
+	// Verify CollectFields free function is generated for the Todo query.
+	// Post-Pivot-A: emitted as free functions (not methods) so the gen package
+	// can declare them on the *TodoQuery alias without Bug 9.
+	require.Contains(t, output, "func TodoQueryCollectFields(_q *TodoQuery, ctx context.Context, satisfies ...string) (*TodoQuery, error)")
+	require.Contains(t, output, "func collectFieldTodoQuery(_q *TodoQuery, ctx context.Context, oneNode bool")
 
 	// Verify PaginateArgs struct is generated.
 	require.Contains(t, output, "todoPaginateArgs")
@@ -741,8 +743,8 @@ func TestCollectionEntityTemplateNoWhereInput(t *testing.T) {
 	// Verify the generated output contains the package declaration.
 	require.Contains(t, output, "package ent")
 
-	// Verify CollectFields is present.
-	require.Contains(t, output, "CollectFields(ctx context.Context, satisfies ...string)")
+	// Verify CollectFields free function is present (Pivot A: free function form).
+	require.Contains(t, output, "func BillProductQueryCollectFields(_q *BillProductQuery, ctx context.Context, satisfies ...string) (*BillProductQuery, error)")
 
 	// Verify PaginateArgs struct is generated for this entity.
 	// Note: camel("BillProduct") produces "billproduct" for the struct type name.

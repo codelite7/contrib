@@ -26,19 +26,22 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// CollectFields tells the query-builder to eagerly load connected nodes by resolver context.
-func ({{ $receiver }} *{{ $query }}) CollectFields(ctx context.Context, satisfies ...string) (*{{ $query }}, error) {
+// {{ $query }}CollectFields tells the query-builder to eagerly load connected nodes by resolver context.
+// Free function (rather than method) because *{{ $query }} is a type alias after PR 6's sub-package split,
+// and Go forbids defining methods on alias types from foreign packages.
+func {{ $query }}CollectFields({{ $receiver }} *{{ $query }}, ctx context.Context, satisfies ...string) (*{{ $query }}, error) {
 	fc := graphql.GetFieldContext(ctx)
 	if fc == nil {
 		return {{ $receiver }}, nil
 	}
-	if err := {{ $receiver }}.collectField(ctx, false, graphql.GetOperationContext(ctx), fc.Field, nil, satisfies...); err != nil {
+	if err := collectField{{ $query }}({{ $receiver }}, ctx, false, graphql.GetOperationContext(ctx), fc.Field, nil, satisfies...); err != nil {
 		return nil, err
 	}
 	return {{ $receiver }}, nil
 }
 
-func ({{ $receiver }} *{{ $query }}) collectField(ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, collected graphql.CollectedField, path []string, satisfies ...string) error {
+// collectField{{ $query }} is the recursive helper for {{ $query }}CollectFields.
+func collectField{{ $query }}({{ $receiver }} *{{ $query }}, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, collected graphql.CollectedField, path []string, satisfies ...string) error {
 	path = append([]string(nil), path...)
 	{{- $fields := filterFields $node.Fields (skipMode "type") }}
 	{{- $collects := fieldCollections (filterEdges $node.Edges (skipMode "type")) }}
@@ -163,7 +166,7 @@ func ({{ $receiver }} *{{ $query }}) collectField(ctx context.Context, oneNode b
 							}
 							path = append(path, edgesField, nodeField)
 							if field := collectedField(ctx, path...); field != nil {
-								if err := query.collectField(ctx, {{ $oneNode }}, opCtx, *field, path, mayAddCondition(satisfies, {{ nodeImplementorsVar $e.Type }})...); err != nil {
+								if err := collectField{{ $e.Type.QueryName }}(query, ctx, {{ $oneNode }}, opCtx, *field, path, mayAddCondition(satisfies, {{ nodeImplementorsVar $e.Type }})...); err != nil {
 									return err
 								}
 							}
@@ -184,7 +187,7 @@ func ({{ $receiver }} *{{ $query }}) collectField(ctx context.Context, oneNode b
 								query = pager.applyOrder(query)
 							}
 						{{- else }}
-							if err := query.collectField(ctx, {{ $oneNode }}, opCtx, field, path, mayAddCondition(satisfies, {{ nodeImplementorsVar $e.Type }})...); err != nil {
+							if err := collectField{{ $e.Type.QueryName }}(query, ctx, {{ $oneNode }}, opCtx, field, path, mayAddCondition(satisfies, {{ nodeImplementorsVar $e.Type }})...); err != nil {
 								return err
 							}
 						{{- end }}
