@@ -70,6 +70,12 @@ var (
 	// Initialized in init() to avoid initialization order issues.
 	WhereInputEntityTemplate *template.Template
 
+	// WhereInputSubpkgTemplate generates WhereInput types + methods in the sibling subpackage
+	// gen/whereinputs/<entity>.go (lever B-3a). Companion to WhereInputEntityTemplate which
+	// now emits thin type-alias re-exports in root.
+	// Initialized in init() to avoid initialization order issues.
+	WhereInputSubpkgTemplate *template.Template
+
 	// MutationInputEntityTemplate generates mutation inputs for a single entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
 	MutationInputEntityTemplate *template.Template
@@ -78,6 +84,13 @@ var (
 	// circular imports between the root gen package and entity sub-packages (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
 	MutationInputSubpkgTemplate *template.Template
+
+	// MutationInputSiblingTemplate generates Create<T>Input/Update<T>Input struct definitions,
+	// their Mutate methods, and Set<Builder>Input free functions in the sibling subpackage
+	// gen/mutationinputs/<entity>.go (lever B-3b). Companion to MutationInputEntityTemplate
+	// which now emits thin type-alias re-exports + var forwarders in root.
+	// Initialized in init() to avoid initialization order issues.
+	MutationInputSiblingTemplate *template.Template
 
 	// PaginationEntityTemplate generates pagination code for a single entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
@@ -179,8 +192,10 @@ func parseT(path string) *gen.Template {
 func init() {
 	// Initialize entity templates after all vars are set up
 	WhereInputEntityTemplate = parseEntityTemplate("template/where_input_entity.tmpl", "gql_where_input_entity")
+	WhereInputSubpkgTemplate = parseEntityTemplate("template/where_input_subpkg.tmpl", "gql_where_input_subpkg")
 	MutationInputEntityTemplate = parseEntityTemplate("template/mutation_input_entity.tmpl", "gql_mutation_input_entity")
 	MutationInputSubpkgTemplate = parseEntityTemplate("template/mutation_input_subpkg.tmpl", "gql_mutation_input_subpkg")
+	MutationInputSiblingTemplate = parseEntityTemplate("template/mutation_input_sibling.tmpl", "gql_mutation_input_sibling")
 	PaginationEntityTemplate = parseEntityTemplate("template/pagination_entity.tmpl", "gql_pagination_entity")
 	PaginationSubpkgTemplate = parseEntityTemplate("template/pagination_subpkg.tmpl", "gql_pagination_subpkg")
 	PaginationSharedTemplate = parseEntityTemplate("template/pagination_shared.tmpl", "gql_pagination_shared")

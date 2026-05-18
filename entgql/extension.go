@@ -569,10 +569,14 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 			for _, n := range nodes {
 				n := n
 				fns = append(fns, func() error { return e.generateWhereInputFile(&staged, n) })
+				fns = append(fns, func() error { return e.generateWhereInputSubpkgFile(g, n) })
 			}
 		} else {
 			for _, n := range nodes {
 				if err := e.generateWhereInputFile(&staged, n); err != nil {
+					return err
+				}
+				if err := e.generateWhereInputSubpkgFile(g, n); err != nil {
 					return err
 				}
 			}
@@ -596,6 +600,10 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 			// Also generate SetInput methods in the entity sub-package to avoid circular imports.
 			// Uses the real g (not staged) since sub-package dirs are created by ent, not the staging system.
 			fns = append(fns, func() error { return e.generateMutationInputSubpkgFile(g, name, entityInputs) })
+			// Lever B-3b: emit Create/Update<T>Input + Mutate + Set<Builder>Input bodies into
+			// the sibling subpackage gen/mutationinputs/<entity>.go. Root entity file (above) is
+			// reduced to thin type-aliases + var forwarders.
+			fns = append(fns, func() error { return e.generateMutationInputSiblingFile(g, name, entityInputs) })
 		}
 	}
 
@@ -725,11 +733,15 @@ func (e *Extension) generateSplitWhereInputs(g *gen.Graph) error {
 		for _, n := range nodes {
 			n := n
 			fns = append(fns, func() error { return e.generateWhereInputFile(g, n) })
+			fns = append(fns, func() error { return e.generateWhereInputSubpkgFile(g, n) })
 		}
 		return parallelGenerate(fns)
 	}
 	for _, n := range nodes {
 		if err := e.generateWhereInputFile(g, n); err != nil {
+			return err
+		}
+		if err := e.generateWhereInputSubpkgFile(g, n); err != nil {
 			return err
 		}
 	}
@@ -751,6 +763,8 @@ func (e *Extension) generateSplitMutationInputs(g *gen.Graph) error {
 		name := name
 		entityInputs := entityInputs
 		fns = append(fns, func() error { return e.generateMutationInputFile(g, name, entityInputs) })
+		fns = append(fns, func() error { return e.generateMutationInputSubpkgFile(g, name, entityInputs) })
+		fns = append(fns, func() error { return e.generateMutationInputSiblingFile(g, name, entityInputs) })
 	}
 	return parallelGenerate(fns)
 }
@@ -872,6 +886,34 @@ func (e *Extension) generateWhereInputFile(g *gen.Graph, n *gen.Type) error {
 	return os.WriteFile(path, content, 0644)
 }
 
+// generateWhereInputSubpkgFile generates WhereInput types + methods in the sibling subpackage
+// gen/whereinputs/<entity>.go (lever B-3a). The sibling directory is created if it does not exist.
+// The root gql_where_input_<entity>.go is reduced to a thin type-alias shim by the updated
+// generateWhereInputFile.
+func (e *Extension) generateWhereInputSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, "whereinputs")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create whereinputs dir: %w", err)
+	}
+
+	path := filepath.Join(subPkgDir, snake(n.Name)+".go")
+
+	var buf bytes.Buffer
+	if err := WhereInputSubpkgTemplate.Execute(&buf, struct {
+		*gen.Graph
+		Node *gen.Type
+	}{g, n}); err != nil {
+		return fmt.Errorf("entgql: execute where_input_subpkg template for %s: %w", n.Name, err)
+	}
+
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format where_input_subpkg for %s: %w", n.Name, err)
+	}
+
+	return os.WriteFile(path, content, 0644)
+}
+
 // generateMutationInputSubpkgFile generates SetInput methods in the entity's sub-package
 // (e.g., src/ent/gen/agentlicensing/gql_mutation_input.go). These methods must live in the
 // sub-package because Go does not allow method declarations on types from other packages.
@@ -902,6 +944,39 @@ func (e *Extension) generateMutationInputSubpkgFile(g *gen.Graph, name string, i
 	content, err := e.processImports(path, buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("entgql: format mutation_input_subpkg for %s: %w", name, err)
+	}
+
+	return os.WriteFile(path, content, 0644)
+}
+
+// generateMutationInputSiblingFile generates Create<T>Input/Update<T>Input struct definitions,
+// their Mutate methods, and Set<Builder>Input free functions in the sibling subpackage
+// gen/mutationinputs/<entity>.go (lever B-3b). The sibling directory is created if it
+// does not exist. The root gql_mutation_input_<entity>.go is reduced to a thin type-alias
+// + var-forwarder shim by the updated generateMutationInputFile.
+func (e *Extension) generateMutationInputSiblingFile(g *gen.Graph, name string, inputs []*MutationDescriptor) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	subPkgDir := filepath.Join(g.Target, "mutationinputs")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create mutationinputs dir: %w", err)
+	}
+
+	path := filepath.Join(subPkgDir, snake(name)+".go")
+
+	var buf bytes.Buffer
+	if err := MutationInputSiblingTemplate.Execute(&buf, struct {
+		*gen.Graph
+		EntityName string
+		Inputs     []*MutationDescriptor
+	}{g, name, inputs}); err != nil {
+		return fmt.Errorf("entgql: execute mutation_input_sibling template for %s: %w", name, err)
+	}
+
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format mutation_input_sibling for %s: %w", name, err)
 	}
 
 	return os.WriteFile(path, content, 0644)

@@ -14,125 +14,21 @@ in the LICENSE file in the root directory of this source tree.
 package {{ $pkg }}
 
 {{ $inputs := $.Inputs }}
-{{ $entityName := $.EntityName }}
-
-{{- /* Collect all nodes needed for imports */}}
-{{- $entityNode := index $inputs 0 }}
 
 import (
-    "{{ $.Config.Package }}/{{ $entityNode.Type.Package }}"
+    "{{ $.Config.Package }}/mutationinputs"
 )
 
+{{- /* mutation_input bodies live in <Config.Package>/mutationinputs (lever B-3b split).
+   Root retains thin type aliases + var forwarders so gen.<Input> + gen.Set<Builder>Input keep resolving. */}}
 {{- range $n := $inputs }}
-    {{- $names := nodePaginationNames $n.Type }}
     {{- $input := $n.Input }}
-    {{- $fields := $n.InputFields }}
-    {{- $edges := $n.InputEdges }}
-    {{- if $n.IsCreate }}
-    // {{ $input }} represents a mutation input for creating {{ plural $names.Node | lower }}.
-    {{- else }}
-    // {{ $input }} represents a mutation input for updating {{ plural $names.Node | lower }}.
-    {{- end }}
-    type {{ $input }} struct {
-        {{- range $f := $fields }}
-            {{- if $f.ClearOp }}
-                {{ print "Clear" $f.StructField }} bool
-            {{- end }}
-            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }}
-            {{- if $f.AppendOp }}
-                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }}
-            {{- end }}
-        {{- end }}
-        {{- range $e := $edges }}
-            {{- if and (not $n.IsCreate) $e.Optional }}
-                {{ $e.MutationClear }} bool
-            {{- end }}
-            {{- if $e.Unique }}
-                {{- $structField := print (pascal $e.Name) "ID" }}
-                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }}
-            {{- else }}
-                {{- if $n.IsCreate }}
-                    {{- $structField := print (singular $e.Name | pascal) "IDs" }}
-                    {{ $structField }} []{{ $e.Type.ID.Type }}
-                {{- else }}
-                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }}
-                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }}
-                {{- end }}
-            {{- end }}
-        {{- end }}
-
-    }
-
-    // Mutate applies the {{ $input }} on the {{ $n.MutationName }} builder.
-    // Calls the generic entbuilder.Mutation API by descriptor field/edge name
-    // (snake_case) because the per-PR-6 Mutation is a generic alias
-    // entbuilder.Mutation[T, I] and the typed Set<X>/Clear<X> methods live on
-    // the typed Create/Update builders instead. Errors from SetField etc. can
-    // only fire on descriptor mismatch (a codegen bug, not a runtime
-    // condition), so we discard them rather than threading an error return
-    // through every consumer of Mutate.
-    func (i {{ $input }}) Mutate(m *{{ $n.MutationName }}) {
-        {{- /* The order of the operators is purposefully sorted: Clear, Set and Append */}}
-        {{- range $f := $fields }}
-            {{- if $f.ClearOp }}
-                if i.{{ print "Clear" $f.StructField }} {
-                    _ = m.ClearField("{{ $f.Name }}")
-                }
-            {{- end }}
-            {{- if or $f.Type.Nillable $f.IsPointer }}
-                if v := i.{{ $f.StructField }}; v != nil {
-                    _ = m.SetField("{{ $f.Name }}", {{ if $f.IsPointer }}*{{ end }}v)
-                }
-            {{- else }}
-                _ = m.SetField("{{ $f.Name }}", i.{{ $f.StructField }})
-            {{- end }}
-            {{- if $f.AppendOp }}
-                if i.{{ $f.MutationAppend }} != nil {
-                    _ = m.AppendField("{{ $f.Name }}", {{ if $f.IsPointer }}*{{ end }}i.{{ $f.StructField }})
-                }
-            {{- end }}
-        {{- end }}
-        {{- range $e := $edges }}
-           {{- if and (not $n.IsCreate) $e.Optional }}
-                if i.{{ $e.MutationClear }} {
-                    _ = m.ClearEdge("{{ $e.Name }}")
-                }
-            {{- end }}
-            {{- if $e.Unique }}
-                {{- $structField := print (pascal $e.Name) "ID" }}
-                {{- if or (not $n.IsCreate) $e.Optional }}
-                    if v := i.{{ $structField }}; v != nil {
-                        _ = m.SetEdgeID("{{ $e.Name }}", *v)
-                    }
-                {{- else }}
-                    _ = m.SetEdgeID("{{ $e.Name }}", i.{{ $structField }})
-                {{- end }}
-            {{- else }}
-                {{- if $n.IsCreate }}
-                    {{- $structField := print (singular $e.Name | pascal) "IDs" }}
-                    if v := i.{{ $structField }}; len(v) > 0 {
-                        _ = m.AddEdgeIDs("{{ $e.Name }}", entbuilder.ToAny(v)...)
-                    }
-                {{- else }}
-                    if v := i.{{ $e.MutationAdd }}; len(v) > 0 {
-                        _ = m.AddEdgeIDs("{{ $e.Name }}", entbuilder.ToAny(v)...)
-                    }
-                    if v := i.{{ $e.MutationRemove }}; len(v) > 0 {
-                        _ = m.RemoveEdgeIDs("{{ $e.Name }}", entbuilder.ToAny(v)...)
-                    }
-                {{- end }}
-            {{- end }}
-        {{- end }}
-
-    }
+    // {{ $input }} is a type alias re-exported from the mutationinputs sibling subpackage.
+    type {{ $input }} = mutationinputs.{{ $input }}
 
     {{- range $b := $n.Builders }}
-    // Set{{ $b }}Input applies the change-set in the {{ $input }} on the {{ $b }} builder.
-    func Set{{ $b }}Input(c *{{ $n.Package }}.{{ $b }}, i {{ $input }}) *{{ $n.Package }}.{{ $b }} {
-        i.Mutate(c.Mutation())
-        return c
-    }
-
-    {{- end}}
+    // Set{{ $b }}Input is re-exported from the mutationinputs sibling subpackage.
+    var Set{{ $b }}Input = mutationinputs.Set{{ $b }}Input
+    {{- end }}
 {{- end }}
 {{ end }}
