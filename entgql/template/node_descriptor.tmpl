@@ -82,7 +82,7 @@ type Edge struct {
 					Type: "{{ $e.Type.Name }}",
 					Name: "{{ $e.Name }}",
 				}
-				err = FromContext(ctx).{{ $n.Name }}.{{ print "Query" (pascal $e.Name) }}({{ $receiver }}).
+				err = {{ print "Query" $n.Name (pascal $e.Name) }}(FromContext(ctx).{{ $n.Name }}, {{ $receiver }}).
 					Select({{ $e.Type.Package }}.FieldID).
 					Scan(ctx, &node.Edges[{{ $i }}].IDs)
 				if err != nil {

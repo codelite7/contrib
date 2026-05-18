@@ -277,13 +277,13 @@ func (p *{{ $pager }}) applyOrder(query *{{ $query }}) *{{ $query }} {
 				switch o.Field.column {
 				case {{ range $i, $f := . }}{{ if $i }},{{ end }}{{ $f.VarName }}.column{{ end }}:
 				default:
-					if len(query.ctx.Fields) > 0 {
-						query.ctx.AppendFieldOnce(o.Field.column)
+					if len(query.Ctx.Fields) > 0 {
+						query.Ctx.AppendFieldOnce(o.Field.column)
 					}
 				}
 			{{- else }}
-				if len(query.ctx.Fields) > 0 {
-					query.ctx.AppendFieldOnce(o.Field.column)
+				if len(query.Ctx.Fields) > 0 {
+					query.Ctx.AppendFieldOnce(o.Field.column)
 				}
 			{{- end }}
 		}
@@ -313,13 +313,13 @@ func (p *{{ $pager }}) applyOrder(query *{{ $query }}) *{{ $query }} {
 			case {{ range $i, $f := . }}{{ if $i }},{{ end }}{{ $f.VarName }}.column{{ end }}:
 			default:
 				{{- /* Ensure the cursor field is selected to encode it back to the client. */}}
-				if len(query.ctx.Fields) > 0 {
-					query.ctx.AppendFieldOnce(p.order.Field.column)
+				if len(query.Ctx.Fields) > 0 {
+					query.Ctx.AppendFieldOnce(p.order.Field.column)
 				}
 			}
 		{{- else }}
-			if len(query.ctx.Fields) > 0 {
-				query.ctx.AppendFieldOnce(p.order.Field.column)
+			if len(query.Ctx.Fields) > 0 {
+				query.Ctx.AppendFieldOnce(p.order.Field.column)
 			}
 		{{- end }}
 	{{- end }}
@@ -342,15 +342,15 @@ func (p *{{ $pager }}) orderExpr(query *{{ $node.QueryName }}) sql.Querier {
 					query = query.Order(o.Field.toTerm(direction.OrderTermOption(), nullsDirection.OrderTermOption()))
 				default:
 					{{- /* Ensure the cursor field is selected to encode it back to the client. */}}
-					if len(query.ctx.Fields) > 0 {
-						query.ctx.AppendFieldOnce(o.Field.column)
+					if len(query.Ctx.Fields) > 0 {
+						query.Ctx.AppendFieldOnce(o.Field.column)
 					}
 				}
 			}
 		{{- else }}
-			if len(query.ctx.Fields) > 0 {
+			if len(query.Ctx.Fields) > 0 {
 				for _, o := range p.order {
-					query.ctx.AppendFieldOnce(o.Field.column)
+					query.Ctx.AppendFieldOnce(o.Field.column)
 				}
 			}
 		{{- end }}
@@ -396,13 +396,13 @@ func (p *{{ $pager }}) orderExpr(query *{{ $node.QueryName }}) sql.Querier {
 				query = query.Order(p.order.Field.toTerm(direction.OrderTermOption(), nullsDirection.OrderTermOption()))
 			default:
 				{{- /* Ensure the cursor field is selected to encode it back to the client. */}}
-				if len(query.ctx.Fields) > 0 {
-					query.ctx.AppendFieldOnce(p.order.Field.column)
+				if len(query.Ctx.Fields) > 0 {
+					query.Ctx.AppendFieldOnce(p.order.Field.column)
 				}
 			}
 		{{- else }}
-			if len(query.ctx.Fields) > 0 {
-				query.ctx.AppendFieldOnce(p.order.Field.column)
+			if len(query.Ctx.Fields) > 0 {
+				query.Ctx.AppendFieldOnce(p.order.Field.column)
 			}
 		{{- end }}
 		return sql.ExprFunc(func(b *sql.Builder) {
@@ -447,7 +447,7 @@ func {{ $query }}Paginate(
 		if hasPagination || ignoredEdges {
 			c := {{ $r }}.Clone()
 			{{- /* Clear the selection fields before counting to avoid generating invalid queries. */}}
-			c.ctx.Fields = nil
+			c.Ctx.Fields = nil
 			if conn.TotalCount, err = c.Count(ctx); err != nil {
 				return nil, err
 			}

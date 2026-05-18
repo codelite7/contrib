@@ -1117,10 +1117,12 @@ func TestNodeDescriptorEntityTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "json.Marshal(_m.Priority)")
 	require.Contains(t, output, "json.Marshal(_m.Text)")
 
-	// Verify edge queries use FromContext pattern.
-	require.Contains(t, output, "FromContext(ctx).Todo.QueryParent(_m)")
-	require.Contains(t, output, "FromContext(ctx).Todo.QueryChildren(_m)")
-	require.Contains(t, output, "FromContext(ctx).Todo.QueryCategory(_m)")
+	// Verify edge queries use the root-facade Query<Node><Edge> free function
+	// (chained from FromContext(ctx).<Node>) so they resolve in a package where
+	// <Node>Client is an alias and the sub-package Client has no Query<Edge> method.
+	require.Contains(t, output, "QueryTodoParent(FromContext(ctx).Todo, _m)")
+	require.Contains(t, output, "QueryTodoChildren(FromContext(ctx).Todo, _m)")
+	require.Contains(t, output, "QueryTodoCategory(FromContext(ctx).Todo, _m)")
 
 	// Verify edge type imports.
 	require.Contains(t, output, `"entgo.io/contrib/entgql/internal/todo/ent/todo"`)
