@@ -1,10 +1,14 @@
 # entgql collection subpkg dispatch — implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **STATUS (2026-05-17):** SUPERSEDED mid-implementation. Tasks 1-4 + partial 5 (commits 5f81d387 … 61f6e5fb) explored the dispatch architecture and surfaced a structural cycle blocker: PR 6 facade helpers (`loadTodoCategory(ctx, *CategoryQuery, []*Todo)`) bridge two subpkgs and can ONLY live in gen; subpkg dispatch collectors can never call them without forming subpkg → gen → subpkg cycle. The fix pivoted to a simpler architecture (free functions in gen) that doesn't require dispatch at all. New tasks live in this file's "Pivot Tasks" section at the bottom. The original dispatch tasks are kept for historical record but are no longer being executed.
 
-**Goal:** Fix entgql Bug 9 — `WithSplitGoFiles(true)` generates `gen/gql_collection_<entity>.go` files that define methods on `*<Entity>Query` type aliases, which Go forbids. Move methods to per-entity sub-packages and dispatch cross-entity operations through an import-free registry package.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans. Steps use checkbox (`- [ ]`) syntax. Skip tasks marked SUPERSEDED.
 
-**Architecture:** Sub-package generates `<entity>/gql_collection.go` (methods on local `*Query`) and `<entity>/gql_collection_dispatch.go` (collector struct implementing `EntityCollector` interface, registered at `init()`). New `<gen>/internal/collectiondispatch` package holds the interface + registry. Every cross-entity operation in the per-entity collectField body is rewritten from direct call to `collectiondispatch.Get(other).Method(...)`. User API (`q.CollectFields(ctx)`) preserved via type alias resolution.
+**Goal:** Fix entgql Bug 9 — `WithSplitGoFiles(true)` generates `gen/gql_collection_<entity>.go` files that define methods on `*<Entity>Query` type aliases, which Go forbids.
+
+**Architecture (LIVE — Pivot):** Convert `CollectFields`, `collectField`, and `Paginate` from methods on alias types (`func (q *TodoQuery) CollectFields(...)` — Bug 9) into free functions taking the alias as first arg (`func TodoQueryCollectFields(q *TodoQuery, ...)`). Function bodies stay in gen, so cross-entity helpers (`loadTodoCategory`, etc.) remain reachable. No dispatch registry, no reflect, no subpkg-local pager. Consumer call sites migrate via `cmd/ent-codegen-migrate` rewrite rules.
+
+**Architecture (SUPERSEDED — Dispatch):** Sub-package generates `<entity>/gql_collection.go` (methods on local `*Query`) and `<entity>/gql_collection_dispatch.go` (collector struct implementing `EntityCollector` interface, registered at `init()`). New `<gen>/internal/collectiondispatch` package holds the interface + registry. Cross-entity operations dispatch through `collectiondispatch.Get(other).Method(...)`. **Why abandoned:** PR 6 facade helpers (which the dispatch boundary must call) bridge two subpkgs and structurally cannot move into either; subpkg → gen import is forbidden; the only escape paths are heavy reflect or removing PR 6's facade entirely, both worse than the pivot.
 
 **Tech Stack:** Go (entgo.io/contrib/entgql), text/template codegen.
 
@@ -1592,3 +1596,97 @@ Plan complete and saved to `docs/superpowers/plans/2026-05-17-entgql-collection-
 This is a multi-day implementation (per the spec's risk register, 3-5 days for the full architectural pass). Task 5 in particular will require iterative template work and likely interface-refinement cycles.
 
 **Recommended execution**: Use **superpowers:subagent-driven-development** — fresh subagent per task + two-stage review. Particularly important for Task 5, which has the most opportunities for the template to drift from the design.
+
+---
+
+# PIVOT TASKS (live — 2026-05-17 onward)
+
+After Task 5 surfaced the structural cycle blocker (see status block at top of file), the architecture pivoted from "dispatch through registry" to "free functions in gen". Tasks below replace original Tasks 2-8.
+
+**Working directory** (unchanged): `/var/home/smoothbrain/dev/matthewsreis/contrib/.claude/worktrees/entgql-collection-subpkg` for entgql work; `/var/home/smoothbrain/dev/matthewsreis/ent/.claude/worktrees/wiggly-singing-pancake` for migration-tool work.
+
+**Branch invariant**: `entgql-collection-subpkg`. Master at `4aeaf769...`. No push, no PR — local until full Pivot arc green.
+
+**Commits to preserve**: `5f81d387` (Task 1 — failing Bug 9 integration test). Everything from `eda3e6e6` onward is dispatch-architecture experiment — deleted in Pivot C cleanup commit (no destructive git ops; just `git rm` template files + remove generators).
+
+---
+
+## Pivot A: Rewrite collection_entity.tmpl as free functions
+
+**File**: `entgql/template/collection_entity.tmpl`
+
+**Change**:
+- `func ({{ $receiver }} *{{ $query }}) CollectFields(ctx context.Context, satisfies ...string) (*{{ $query }}, error) {` → `func {{ $query }}CollectFields({{ $receiver }} *{{ $query }}, ctx context.Context, satisfies ...string) (*{{ $query }}, error) {`
+- `func ({{ $receiver }} *{{ $query }}) collectField(...)` → `func {{ $query }}CollectField({{ $receiver }} *{{ $query }}, ...)` (unexported version: `collectField` → `{{ camel $query }}CollectField` — keep package-private). Actually since the file is in gen package and the helper is called from CollectFields in the same package, just keep it as a free function with package-private name: `func collectField{{ $query }}({{ $receiver }} *{{ $query }}, ...)` works.
+- Internal call site: `{{ $receiver }}.collectField(ctx, ...)` → `collectField{{ $query }}({{ $receiver }}, ctx, ...)`.
+
+**Tests** (entgql/template_test.go):
+- Update `TestCollectionEntityTemplateExecution` and related assertions — search for `.CollectFields(` and `.collectField(` in expected output strings and update to free-function form.
+
+**Acceptance**: `go test ./entgql/ 2>&1 | tail -10` green except Task 1 canary; rendered output for any entity (e.g. BillProduct) shows `func BillProductQueryCollectFields(...)` not `func (q *BillProductQuery) CollectFields(...)`.
+
+## Pivot B: Rewrite pagination_entity.tmpl Paginate as free function
+
+**File**: `entgql/template/pagination_entity.tmpl`
+
+**Change** (around line 424):
+- `func ({{ $r }} *{{ $query }}) Paginate(ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, opts ...{{ $opt }}) (*{{ $conn }}, error) {` → `func {{ $query }}Paginate({{ $r }} *{{ $query }}, ctx context.Context, after *Cursor, first *int, before *Cursor, last *int, opts ...{{ $opt }}) (*{{ $conn }}, error) {`
+
+**Other emissions in this template stay unchanged** — `{{ $pager }}` (Pager struct), `applyFilter`/`applyCursors`/`applyOrder`/`orderExpr` (methods on Pager, not on alias), `OrderField`, `Order`, `Edge`, `Connection` types. These don't trigger Bug 9.
+
+**Tests**: Update `TestPaginationEntity*` tests if they assert on the method form.
+
+**Acceptance**: same as Pivot A.
+
+## Pivot C: Delete dispatch infrastructure (cleanup)
+
+**Files to delete**:
+- `entgql/template/collection_dispatch_pkg.tmpl`
+- `entgql/template/collection_dispatch.tmpl`
+- `entgql/template/collection_subpkg.tmpl`
+
+**Code to remove**:
+- `entgql/template.go`: `CollectionDispatchPkgTemplate`, `CollectionDispatchTemplate`, `CollectionSubpkgTemplate` declarations + init lines.
+- `entgql/extension.go`: `generateCollectionDispatchPkg`, `generateCollectionDispatchFile`, `generateCollectionSubpkgFile` functions.
+- `entgql/template_test.go`: `TestCollectionDispatchPkgTemplate*`, `TestCollectionDispatchTemplate*`, `TestCollectionSubpkgTemplate*` tests.
+- `entgql/extension_split_test.go`: `TestGenerateCollectionDispatchPkg_WritesFileWithExpectedContent`, `TestGenerateCollectionDispatchPkg_OutputCompiles`.
+
+**Acceptance**: `go test ./entgql/ 2>&1 | tail` green; grep finds zero references to `collectiondispatch`, `CollectionDispatchPkg`, `CollectionDispatchTemplate`, `CollectionSubpkgTemplate`, `EntityCollector`.
+
+Single commit. Commit message acknowledges the dispatch-architecture experiment and points to the pivot rationale.
+
+## Pivot D: Verify TestBug9 passes after pivot
+
+**Run**: `go test ./entgql/ -run TestBug9_TodoFixtureBuilds -v 2>&1 | tail -30`. Expected: PASS.
+
+If FAIL: investigate which template still emits methods on alias types. Suspects: `edge_entity.tmpl`, `node_entity.tmpl`, `where_input_entity.tmpl`. The failure message will show which file declares the offending method — port that surface to free-function form too (likely a small extension of Pivot A's pattern).
+
+**No commit needed** unless additional templates need rewriting (in which case, each gets its own commit).
+
+## Pivot E: Update cmd/ent-codegen-migrate with rewrite rules
+
+**Working directory**: `/var/home/smoothbrain/dev/matthewsreis/ent/.claude/worktrees/wiggly-singing-pancake` (this is the OTHER worktree — the ent fork with the migration tool).
+
+**Add rewrite rules** for the new free-function form:
+- `q.CollectFields(ctx, satisfies...)` → `ent.<EntityName>QueryCollectFields(q, ctx, satisfies...)` — where `<EntityName>` is derived from q's static type (e.g., `*ent.TodoQuery` → `TodoQuery`).
+- `q.Paginate(ctx, after, first, before, last, opts...)` → `ent.<EntityName>QueryPaginate(q, ctx, after, first, before, last, opts...)`.
+
+The migration tool already has type-inference machinery for chain-walking — leverage existing patterns.
+
+**Tests**: Add testdata fixtures showing pre/post migration for both call patterns.
+
+**Commit**: in the ent worktree, on whatever branch is current. Commit message documents the rewrite rules and links back to this plan.
+
+## Pivot F: End-to-end consumer verification
+
+Same as original Task 8 but verifying the pivot architecture. Ephemeral, no commits to either repo.
+
+1. In bench worktree `/var/home/smoothbrain/dev/matthewsreis/worktrees/bench-pr6/service-api-go`, add go.mod replaces pointing at this contrib branch AND the ent branch with the migration tool changes.
+2. Regen ent code: `cd api-graphql && go generate ./...`
+3. Apply migration: `ent-codegen-migrate -descriptors ... -gen-package ... ./api-graphql/src/...`
+4. Build: `go build ./api-graphql/... 2>&1 | head -50`. Expected: no `cannot define new methods on non-local type` errors. Surface any NEW failures.
+5. Restore bench go.mod, report results.
+
+---
+
+# End Pivot Tasks
