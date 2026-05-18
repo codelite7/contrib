@@ -609,6 +609,7 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 		n := n
 		fns = append(fns,
 			func() error { return e.generatePaginationEntityFile(&staged, n) },
+			func() error { return e.generatePaginationSubpkgFile(g, n) },
 			func() error { return e.generateCollectionEntityFile(&staged, n) },
 			func() error { return e.generateNodeEntityFile(&staged, n) },
 		)
@@ -767,7 +768,10 @@ func (e *Extension) generateSplitPagination(g *gen.Graph) error {
 	var fns []func() error
 	for _, n := range nodes {
 		n := n
-		fns = append(fns, func() error { return e.generatePaginationEntityFile(g, n) })
+		fns = append(fns,
+			func() error { return e.generatePaginationEntityFile(g, n) },
+			func() error { return e.generatePaginationSubpkgFile(g, n) },
+		)
 	}
 	return parallelGenerate(fns)
 }
@@ -926,6 +930,35 @@ func (e *Extension) generateMutationInputFile(g *gen.Graph, name string, inputs 
 	return os.WriteFile(path, content, 0644)
 }
 
+// generatePaginationSubpkgFile generates pagination types + Paginate method in the
+// entity's sub-package (e.g., src/ent/gen/property/gql_pagination.go). The root
+// gql_pagination_<entity>.go file is reduced to a thin re-export shim by the
+// updated generatePaginationEntityFile.
+func (e *Extension) generatePaginationSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, n.Package())
+	if _, err := os.Stat(subPkgDir); os.IsNotExist(err) {
+		return nil // sub-package doesn't exist, skip
+	}
+
+	path := filepath.Join(subPkgDir, "gql_pagination.go")
+
+	tmpl := PaginationSubpkgTemplate
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, struct {
+		*gen.Graph
+		Node *gen.Type
+	}{g, n}); err != nil {
+		return fmt.Errorf("entgql: execute pagination_subpkg template for %s: %w", n.Name, err)
+	}
+
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format pagination_subpkg for %s: %w", n.Name, err)
+	}
+
+	return os.WriteFile(path, content, 0644)
+}
+
 // generatePaginationSharedFile overwrites gql_pagination.go with shared-only content.
 func (e *Extension) generatePaginationSharedFile(g *gen.Graph) error {
 	path := filepath.Join(g.Target, "gql_pagination.go")
@@ -984,12 +1017,17 @@ func (e *Extension) generateCollectionEntityFile(g *gen.Graph, n *gen.Type) erro
 	filename := fmt.Sprintf("gql_collection_%s.go", snake(n.Name))
 	path := filepath.Join(g.Target, filename)
 	tmpl := CollectionEntityTemplate
+	// HasPaginationSubpkg is true when the entity subpackage directory exists, meaning
+	// the pagination_subpkg.tmpl emitted gql_pagination.go there. When true, the
+	// collection_entity.tmpl init() registers collectField into the subpackage.
+	_, hasPaginationSubpkg := os.Stat(filepath.Join(g.Target, n.Package()))
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, struct {
 		*gen.Graph
 		Node                  *gen.Type
 		HasWhereInputTemplate bool
-	}{g, n, e.genWhereInput}); err != nil {
+		HasPaginationSubpkg   bool
+	}{g, n, e.genWhereInput, !os.IsNotExist(hasPaginationSubpkg)}); err != nil {
 		return fmt.Errorf("entgql: execute collection_entity template for %s: %w", n.Name, err)
 	}
 	content, err := e.processImports(path, buf.Bytes())

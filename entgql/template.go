@@ -83,6 +83,12 @@ var (
 	// Initialized in init() to avoid initialization order issues.
 	PaginationEntityTemplate *template.Template
 
+	// PaginationSubpkgTemplate generates pagination types and Paginate method in the entity
+	// sub-package (lever B-2). Companion to PaginationEntityTemplate which now emits thin
+	// re-export shims in root.
+	// Initialized in init() to avoid initialization order issues.
+	PaginationSubpkgTemplate *template.Template
+
 	// PaginationSharedTemplate generates the shared pagination code (type aliases, helpers, constants)
 	// that doesn't repeat per entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
@@ -176,6 +182,7 @@ func init() {
 	MutationInputEntityTemplate = parseEntityTemplate("template/mutation_input_entity.tmpl", "gql_mutation_input_entity")
 	MutationInputSubpkgTemplate = parseEntityTemplate("template/mutation_input_subpkg.tmpl", "gql_mutation_input_subpkg")
 	PaginationEntityTemplate = parseEntityTemplate("template/pagination_entity.tmpl", "gql_pagination_entity")
+	PaginationSubpkgTemplate = parseEntityTemplate("template/pagination_subpkg.tmpl", "gql_pagination_subpkg")
 	PaginationSharedTemplate = parseEntityTemplate("template/pagination_shared.tmpl", "gql_pagination_shared")
 	CollectionSharedTemplate = parseEntityTemplate("template/collection_shared.tmpl", "gql_collection_shared")
 	CollectionEntityTemplate = parseEntityTemplate("template/collection_entity.tmpl", "gql_collection_entity")

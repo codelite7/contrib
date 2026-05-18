@@ -85,7 +85,7 @@ func TestGenerateSplitPagination(t *testing.T) {
 	require.NotContains(t, sharedStr, "TodoEdge struct")
 	require.NotContains(t, sharedStr, "CategoryConnection struct")
 
-	// Verify per-entity pagination files are created.
+	// Verify per-entity pagination files are created (thin re-export shims after lever B-2).
 	nodeNames := nonSkippedNodes(t, graph)
 	require.NotEmpty(t, nodeNames)
 	for _, name := range nodeNames {
@@ -95,11 +95,12 @@ func TestGenerateSplitPagination(t *testing.T) {
 		require.NoError(t, err, "pagination entity file should exist for %s", name)
 		contentStr := string(content)
 		require.Contains(t, contentStr, "package ent")
-		// Verify the file contains pagination-related code (Edge, Connection).
-		// Note: some entities have type aliases (e.g. Workspace -> Organization),
-		// so we check for the generic patterns rather than exact name matches.
-		require.Contains(t, contentStr, "Edge struct")
-		require.Contains(t, contentStr, "Connection struct")
+		// After lever B-2, root entity files are thin re-export shims (type aliases).
+		// The full body is in the entity subpackage (gql_pagination.go in <entity> dir).
+		// Since the test's tmpDir has no entity subdirs, only the root shims are generated.
+		// Check for type aliases to the entity subpackage instead of struct bodies.
+		require.Contains(t, contentStr, "Edge")
+		require.Contains(t, contentStr, "Connection")
 	}
 
 	// Verify skipped types do NOT get per-entity files.

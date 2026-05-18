@@ -413,32 +413,27 @@ func TestPaginationEntityTemplateParsed(t *testing.T) {
 }
 
 func TestPaginationEntityTemplateContent(t *testing.T) {
-	// Verify the template source contains the expected per-entity code elements.
+	// Verify the template source contains the expected thin re-export shim elements.
+	// After lever B-2, pagination_entity.tmpl emits type aliases and var forwarders only;
+	// the full pagination body moved to pagination_subpkg.tmpl.
 	tmpl := PaginationEntityTemplate.Lookup("gql_pagination_entity")
 	require.NotNil(t, tmpl)
 	src := tmpl.Tree.Root.String()
 
-	// Verify per-entity types are present (template source uses {{$edge}}, {{$conn}} etc.).
-	// In the parsed tree, template vars are rendered as {{$varname}}.
-	require.Contains(t, src, "}} struct")      // Edge/Connection struct declarations
-	require.Contains(t, src, "PaginateOption") // PaginateOption type
-	require.Contains(t, src, "OrderField")     // OrderField struct
+	// Verify type aliases are present.
+	require.Contains(t, src, "PaginateOption") // PaginateOption type alias
+	require.Contains(t, src, "OrderField")     // OrderField type alias
+	require.Contains(t, src, "ToEdge")         // ToEdge var forwarder
+	require.Contains(t, src, "Paginate")       // QueryPaginate var forwarder
 
-	// Verify per-entity methods are present.
-	require.Contains(t, src, "Paginate")
-	require.Contains(t, src, "applyOrder")
-	require.Contains(t, src, "applyCursors")
-	require.Contains(t, src, "applyFilter")
-	require.Contains(t, src, "toCursor")
-	require.Contains(t, src, "orderExpr")
-	require.Contains(t, src, "ToEdge")
-	require.Contains(t, src, "MarshalGQL")
-	require.Contains(t, src, "UnmarshalGQL")
-
-	// Verify the paginate helper is inlined (no template call).
-	require.NotContains(t, src, `template "gql_pagination/helper/paginate"`)
-	require.Contains(t, src, "validateFirstLast")
-	require.Contains(t, src, "paginateLimit")
+	// Verify the template is a thin shim (no struct body, no method implementations).
+	require.NotContains(t, src, "}} struct")   // No Edge/Connection struct declarations
+	require.NotContains(t, src, "applyOrder")
+	require.NotContains(t, src, "applyCursors")
+	require.NotContains(t, src, "applyFilter")
+	require.NotContains(t, src, "orderExpr")
+	require.NotContains(t, src, "MarshalGQL")
+	require.NotContains(t, src, "UnmarshalGQL")
 
 	// Verify no $Scope references remain.
 	require.NotContains(t, src, "$.Scope")
@@ -450,7 +445,8 @@ func TestPaginationEntityTemplateContent(t *testing.T) {
 
 func TestPaginationEntityTemplateExecution(t *testing.T) {
 	// Execute the template against the real todo schema graph for one entity
-	// and verify the generated output contains expected per-entity code.
+	// and verify the generated output contains expected thin re-export shim code.
+	// After lever B-2, pagination_entity.tmpl emits only type aliases + var forwarders.
 	s, err := gen.NewStorage("sql")
 	require.NoError(t, err)
 
@@ -482,40 +478,41 @@ func TestPaginationEntityTemplateExecution(t *testing.T) {
 	// Verify the generated output contains the package declaration.
 	require.Contains(t, output, "package ent")
 
-	// Verify per-entity types are generated.
-	require.Contains(t, output, "TodoEdge struct")
-	require.Contains(t, output, "TodoConnection struct")
+	// Verify thin re-export shim — type aliases (= <subpkg>.<Type>).
+	require.Contains(t, output, "TodoEdge")
+	require.Contains(t, output, "TodoConnection")
 	require.Contains(t, output, "TodoPaginateOption")
-	require.Contains(t, output, "todoPager")
-	require.Contains(t, output, "TodoOrderField struct")
-	require.Contains(t, output, "TodoOrder struct")
+	require.Contains(t, output, "TodoOrderField")
+	require.Contains(t, output, "TodoOrder")
 	require.Contains(t, output, "DefaultTodoOrder")
 
-	// Verify per-entity methods are generated.
-	require.Contains(t, output, "func TodoQueryPaginate(\n\t_m *TodoQuery,")
-	require.Contains(t, output, "func TodoToEdge(_m *Todo,")
+	// Verify the type aliases reference the entity subpackage.
+	require.Contains(t, output, "todo.TodoEdge")
+	require.Contains(t, output, "todo.TodoConnection")
+	require.Contains(t, output, "todo.DefaultTodoOrder")
 
-	// Verify the paginate helper is inlined (no template calls in output).
-	require.Contains(t, output, "validateFirstLast(first, last)")
-	require.Contains(t, output, "newTodoPager(opts, last != nil)")
-	require.Contains(t, output, "pager.applyFilter(_m)")
-	require.Contains(t, output, "pager.applyCursors(_m, after, before)")
-	require.Contains(t, output, "pager.applyOrder(_m)")
+	// Verify var forwarders for functions.
+	require.Contains(t, output, "TodoQueryPaginate")
+	require.Contains(t, output, "TodoToEdge")
 
-	// Verify order fields are generated (Todo has OrderField annotations).
-	// VarName uses the field's StructField name, not the GQL order field name.
+	// Verify order field sentinel forwarders (Todo has OrderField annotations).
 	require.Contains(t, output, "TodoOrderFieldCreatedAt")
 	require.Contains(t, output, "TodoOrderFieldStatus")
 	require.Contains(t, output, "TodoOrderFieldText")
 	require.Contains(t, output, "TodoOrderFieldPriority")
 
-	// Verify NO shared code is present (shared types, shared funcs).
+	// Verify the thin shim does NOT contain the full body.
+	require.NotContains(t, output, "TodoEdge struct")
+	require.NotContains(t, output, "todoPager")
+	require.NotContains(t, output, "func TodoQueryPaginate(")
+	require.NotContains(t, output, "validateFirstLast(first, last)")
+	require.NotContains(t, output, "pager.applyOrder")
+
+	// Verify NO shared code is present (those stay in pagination_shared.tmpl).
 	require.NotContains(t, output, "Cursor = entgql.Cursor[")
 	require.NotContains(t, output, "PageInfo = entgql.PageInfo[")
-	require.NotContains(t, output, "func orderFunc(")
 	require.NotContains(t, output, "func validateFirstLast(")
 	require.NotContains(t, output, "func paginateLimit(")
-	require.NotContains(t, output, "errInvalidPagination")
 }
 
 func TestPaginationEntityTemplateMultipleEntities(t *testing.T) {
@@ -562,17 +559,17 @@ func TestPaginationEntityTemplateMultipleEntities(t *testing.T) {
 	require.NoError(t, err)
 	catOutput := catBuf.String()
 
-	// Verify Todo output has Todo-specific types.
-	require.Contains(t, todoOutput, "TodoEdge struct")
-	require.Contains(t, todoOutput, "TodoConnection struct")
-	require.NotContains(t, todoOutput, "CategoryEdge struct")
-	require.NotContains(t, todoOutput, "CategoryConnection struct")
+	// Verify Todo output has Todo-specific type aliases (thin re-export shim after lever B-2).
+	require.Contains(t, todoOutput, "todo.TodoEdge")
+	require.Contains(t, todoOutput, "todo.TodoConnection")
+	require.NotContains(t, todoOutput, "CategoryEdge")
+	require.NotContains(t, todoOutput, "CategoryConnection")
 
-	// Verify Category output has Category-specific types.
-	require.Contains(t, catOutput, "CategoryEdge struct")
-	require.Contains(t, catOutput, "CategoryConnection struct")
-	require.NotContains(t, catOutput, "TodoEdge struct")
-	require.NotContains(t, catOutput, "TodoConnection struct")
+	// Verify Category output has Category-specific type aliases.
+	require.Contains(t, catOutput, "category.CategoryEdge")
+	require.Contains(t, catOutput, "category.CategoryConnection")
+	require.NotContains(t, catOutput, "TodoEdge")
+	require.NotContains(t, catOutput, "TodoConnection")
 }
 
 func TestFilterFields(t *testing.T) {
@@ -677,7 +674,8 @@ func TestCollectionEntityTemplateExecution(t *testing.T) {
 		*gen.Graph
 		Node                  *gen.Type
 		HasWhereInputTemplate bool
-	}{graph, todoNode, true})
+		HasPaginationSubpkg   bool
+	}{graph, todoNode, true, false}) // HasPaginationSubpkg=false: todo fixture has no gql_pagination.go in subpkg
 	require.NoError(t, err)
 
 	output := buf.String()
@@ -735,7 +733,8 @@ func TestCollectionEntityTemplateNoWhereInput(t *testing.T) {
 		*gen.Graph
 		Node                  *gen.Type
 		HasWhereInputTemplate bool
-	}{graph, node, false})
+		HasPaginationSubpkg   bool
+	}{graph, node, false, false}) // HasPaginationSubpkg=false: todo fixture has no gql_pagination.go in subpkg
 	require.NoError(t, err)
 
 	output := buf.String()

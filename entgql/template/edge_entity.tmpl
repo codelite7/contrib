@@ -16,10 +16,16 @@ package {{ $pkg }}
 {{ $node := $.Node }}
 {{ $r := $node.Receiver }}
 
+{{- $relayEdges := list }}
+{{- range filterEdges $node.Edges (skipMode "type") }}{{ if isRelayConn . }}{{ $relayEdges = append $relayEdges . }}{{ end }}{{ end }}
 import (
 	"context"
 
 	"github.com/99designs/gqlgen/graphql"
+	{{- /* Import edge-entity subpackages for relay-connection edges so we can call New<Edge>Pager. */}}
+	{{- range $e := $relayEdges }}
+		"{{ $.Config.Package }}/{{ $e.Type.Package }}"
+	{{- end }}
 )
 
 {{ range $i, $e := filterEdges $node.Edges (skipMode "type") }}
@@ -32,7 +38,7 @@ import (
 		{{- $edge := $names.Edge }}
 		{{ $conn := $names.Connection }}
 		{{ $opt := print $names.Node "PaginateOption" }}
-		{{ $newPager := print "new" $names.Node "Pager" }}
+		{{ $newPager := print $e.Type.Package ".New" $names.Node "Pager" }}
 
 		// Resolve{{ $node.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge of a {{ $node.Name }}.
 		func Resolve{{ $node.Name }}{{ $e.StructField }}({{ $r }} *{{ $node.Name }},
@@ -59,7 +65,7 @@ import (
 				}
 				{{- /* Ensure the "edges" field is marshaled as "[]" in case it is empty. */}}
 				conn := &{{ $conn }}{Edges: []*{{ $edge }}{}, TotalCount: totalCount}
-				conn.build(nodes, pager, after, first, before, last)
+				conn.Build(nodes, pager, after, first, before, last)
 				return conn, nil
 			}
 			return {{ print $names.Node "QueryPaginate" }}(Query{{ $node.Name }}{{ $e.StructField }}(FromContext(ctx).{{ $node.Name }}, {{ $r }}), ctx, after, first, before, last, opts...)
