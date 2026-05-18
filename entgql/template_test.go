@@ -1630,11 +1630,13 @@ func TestCollectionDispatchTemplateContent(t *testing.T) {
 	require.Contains(t, src, `"github.com/99designs/gqlgen/graphql"`)
 	require.Contains(t, src, "/internal/collectiondispatch")
 
-	// The collector struct + Task-5 stub markers + registration.
+	// The collector struct + Task-6 pager stub markers + registration.
+	// (Task 5 filled in the paginateArgs/CollectFields wiring; the
+	// remaining stubs are pager-shaped and pushed to Task 6.)
 	require.Contains(t, src, "type collector struct{}")
 	require.Contains(t, src, "collectiondispatch.Register(")
 	require.Contains(t, src, "EntityCollector")
-	require.Contains(t, src, `panic("TODO Task 5`)
+	require.Contains(t, src, `panic("TODO Task 6`)
 
 	// Entity-prefixed identifiers come from $node.QueryName and
 	// `print "New" $node.Name "Client"` per the verified PR 6 naming.
@@ -1691,10 +1693,216 @@ func TestCollectionDispatchTemplateExecution(t *testing.T) {
 	// IDColumnName returns the storage key for the entity's ID column.
 	require.Contains(t, output, `return "id"`)
 
-	// Methods that depend on Task 5 work must be stubbed with a clear marker
-	// so the boundary stays compilable until Task 5 fills them in.
-	require.Contains(t, output, `panic("TODO Task 5`)
+	// Pager-shaped methods (NewPager/Apply*/OrderExpr) still panic — they
+	// require the gen-package pager which the subpkg cannot import
+	// (cycle). Task 6 finishes them via gen-package shims.
+	require.Contains(t, output, `panic("TODO Task 6`)
+
+	// Task 5 wired paginateArgs accessors + CollectFields + AddQueryModifier
+	// to the subpkg-local types. Verify the wiring is present.
+	require.Contains(t, output, "newPaginateArgs(m)")
+	require.Contains(t, output, "args.(*paginateArgs).first")
+	require.Contains(t, output, "args.(*paginateArgs).opts")
+	require.Contains(t, output, ".collectField(ctx, oneNode, opCtx, collected, path, satisfies...)")
+	require.Contains(t, output, "q.modifiers = append(q.modifiers, mod)")
 
 	// init() registers the collector exactly once.
 	require.Contains(t, output, "func init() {")
+}
+
+func TestCollectionSubpkgTemplateParsed(t *testing.T) {
+	// Verify the CollectionSubpkgTemplate was parsed during init().
+	require.NotNil(t, CollectionSubpkgTemplate, "CollectionSubpkgTemplate should be parsed during init()")
+	require.Equal(t, "gql_collection_subpkg", CollectionSubpkgTemplate.Name())
+	tmpl := CollectionSubpkgTemplate.Lookup("gql_collection_subpkg")
+	require.NotNil(t, tmpl, "template should contain 'gql_collection_subpkg' define block")
+}
+
+func TestCollectionSubpkgTemplateContent(t *testing.T) {
+	// Verify the template source contains the structural elements we expect:
+	// package declaration driven by $.Node.Package (subpkg dir), local Cursor
+	// alias, CollectFields method on *Query (not *<Entity>Query), and the
+	// unprefixed paginateArgs / newPaginateArgs identifiers.
+	tmpl := CollectionSubpkgTemplate.Lookup("gql_collection_subpkg")
+	require.NotNil(t, tmpl)
+	src := tmpl.Tree.Root.String()
+
+	require.Contains(t, src, "$.Config.Header")
+	require.Contains(t, src, "package {{$.Node.Package}}")
+
+	// Local Cursor alias avoids the subpkg → gen import cycle the gen-package
+	// Cursor declaration would force.
+	require.Contains(t, src, "type Cursor = entgql.Cursor")
+
+	// Methods are on the LOCAL subpkg {{ $query }} type (e.g. *UserQuery
+	// inside the user subpkg). After PR 6 the concrete type lives in the
+	// subpkg and the gen package owns the alias; methods on the alias
+	// would re-introduce Bug 9. The template renders $node.QueryName for
+	// the receiver to match the actual local concrete type.
+	require.Contains(t, src, "func (q *{{$query}}) CollectFields")
+	require.Contains(t, src, "func (q *{{$query}}) collectField")
+
+	// paginateArgs / newPaginateArgs are unprefixed (subpkg-local). The
+	// prefixed names (e.g. billproductPaginateArgs) belonged to the
+	// gen-package template and are now reachable only through
+	// collectiondispatch.PaginateArgs* accessors.
+	require.Contains(t, src, "type paginateArgs struct")
+	require.Contains(t, src, "func newPaginateArgs")
+	require.NotContains(t, src, "PaginateArgs struct",
+		"subpkg paginateArgs must be unprefixed; entity-prefixed name belongs in gen")
+
+	// HasWhereInputTemplate gates the where-input branch in newPaginateArgs.
+	require.Contains(t, src, "HasWhereInputTemplate")
+}
+
+func TestCollectionSubpkgTemplateExecution_BillProduct(t *testing.T) {
+	// Render against the real todo schema for the simplest entity
+	// (BillProduct — no edges) and verify the rendered output is
+	// structurally correct and free of sibling-subpkg imports.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+		Package: "entgo.io/contrib/entgql/internal/todo/ent",
+	})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "BillProduct" {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node, "BillProduct node should exist in the schema")
+
+	var buf bytes.Buffer
+	err = CollectionSubpkgTemplate.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{graph, node, true})
+	require.NoError(t, err)
+	output := buf.String()
+
+	// Package + import layout.
+	require.Contains(t, output, "package billproduct")
+	require.Contains(t, output, `"entgo.io/contrib/entgql"`)
+	require.Contains(t, output, `"github.com/99designs/gqlgen/graphql"`)
+
+	// Methods on local *BillProductQuery (subpkg concrete type post-PR 6).
+	require.Contains(t, output, "func (q *BillProductQuery) CollectFields(")
+	require.Contains(t, output, "func (q *BillProductQuery) collectField(")
+
+	// Cursor alias rendered with the schema's ID type (int for the todo
+	// fixture's BillProduct).
+	require.Contains(t, output, "type Cursor = entgql.Cursor[int]")
+
+	// Scalar field cases reference subpkg-local Field* identifiers
+	// (NOT entity.Field* — that would be a gen-package qualified name).
+	require.Contains(t, output, "FieldName")
+	require.Contains(t, output, "FieldSku")
+	require.Contains(t, output, "len(Columns)")
+
+	// Unprefixed paginateArgs / newPaginateArgs.
+	require.Contains(t, output, "type paginateArgs struct")
+	require.Contains(t, output, "func newPaginateArgs(rv map[string]any) *paginateArgs")
+
+	// where-input branch present because HasWhereInputTemplate=true and
+	// BillProduct has where_input generation.
+	require.Contains(t, output, "whereField")
+	require.Contains(t, output, "BillProductWhereInput")
+
+	// Acceptance criterion: no sibling subpkg imports.
+	// (BillProduct has no edges, but a regression that adds an unwanted
+	// "entgo.io/contrib/entgql/internal/todo/ent/<other>" import would
+	// show here.)
+	require.NotContains(t, output, `"entgo.io/contrib/entgql/internal/todo/ent/group"`)
+	require.NotContains(t, output, `"entgo.io/contrib/entgql/internal/todo/ent/user"`)
+}
+
+func TestCollectionSubpkgTemplateExecution_User_NoSiblingImports(t *testing.T) {
+	// Render against the most complex entity (User: edges to Group, User
+	// self-reference, Friendship) and verify the rendered output does not
+	// import any sibling sub-package — this is the acceptance criterion
+	// that motivates the entire dispatch-via-collectiondispatch design.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+		Package: "entgo.io/contrib/entgql/internal/todo/ent",
+	})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "User" {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node, "User node should exist in the schema")
+
+	var buf bytes.Buffer
+	err = CollectionSubpkgTemplate.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{graph, node, true})
+	require.NoError(t, err)
+	output := buf.String()
+
+	require.Contains(t, output, "package user")
+
+	// The crux: no sibling-subpkg imports. If this ever fires it is a
+	// regression of the dispatch design — every cross-entity reference
+	// must route through collectiondispatch, not a typed import.
+	for _, sibling := range []string{"group", "friendship", "billproduct", "category", "todo", "verysecret", "workspace"} {
+		require.NotContainsf(t, output,
+			`"entgo.io/contrib/entgql/internal/todo/ent/`+sibling+`"`,
+			"subpkg gql_collection.go for User must NOT import sibling %q", sibling)
+	}
+
+	// Self-import is also forbidden — the file IS the user subpkg.
+	require.NotContains(t, output, `"entgo.io/contrib/entgql/internal/todo/ent/user"`)
+
+	// Scalar field selection still works (User has multiple scalar fields).
+	require.Contains(t, output, "FieldName")
+}
+
+func TestCollectionSubpkgTemplateNoWhereInput(t *testing.T) {
+	// HasWhereInputTemplate=false suppresses the where-input branch in
+	// newPaginateArgs; verify the rendered output does not reference any
+	// WhereInput type in that case.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+		Package: "entgo.io/contrib/entgql/internal/todo/ent",
+	})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "BillProduct" {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node)
+
+	var buf bytes.Buffer
+	err = CollectionSubpkgTemplate.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{graph, node, false})
+	require.NoError(t, err)
+	output := buf.String()
+
+	require.NotContains(t, output, "BillProductWhereInput",
+		"where-input branch must be suppressed when HasWhereInputTemplate=false")
 }

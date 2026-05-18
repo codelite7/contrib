@@ -110,6 +110,16 @@ var (
 	// Initialized in init() to avoid initialization order issues.
 	CollectionDispatchTemplate *template.Template
 
+	// CollectionSubpkgTemplate generates per-entity gql_collection.go inside
+	// the entity sub-package. It contains CollectFields/collectField methods
+	// on the local *Query plus the unprefixed paginateArgs type and
+	// newPaginateArgs constructor — the latter pair were previously in the
+	// gen package as <entity>PaginateArgs / new<Entity>PaginateArgs and are
+	// hoisted here so the dispatch collector can serve them to other
+	// entities without forming a sibling-subpkg import cycle.
+	// Initialized in init() to avoid initialization order issues.
+	CollectionSubpkgTemplate *template.Template
+
 	// EdgeEntityTemplate generates edge resolver code for a single entity (used in split mode).
 	// Initialized in init() to avoid initialization order issues.
 	EdgeEntityTemplate *template.Template
@@ -194,6 +204,7 @@ func init() {
 	CollectionEntityTemplate = parseEntityTemplate("template/collection_entity.tmpl", "gql_collection_entity")
 	CollectionDispatchPkgTemplate = parseEntityTemplate("template/collection_dispatch_pkg.tmpl", "gql_collection_dispatch_pkg")
 	CollectionDispatchTemplate = parseEntityTemplate("template/collection_dispatch.tmpl", "gql_collection_dispatch")
+	CollectionSubpkgTemplate = parseEntityTemplate("template/collection_subpkg.tmpl", "gql_collection_subpkg")
 	EdgeEntityTemplate = parseEntityTemplate("template/edge_entity.tmpl", "gql_edge_entity")
 	NodeDescriptorSharedTemplate = parseEntityTemplate("template/node_descriptor_shared.tmpl", "gql_node_descriptor_shared")
 	NodeDescriptorEntityTemplate = parseEntityTemplate("template/node_descriptor_entity.tmpl", "gql_node_descriptor_entity")

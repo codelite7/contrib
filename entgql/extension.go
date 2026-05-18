@@ -1032,6 +1032,45 @@ func (e *Extension) generateCollectionDispatchFile(g *gen.Graph, n *gen.Type) er
 	return os.WriteFile(path, content, 0644)
 }
 
+// generateCollectionSubpkgFile generates per-entity gql_collection.go
+// inside the entity's sub-package directory. The file contains the
+// CollectFields/collectField methods on the local *Query plus the
+// unprefixed paginateArgs type and newPaginateArgs constructor (moved
+// out of the gen-package collection_entity.tmpl where they used to be
+// emitted with entity-prefixed names). If the sub-package directory
+// does not exist (i.e. the PR 6 split hasn't run for this graph), the
+// file is skipped — mirrors generateCollectionDispatchFile's behavior.
+//
+// This file is the in-subpkg complement to the gen-package
+// gql_collection_<entity>.go that collection_entity.tmpl produces. The
+// generator wiring for the subpkg version is intentionally not yet
+// invoked from generateSplitGoFiles / generateSplitCollection (Task 6
+// finishes that wiring and Task 7 deletes the gen-package emission);
+// today this generator is exercised only via the template_test.go
+// rendering tests so the template stays under CI without prematurely
+// flipping the gen-vs-subpkg location of the collection file.
+func (e *Extension) generateCollectionSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, n.Package())
+	if _, err := os.Stat(subPkgDir); os.IsNotExist(err) {
+		return nil
+	}
+	path := filepath.Join(subPkgDir, "gql_collection.go")
+
+	var buf bytes.Buffer
+	if err := CollectionSubpkgTemplate.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{g, n, e.genWhereInput}); err != nil {
+		return fmt.Errorf("entgql: execute collection_subpkg template for %s: %w", n.Name, err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format collection_subpkg for %s: %w", n.Name, err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
 // generateCollectionEntityFile generates a collection file for a single entity.
 func (e *Extension) generateCollectionEntityFile(g *gen.Graph, n *gen.Type) error {
 	filename := fmt.Sprintf("gql_collection_%s.go", snake(n.Name))

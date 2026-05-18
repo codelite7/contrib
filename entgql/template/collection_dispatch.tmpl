@@ -14,8 +14,11 @@ package {{ $.Node.Package }}
 
 import (
 	"context"
+	"fmt"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/99designs/gqlgen/graphql"
+
 	"{{ $.Config.Package }}/internal/collectiondispatch"
 )
 
@@ -28,8 +31,15 @@ import (
 // boundary; each method type-asserts back to the concrete local types.
 // This is the indirection that breaks cross-entity import cycles.
 //
-// Many methods are stubbed pending Task 5, which adds the subpkg-local
-// paginateArgs/pager/collectField scaffolding this dispatch needs.
+// Task 5 wired up every method that operates on subpkg-local state
+// (paginateArgs accessors, CollectFields, AddQueryModifier). The pager-
+// shaped methods (NewPager / ApplyFilter / ApplyCursors / ApplyOrder /
+// OrderExpr) still panic — they need the gen-package pager (typed
+// *<entity>Pager), which the subpkg cannot import without a cycle.
+// Task 6 finishes them via gen-package shim functions that accept []any
+// opts and return any pager. Until then, Relay-paginated collection
+// edges fail at runtime with a clear stub message instead of silently
+// returning empty.
 type collector struct{}
 
 func (collector) NewQuery(config any) any {
@@ -37,31 +47,47 @@ func (collector) NewQuery(config any) any {
 }
 
 func (collector) NewPaginateArgs(rv any) any {
-	panic("TODO Task 5: needs subpkg-local paginateArgs type")
+	// rv is the field-args map produced by fieldArgs() in the gen package
+	// (typed map[string]any). Forward to the subpkg-local constructor
+	// (Task 5 emits paginateArgs/newPaginateArgs in this package).
+	if rv == nil {
+		return newPaginateArgs(nil)
+	}
+	m, ok := rv.(map[string]any)
+	if !ok {
+		panic(fmt.Sprintf("collectiondispatch: NewPaginateArgs expected map[string]any, got %T", rv))
+	}
+	return newPaginateArgs(m)
 }
 
 func (collector) PaginateArgsFirst(args any) *int {
-	panic("TODO Task 5: needs subpkg-local paginateArgs")
+	return args.(*paginateArgs).first
 }
 
 func (collector) PaginateArgsLast(args any) *int {
-	panic("TODO Task 5: needs subpkg-local paginateArgs")
+	return args.(*paginateArgs).last
 }
 
 func (collector) PaginateArgsAfter(args any) any {
-	panic("TODO Task 5: needs subpkg-local paginateArgs")
+	if v := args.(*paginateArgs).after; v != nil {
+		return v
+	}
+	return nil
 }
 
 func (collector) PaginateArgsBefore(args any) any {
-	panic("TODO Task 5: needs subpkg-local paginateArgs")
+	if v := args.(*paginateArgs).before; v != nil {
+		return v
+	}
+	return nil
 }
 
 func (collector) PaginateArgsOpts(args any) any {
-	panic("TODO Task 5: needs subpkg-local paginateArgs")
+	return args.(*paginateArgs).opts
 }
 
 func (collector) NewPager(opts any, last bool) (any, error) {
-	panic("TODO Task 5: needs subpkg-local pager / newPager")
+	panic("TODO Task 6: needs gen-package new{{ $node.Name }}Pager shim accepting []any opts")
 }
 
 func (collector) CloneQuery(query any) any {
@@ -69,15 +95,15 @@ func (collector) CloneQuery(query any) any {
 }
 
 func (collector) ApplyFilter(pager any, query any) (any, error) {
-	panic("TODO Task 5: needs subpkg-local pager.applyFilter")
+	panic("TODO Task 6: needs gen-package pager.applyFilter shim through the dispatch boundary")
 }
 
 func (collector) ApplyCursors(pager any, query any, after, before any) (any, error) {
-	panic("TODO Task 5: needs subpkg-local pager.applyCursors + Cursor placement")
+	panic("TODO Task 6: needs gen-package pager.applyCursors shim through the dispatch boundary")
 }
 
 func (collector) ApplyOrder(pager any, query any) any {
-	panic("TODO Task 5: needs subpkg-local pager.applyOrder")
+	panic("TODO Task 6: needs gen-package pager.applyOrder shim through the dispatch boundary")
 }
 
 func (collector) ApplyLimit(query any, n int) any {
@@ -85,15 +111,23 @@ func (collector) ApplyLimit(query any, n int) any {
 }
 
 func (collector) OrderExpr(pager any, query any) any {
-	panic("TODO Task 5: needs subpkg-local pager.orderExpr")
+	panic("TODO Task 6: needs gen-package pager.orderExpr shim through the dispatch boundary")
 }
 
 func (collector) AddQueryModifier(query any, modifier any) {
-	panic("TODO Task 5: needs access to subpkg-local Query.modifiers field")
+	// Mutate the subpkg-local unexported `modifiers` slice directly.
+	// The dispatch collector lives in the same package as {{ $query }},
+	// so the unexported field is reachable without an exported wrapper.
+	mod, ok := modifier.(func(*sql.Selector))
+	if !ok {
+		panic(fmt.Sprintf("collectiondispatch: AddQueryModifier expected func(*sql.Selector), got %T", modifier))
+	}
+	q := query.(*{{ $query }})
+	q.modifiers = append(q.modifiers, mod)
 }
 
 func (collector) CollectFields(ctx context.Context, q any, oneNode bool, opCtx *graphql.OperationContext, collected graphql.CollectedField, path []string, satisfies ...string) error {
-	panic("TODO Task 5: needs (*{{ $query }}).collectField method")
+	return q.(*{{ $query }}).collectField(ctx, oneNode, opCtx, collected, path, satisfies...)
 }
 
 func (collector) IDColumnName() string {
