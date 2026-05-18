@@ -420,8 +420,11 @@ func (p *{{ $pager }}) orderExpr(query *{{ $node.QueryName }}) sql.Querier {
 	{{- end }}
 }
 
-// Paginate executes the query and returns a relay based cursor connection to {{ $name }}.
-func ({{ $r }} *{{ $query }}) Paginate(
+// {{ $query }}Paginate executes the query and returns a relay based cursor connection to {{ $name }}.
+// Free function (rather than method) because *{{ $query }} is a type alias after PR 6's sub-package split,
+// and Go forbids defining methods on alias types from foreign packages.
+func {{ $query }}Paginate(
+	{{ $r }} *{{ $query }},
 	ctx context.Context, after *Cursor, first *int,
 	before *Cursor, last *int, opts ...{{ $opt }},
 ) (*{{ $conn }}, error) {

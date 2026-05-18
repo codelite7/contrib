@@ -62,7 +62,7 @@ import (
 				conn.build(nodes, pager, after, first, before, last)
 				return conn, nil
 			}
-			return FromContext(ctx).{{ $node.Name }}.Query{{ $e.StructField }}({{ $r }}).Paginate(ctx, after, first, before, last, opts...)
+			return {{ print $names.Node "QueryPaginate" }}(FromContext(ctx).{{ $node.Name }}.Query{{ $e.StructField }}({{ $r }}), ctx, after, first, before, last, opts...)
 		}
 
 	{{ else if not $e.Unique }}

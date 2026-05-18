@@ -492,7 +492,7 @@ func TestPaginationEntityTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "DefaultTodoOrder")
 
 	// Verify per-entity methods are generated.
-	require.Contains(t, output, "func (_m *TodoQuery) Paginate(")
+	require.Contains(t, output, "func TodoQueryPaginate(\n\t_m *TodoQuery,")
 	require.Contains(t, output, "func TodoToEdge(_m *Todo,")
 
 	// Verify the paginate helper is inlined (no template calls in output).
