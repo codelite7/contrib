@@ -548,3 +548,27 @@ Cond:
 		}
 	}
 {{- end }}
+
+{{/* AppendLoadTotal and AppendModifier expose the private loadTotal / modifiers
+     slices to callers outside the sub-package. Needed by the gql_collection_*.go
+     free functions emitted in the root facade package after the PR-6 split,
+     which can't reach across packages to touch the unexported slices directly. */}}
+{{- define "dialect/sql/query/additional/append_load_total" }}
+	{{- $builder := pascal $.Scope.Builder }}
+	{{- $receiver := $.Scope.Receiver }}
+	// AppendLoadTotal registers a totalCount loader on the query.
+	func ({{ $receiver }} *{{ $builder }}) AppendLoadTotal(fn func(context.Context, []*{{ $.Name }}) error) *{{ $builder }} {
+		{{ $receiver }}.loadTotal = append({{ $receiver }}.loadTotal, fn)
+		return {{ $receiver }}
+	}
+{{- end }}
+
+{{- define "dialect/sql/query/additional/append_modifier" }}
+	{{- $builder := pascal $.Scope.Builder }}
+	{{- $receiver := $.Scope.Receiver }}
+	// AppendModifier registers a *sql.Selector modifier on the query.
+	func ({{ $receiver }} *{{ $builder }}) AppendModifier(fn func(*sql.Selector)) *{{ $builder }} {
+		{{ $receiver }}.modifiers = append({{ $receiver }}.modifiers, fn)
+		return {{ $receiver }}
+	}
+{{- end }}

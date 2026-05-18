@@ -93,7 +93,7 @@ func collectField{{ $query }}({{ $receiver }} *{{ $query }}, ctx context.Context
 								if hasPagination || ignoredEdges {
 									query := query.Clone()
 									{{- /* totalCount may be greater than len(nodes). */}}
-									{{ $receiver }}.loadTotal = append({{ $receiver }}.loadTotal, func(ctx context.Context, nodes []*{{ $node.Name }}) error {
+									{{ $receiver }}.AppendLoadTotal(func(ctx context.Context, nodes []*{{ $node.Name }}) error {
 										ids := make([]driver.Value, len(nodes))
 										for i := range nodes {
 											ids[i] = nodes[i].{{ $node.ID.StructField }}
@@ -145,7 +145,7 @@ func collectField{{ $query }}({{ $receiver }} *{{ $query }}, ctx context.Context
 									})
 								} else {
 									{{- /* All records will be loaded, so just count it */}}
-									{{ $receiver }}.loadTotal = append({{ $receiver }}.loadTotal, func(_ context.Context, nodes []*{{ $node.Name }}) error {
+									{{ $receiver }}.AppendLoadTotal(func(_ context.Context, nodes []*{{ $node.Name }}) error {
 										for i := range nodes {
 											n := len(nodes[i].Edges.{{ $e.StructField }})
 											if nodes[i].Edges.TotalCount[{{ $i }}] == nil {
@@ -181,7 +181,7 @@ func collectField{{ $query }}({{ $receiver }} *{{ $query }}, ctx context.Context
 										{{- $fk = print $node.Package "." $e.PKConstant "[" $i "]" }}
 									{{- end }}
 									modify := entgql.LimitPerRow({{ $fk }}, limit, pager.orderExpr(query))
-									query.modifiers = append(query.modifiers, modify)
+									query.AppendModifier(modify)
 								}
 							} else {
 								query = pager.applyOrder(query)
@@ -192,9 +192,11 @@ func collectField{{ $query }}({{ $receiver }} *{{ $query }}, ctx context.Context
 							}
 						{{- end }}
 						{{- if $e.Unique }}
-							{{ $receiver }}.{{ $e.EagerLoadField }} = query
+							With{{ $node.Name }}{{ $e.StructField }}({{ $receiver }}, func(sub *{{ $e.Type.QueryName }}) {
+								*sub = *query
+							})
 						{{- else }}
-							{{ $receiver }}.WithNamed{{ $e.StructField }}(alias, func (wq *{{ $e.Type.QueryName }}) {
+							WithNamed{{ $node.Name }}{{ $e.StructField }}({{ $receiver }}, alias, func(wq *{{ $e.Type.QueryName }}) {
 								*wq = *query
 							})
 						{{- end }}
