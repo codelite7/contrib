@@ -1,0 +1,50 @@
+{{/*
+Copyright 2019-present Facebook Inc. All rights reserved.
+This source code is licensed under the Apache 2.0 license found
+in the LICENSE file in the root directory of this source tree.
+*/}}
+
+{{ define "gql_edge_subpkg_runtime" }}
+
+{{- /*gotype: entgo.io/contrib/entgql.edgeSubpkgRuntimeData*/ -}}
+
+{{ $.Config.Header }}
+
+package gqledges
+
+import (
+	"errors"
+
+	"{{ $.Config.Package }}/internal"
+)
+
+// IsNotLoaded reports whether err is a not-loaded error from the ent runtime.
+// Local copy to avoid importing root gen (which would create a sibling<->root cycle).
+func IsNotLoaded(err error) bool {
+	if err == nil {
+		return false
+	}
+	var e *internal.NotLoadedError
+	return errors.As(err, &e)
+}
+
+// IsNotFound reports whether err is a not-found error from the ent runtime.
+// Local copy to avoid importing root gen.
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var e *internal.NotFoundError
+	return errors.As(err, &e)
+}
+
+// MaskNotFound masks a not-found error. Returns nil if err is a not-found error;
+// otherwise returns err unchanged.
+func MaskNotFound(err error) error {
+	if IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+{{ end }}

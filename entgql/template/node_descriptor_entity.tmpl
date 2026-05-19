@@ -65,7 +65,7 @@ func {{ $node.Name }}Node({{ $receiver }} *{{ $node.Name }}, ctx context.Context
 				Type: "{{ $e.Type.Name }}",
 				Name: "{{ $e.Name }}",
 			}
-			err = FromContext(ctx).{{ $node.Name }}.{{ print "Query" (pascal $e.Name) }}({{ $receiver }}).
+			err = {{ print "Query" $node.Name (pascal $e.Name) }}(FromContext(ctx).{{ $node.Name }}, {{ $receiver }}).
 				Select({{ $e.Type.Package }}.FieldID).
 				Scan(ctx, &node.Edges[{{ $i }}].IDs)
 			if err != nil {

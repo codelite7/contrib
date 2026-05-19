@@ -554,6 +554,10 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 		func() error { return e.generatePaginationSharedFile(&staged) },
 		func() error { return e.generateCollectionSharedFile(&staged) },
 		func() error { return e.generateNodeSharedFile(&staged) },
+		// Sibling subpkg runtime files — emitted once per generation, into sibling dirs.
+		// Uses real g (not staged) since sibling dirs live next to root gen, not in staging.
+		func() error { return e.generateEdgeSubpkgRuntimeFile(g) },
+		func() error { return e.generateCollectionSubpkgRuntimeFile(g) },
 	)
 	if _, exists := e.hasTemplate(NodeDescriptorTemplate); exists {
 		fns = append(fns, func() error { return e.generateNodeDescriptorSharedFile(&staged) })
@@ -569,10 +573,14 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 			for _, n := range nodes {
 				n := n
 				fns = append(fns, func() error { return e.generateWhereInputFile(&staged, n) })
+				fns = append(fns, func() error { return e.generateWhereInputSubpkgFile(g, n) })
 			}
 		} else {
 			for _, n := range nodes {
 				if err := e.generateWhereInputFile(&staged, n); err != nil {
+					return err
+				}
+				if err := e.generateWhereInputSubpkgFile(g, n); err != nil {
 					return err
 				}
 			}
@@ -596,6 +604,10 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 			// Also generate SetInput methods in the entity sub-package to avoid circular imports.
 			// Uses the real g (not staged) since sub-package dirs are created by ent, not the staging system.
 			fns = append(fns, func() error { return e.generateMutationInputSubpkgFile(g, name, entityInputs) })
+			// Lever B-3b: emit Create/Update<T>Input + Mutate + Set<Builder>Input bodies into
+			// the sibling subpackage gen/mutationinputs/<entity>.go. Root entity file (above) is
+			// reduced to thin type-aliases + var forwarders.
+			fns = append(fns, func() error { return e.generateMutationInputSiblingFile(g, name, entityInputs) })
 		}
 	}
 
@@ -609,8 +621,13 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 		n := n
 		fns = append(fns,
 			func() error { return e.generatePaginationEntityFile(&staged, n) },
+			func() error { return e.generatePaginationSubpkgFile(g, n) },
 			func() error { return e.generateCollectionEntityFile(&staged, n) },
+			// Lever B-3d: collection bodies in sibling subpkg gen/gqlcollections/<entity>.go.
+			func() error { return e.generateCollectionSubpkgFile(g, n) },
 			func() error { return e.generateNodeEntityFile(&staged, n) },
+			// Lever B-3d helper: per-entity Implementors slice emitted to gen/<entity>/.
+			func() error { return e.generateNodeImplementorsSubpkgFile(g, n) },
 		)
 		if hasNodeDescriptor {
 			fns = append(fns, func() error { return e.generateNodeDescriptorEntityFile(&staged, n) })
@@ -620,7 +637,11 @@ func (e *Extension) generateSplitGoFiles(g *gen.Graph) error {
 			return err
 		}
 		if len(edges) > 0 {
-			fns = append(fns, func() error { return e.generateEdgeEntityFile(&staged, n) })
+			fns = append(fns,
+				func() error { return e.generateEdgeEntityFile(&staged, n) },
+				// Lever B-3c: edge resolver bodies in sibling subpkg gen/gqledges/<entity>.go.
+				func() error { return e.generateEdgeSubpkgFile(g, n) },
+			)
 		}
 	}
 
@@ -724,11 +745,15 @@ func (e *Extension) generateSplitWhereInputs(g *gen.Graph) error {
 		for _, n := range nodes {
 			n := n
 			fns = append(fns, func() error { return e.generateWhereInputFile(g, n) })
+			fns = append(fns, func() error { return e.generateWhereInputSubpkgFile(g, n) })
 		}
 		return parallelGenerate(fns)
 	}
 	for _, n := range nodes {
 		if err := e.generateWhereInputFile(g, n); err != nil {
+			return err
+		}
+		if err := e.generateWhereInputSubpkgFile(g, n); err != nil {
 			return err
 		}
 	}
@@ -750,6 +775,8 @@ func (e *Extension) generateSplitMutationInputs(g *gen.Graph) error {
 		name := name
 		entityInputs := entityInputs
 		fns = append(fns, func() error { return e.generateMutationInputFile(g, name, entityInputs) })
+		fns = append(fns, func() error { return e.generateMutationInputSubpkgFile(g, name, entityInputs) })
+		fns = append(fns, func() error { return e.generateMutationInputSiblingFile(g, name, entityInputs) })
 	}
 	return parallelGenerate(fns)
 }
@@ -767,7 +794,10 @@ func (e *Extension) generateSplitPagination(g *gen.Graph) error {
 	var fns []func() error
 	for _, n := range nodes {
 		n := n
-		fns = append(fns, func() error { return e.generatePaginationEntityFile(g, n) })
+		fns = append(fns,
+			func() error { return e.generatePaginationEntityFile(g, n) },
+			func() error { return e.generatePaginationSubpkgFile(g, n) },
+		)
 	}
 	return parallelGenerate(fns)
 }
@@ -868,6 +898,34 @@ func (e *Extension) generateWhereInputFile(g *gen.Graph, n *gen.Type) error {
 	return os.WriteFile(path, content, 0644)
 }
 
+// generateWhereInputSubpkgFile generates WhereInput types + methods in the sibling subpackage
+// gen/whereinputs/<entity>.go (lever B-3a). The sibling directory is created if it does not exist.
+// The root gql_where_input_<entity>.go is reduced to a thin type-alias shim by the updated
+// generateWhereInputFile.
+func (e *Extension) generateWhereInputSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, "whereinputs")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create whereinputs dir: %w", err)
+	}
+
+	path := filepath.Join(subPkgDir, snake(n.Name)+".go")
+
+	var buf bytes.Buffer
+	if err := WhereInputSubpkgTemplate.Execute(&buf, struct {
+		*gen.Graph
+		Node *gen.Type
+	}{g, n}); err != nil {
+		return fmt.Errorf("entgql: execute where_input_subpkg template for %s: %w", n.Name, err)
+	}
+
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format where_input_subpkg for %s: %w", n.Name, err)
+	}
+
+	return os.WriteFile(path, content, 0644)
+}
+
 // generateMutationInputSubpkgFile generates SetInput methods in the entity's sub-package
 // (e.g., src/ent/gen/agentlicensing/gql_mutation_input.go). These methods must live in the
 // sub-package because Go does not allow method declarations on types from other packages.
@@ -903,6 +961,39 @@ func (e *Extension) generateMutationInputSubpkgFile(g *gen.Graph, name string, i
 	return os.WriteFile(path, content, 0644)
 }
 
+// generateMutationInputSiblingFile generates Create<T>Input/Update<T>Input struct definitions,
+// their Mutate methods, and Set<Builder>Input free functions in the sibling subpackage
+// gen/mutationinputs/<entity>.go (lever B-3b). The sibling directory is created if it
+// does not exist. The root gql_mutation_input_<entity>.go is reduced to a thin type-alias
+// + var-forwarder shim by the updated generateMutationInputFile.
+func (e *Extension) generateMutationInputSiblingFile(g *gen.Graph, name string, inputs []*MutationDescriptor) error {
+	if len(inputs) == 0 {
+		return nil
+	}
+	subPkgDir := filepath.Join(g.Target, "mutationinputs")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create mutationinputs dir: %w", err)
+	}
+
+	path := filepath.Join(subPkgDir, snake(name)+".go")
+
+	var buf bytes.Buffer
+	if err := MutationInputSiblingTemplate.Execute(&buf, struct {
+		*gen.Graph
+		EntityName string
+		Inputs     []*MutationDescriptor
+	}{g, name, inputs}); err != nil {
+		return fmt.Errorf("entgql: execute mutation_input_sibling template for %s: %w", name, err)
+	}
+
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format mutation_input_sibling for %s: %w", name, err)
+	}
+
+	return os.WriteFile(path, content, 0644)
+}
+
 // generateMutationInputFile generates a mutation input file for a single entity.
 func (e *Extension) generateMutationInputFile(g *gen.Graph, name string, inputs []*MutationDescriptor) error {
 	filename := fmt.Sprintf("gql_mutation_input_%s.go", snake(name))
@@ -921,6 +1012,35 @@ func (e *Extension) generateMutationInputFile(g *gen.Graph, name string, inputs 
 	content, err := e.processImports(path, buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("entgql: format mutation_input for %s: %w", name, err)
+	}
+
+	return os.WriteFile(path, content, 0644)
+}
+
+// generatePaginationSubpkgFile generates pagination types + Paginate method in the
+// entity's sub-package (e.g., src/ent/gen/property/gql_pagination.go). The root
+// gql_pagination_<entity>.go file is reduced to a thin re-export shim by the
+// updated generatePaginationEntityFile.
+func (e *Extension) generatePaginationSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, n.Package())
+	if _, err := os.Stat(subPkgDir); os.IsNotExist(err) {
+		return nil // sub-package doesn't exist, skip
+	}
+
+	path := filepath.Join(subPkgDir, "gql_pagination.go")
+
+	tmpl := PaginationSubpkgTemplate
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, struct {
+		*gen.Graph
+		Node *gen.Type
+	}{g, n}); err != nil {
+		return fmt.Errorf("entgql: execute pagination_subpkg template for %s: %w", n.Name, err)
+	}
+
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format pagination_subpkg for %s: %w", n.Name, err)
 	}
 
 	return os.WriteFile(path, content, 0644)
@@ -984,12 +1104,17 @@ func (e *Extension) generateCollectionEntityFile(g *gen.Graph, n *gen.Type) erro
 	filename := fmt.Sprintf("gql_collection_%s.go", snake(n.Name))
 	path := filepath.Join(g.Target, filename)
 	tmpl := CollectionEntityTemplate
+	// HasPaginationSubpkg is true when the entity subpackage directory exists, meaning
+	// the pagination_subpkg.tmpl emitted gql_pagination.go there. When true, the
+	// collection_entity.tmpl init() registers collectField into the subpackage.
+	_, hasPaginationSubpkg := os.Stat(filepath.Join(g.Target, n.Package()))
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, struct {
 		*gen.Graph
 		Node                  *gen.Type
 		HasWhereInputTemplate bool
-	}{g, n, e.genWhereInput}); err != nil {
+		HasPaginationSubpkg   bool
+	}{g, n, e.genWhereInput, !os.IsNotExist(hasPaginationSubpkg)}); err != nil {
 		return fmt.Errorf("entgql: execute collection_entity template for %s: %w", n.Name, err)
 	}
 	content, err := e.processImports(path, buf.Bytes())
@@ -1015,6 +1140,127 @@ func (e *Extension) generateEdgeEntityFile(g *gen.Graph, n *gen.Type) error {
 	content, err := e.processImports(path, buf.Bytes())
 	if err != nil {
 		return fmt.Errorf("entgql: format edge for %s: %w", n.Name, err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
+// generateEdgeSubpkgFile emits the edge resolver bodies for a single entity into the
+// sibling subpackage gen/gqledges/<entity>.go (lever B-3c). The sibling directory is
+// created if it does not exist. The root gql_edge_<entity>.go file is reduced to a
+// thin var-forwarder + per-entity client registration shim by generateEdgeEntityFile.
+func (e *Extension) generateEdgeSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, "gqledges")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create gqledges dir: %w", err)
+	}
+	path := filepath.Join(subPkgDir, snake(n.Name)+".go")
+	var buf bytes.Buffer
+	if err := EdgeSubpkgTemplate.Execute(&buf, struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+	}{g, n, e.genWhereInput}); err != nil {
+		return fmt.Errorf("entgql: execute edge_subpkg template for %s: %w", n.Name, err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format edge_subpkg for %s: %w", n.Name, err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
+// generateEdgeSubpkgRuntimeFile emits the shared runtime helpers (IsNotLoaded,
+// MaskNotFound, IsNotFound) into gen/gqledges/runtime.go. Emitted once per generation.
+func (e *Extension) generateEdgeSubpkgRuntimeFile(g *gen.Graph) error {
+	subPkgDir := filepath.Join(g.Target, "gqledges")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create gqledges dir: %w", err)
+	}
+	path := filepath.Join(subPkgDir, "runtime.go")
+	var buf bytes.Buffer
+	if err := EdgeSubpkgRuntimeTemplate.Execute(&buf, struct {
+		*gen.Graph
+	}{g}); err != nil {
+		return fmt.Errorf("entgql: execute edge_subpkg_runtime template: %w", err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format edge_subpkg_runtime: %w", err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
+// generateCollectionSubpkgFile emits the per-entity collectField bodies into the
+// sibling subpackage gen/gqlcollections/<entity>.go (lever B-3d). The sibling directory
+// is created if it does not exist. The root gql_collection_<entity>.go file is reduced
+// to a thin var-forwarder shim by generateCollectionEntityFile.
+func (e *Extension) generateCollectionSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, "gqlcollections")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create gqlcollections dir: %w", err)
+	}
+	path := filepath.Join(subPkgDir, snake(n.Name)+".go")
+	// HasPaginationSubpkg true when the entity sub-package directory exists, meaning
+	// the pagination_subpkg.tmpl emitted gql_pagination.go there. When true, the
+	// collection_subpkg.tmpl init() registers collectField into the subpackage.
+	_, hasPaginationSubpkg := os.Stat(filepath.Join(g.Target, n.Package()))
+	var buf bytes.Buffer
+	if err := CollectionSubpkgTemplate.Execute(&buf, struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+		HasPaginationSubpkg   bool
+	}{g, n, e.genWhereInput, !os.IsNotExist(hasPaginationSubpkg)}); err != nil {
+		return fmt.Errorf("entgql: execute collection_subpkg template for %s: %w", n.Name, err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format collection_subpkg for %s: %w", n.Name, err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
+// generateCollectionSubpkgRuntimeFile emits the shared runtime helpers (Cursor, Count,
+// paginateLimit, validateFirstLast, hasCollectedField, fieldArgs, mayAddCondition, etc.)
+// into gen/gqlcollections/runtime.go. Emitted once per generation.
+func (e *Extension) generateCollectionSubpkgRuntimeFile(g *gen.Graph) error {
+	subPkgDir := filepath.Join(g.Target, "gqlcollections")
+	if err := os.MkdirAll(subPkgDir, 0755); err != nil {
+		return fmt.Errorf("entgql: create gqlcollections dir: %w", err)
+	}
+	path := filepath.Join(subPkgDir, "runtime.go")
+	var buf bytes.Buffer
+	if err := CollectionSubpkgRuntimeTemplate.Execute(&buf, struct {
+		*gen.Graph
+	}{g}); err != nil {
+		return fmt.Errorf("entgql: execute collection_subpkg_runtime template: %w", err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format collection_subpkg_runtime: %w", err)
+	}
+	return os.WriteFile(path, content, 0644)
+}
+
+// generateNodeImplementorsSubpkgFile emits the per-entity Implementors slice into
+// gen/<entity>/gql_node_implementors.go. Required so sibling subpackages (gqlcollections)
+// can reference {{ $entity }}.Implementors without importing root gen (lever B-3d).
+func (e *Extension) generateNodeImplementorsSubpkgFile(g *gen.Graph, n *gen.Type) error {
+	subPkgDir := filepath.Join(g.Target, n.Package())
+	if _, err := os.Stat(subPkgDir); os.IsNotExist(err) {
+		return nil // sub-package doesn't exist, skip
+	}
+	path := filepath.Join(subPkgDir, "gql_node_implementors.go")
+	var buf bytes.Buffer
+	if err := NodeImplementorsSubpkgTemplate.Execute(&buf, struct {
+		*gen.Graph
+		Node *gen.Type
+	}{g, n}); err != nil {
+		return fmt.Errorf("entgql: execute node_implementors_subpkg template for %s: %w", n.Name, err)
+	}
+	content, err := e.processImports(path, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("entgql: format node_implementors_subpkg for %s: %w", n.Name, err)
 	}
 	return os.WriteFile(path, content, 0644)
 }
