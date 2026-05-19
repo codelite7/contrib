@@ -32,6 +32,7 @@ import (
     "fmt"
 
     entsql "entgo.io/ent/dialect/sql"
+    "entgo.io/ent/runtime/wherehelpers"
     "{{ $.Config.Package }}/predicate"
     "{{ $.Config.Package }}/{{ $n.Package }}"
     {{- /* Import edge type packages for edge predicates */}}
@@ -188,19 +189,15 @@ func (i *{{ $input }}) P() (predicate.{{ $n.Name }}, error) {
                 {{- $field = $f.StructField }}
             {{- end }}
             {{- if $op.Niladic }}
-                if i.{{ $field }} {
-                    predicates = append(predicates, {{ $n.Package }}.{{ $func }}())
-                }
+                predicates = wherehelpers.AppendBool(predicates, i.{{ $field }}, {{ $n.Package }}.{{ $func }})
+            {{- else if $op.Variadic }}
+                predicates = wherehelpers.AppendSlice(predicates, i.{{ $field }}, {{ $n.Package }}.{{ $func }})
+            {{- else if $f.Type.RType.IsPtr }}
+                {{- /* Field's underlying type is already a pointer-like (map/slice/etc).
+                       Wrap with a function literal so AppendPtr's deref produces the right type. */}}
+                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, func(v {{ $f.Type.String }}) predicate.{{ $n.Name }} { return {{ $n.Package }}.{{ $func }}(v) })
             {{- else }}
-                {{- if $op.Variadic }}
-                    if len(i.{{ $field }}) > 0 {
-                        predicates = append(predicates, {{ $n.Package }}.{{ $func }}(i.{{ $field }}...))
-                    }
-                {{- else }}
-                    if i.{{ $field }} != nil {
-                        predicates = append(predicates, {{ $n.Package }}.{{ $func }}({{ if not $f.Type.RType.IsPtr }}*{{ end }}i.{{ $field }}))
-                    }
-                {{- end }}
+                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, {{ $n.Package }}.{{ $func }})
             {{- end }}
         {{- end }}
     {{- end }}
