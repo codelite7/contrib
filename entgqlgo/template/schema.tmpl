@@ -34,13 +34,21 @@ func clientFromContext(ctx context.Context, fallback *{{ $entPkg }}.Client) *{{ 
 	return fallback
 }
 
+// SchemaConfig returns the graphql.SchemaConfig used to build the generated schema.
+// Callers may modify the returned config before building the schema with
+// graphql.NewSchema — e.g. add custom query/mutation fields with
+// cfg.Query.AddFieldConfig(...) or attach a Subscription root type.
+func SchemaConfig(client *{{ $entPkg }}.Client) graphql.SchemaConfig {
+	return graphql.SchemaConfig{
+		Query:    newQueryType(client),
+		Mutation: newMutationType(client),
+	}
+}
+
 // NewSchema creates a new GraphQL schema with Query and Mutation types.
 // The client is used for database operations in resolvers.
 func NewSchema(client *{{ $entPkg }}.Client) (graphql.Schema, error) {
-	return graphql.NewSchema(graphql.SchemaConfig{
-		Query:    newQueryType(client),
-		Mutation: newMutationType(client),
-	})
+	return graphql.NewSchema(SchemaConfig(client))
 }
 
 // newQueryType creates the root Query type.
