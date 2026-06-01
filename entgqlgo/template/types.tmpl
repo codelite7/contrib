@@ -15,8 +15,23 @@ in the LICENSE file in the root directory of this source tree.
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
 
+{{- /* Determine whether any edge resolver will emit fmt.Errorf calls.
+     fmt is used only inside RelayConnection resolvers that have where or orderBy. */ -}}
+{{- $needsFmt := false }}
+{{- range $n := $gqlNodes }}
+{{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
+{{- if gqlgoIsRelayConn $e }}
+{{- if or (gqlgoHasWhereInput $e) (gqlgoOrderFields $e.Type) }}
+{{- $needsFmt = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 import (
+	{{- if $needsFmt }}
 	"fmt"
+	{{- end }}
 
 	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
@@ -167,7 +182,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 	}
 	{{- end }}
 	// Eager-load nested edges selected under edges { node { ... } }.
-	query = {{ $e.Type.Name }}QueryCollectFieldsConnection(p.Context, p.Info, query)
+	query = {{ $e.Type.QueryName }}CollectFieldsConnection(p.Context, p.Info, query)
 	{{- if $edgeOrderFields }}
 	{{- if $edgeMultiOrder }}
 	var orders []*{{ $edgeNames.Order }}

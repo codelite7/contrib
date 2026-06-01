@@ -235,8 +235,8 @@ func paginateCategoryQuery(
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
 	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || before != nil
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || after != nil
 
 	return conn, nil
 }
@@ -378,8 +378,8 @@ func paginateTodoQuery(
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
 	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || before != nil
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || after != nil
 
 	return conn, nil
 }

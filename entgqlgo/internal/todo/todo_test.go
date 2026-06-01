@@ -2985,6 +2985,215 @@ func TestNodeDescriptorClient(t *testing.T) {
 	}
 }
 
+// TestEdgeConnectionPagination tests cursor-based pagination on edge-level
+// Relay connections (Category.todos), exercising the +1 lookahead logic,
+// backward reversal, and PageInfo flag correctness.
+func TestEdgeConnectionPagination(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := gqlgo.NewSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Seed: one category with 5 todos (priority 1..5 so IDs are predictable in order).
+	category, err := client.Category.Create().SetText("Work").Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+	for i := 1; i <= 5; i++ {
+		_, err := client.Todo.Create().
+			SetText(fmt.Sprintf("Task %d", i)).
+			SetStatus(todo.StatusPending).
+			SetPriority(i).
+			SetCategory(category).
+			Save(ctx)
+		if err != nil {
+			t.Fatalf("failed to create todo %d: %v", i, err)
+		}
+	}
+
+	// --- Page 1: first: 2 ---
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%d") {
+				... on Category {
+					todos(first: 2) {
+						totalCount
+						edges {
+							node { text }
+							cursor
+						}
+						pageInfo {
+							hasNextPage
+							hasPreviousPage
+							endCursor
+						}
+					}
+				}
+			}
+		}`, category.ID),
+		Context: ctx,
+	})
+	if len(result.Errors) > 0 {
+		t.Fatalf("page1 errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	node := data["node"].(map[string]interface{})
+	todosConn := node["todos"].(map[string]interface{})
+
+	totalCount, _ := todosConn["totalCount"].(int)
+	if totalCount != 5 {
+		t.Errorf("page1: expected totalCount=5, got %d", totalCount)
+	}
+
+	edges := todosConn["edges"].([]interface{})
+	if len(edges) != 2 {
+		t.Errorf("page1: expected 2 edges, got %d", len(edges))
+	}
+
+	pageInfo := todosConn["pageInfo"].(map[string]interface{})
+	if pageInfo["hasNextPage"] != true {
+		t.Errorf("page1: expected hasNextPage=true, got %v", pageInfo["hasNextPage"])
+	}
+	if pageInfo["hasPreviousPage"] != false {
+		t.Errorf("page1: expected hasPreviousPage=false, got %v", pageInfo["hasPreviousPage"])
+	}
+
+	endCursor, _ := pageInfo["endCursor"].(string)
+	if endCursor == "" {
+		t.Fatal("page1: endCursor must not be empty")
+	}
+
+	// Verify texts: first two in ascending ID order (Task 1, Task 2).
+	if len(edges) == 2 {
+		e0 := edges[0].(map[string]interface{})["node"].(map[string]interface{})
+		e1 := edges[1].(map[string]interface{})["node"].(map[string]interface{})
+		if e0["text"] != "Task 1" {
+			t.Errorf("page1 edge[0]: expected 'Task 1', got %v", e0["text"])
+		}
+		if e1["text"] != "Task 2" {
+			t.Errorf("page1 edge[1]: expected 'Task 2', got %v", e1["text"])
+		}
+	}
+
+	// --- Page 2: first: 2, after: endCursor ---
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%d") {
+				... on Category {
+					todos(first: 2, after: "%s") {
+						totalCount
+						edges {
+							node { text }
+						}
+						pageInfo {
+							hasNextPage
+							hasPreviousPage
+						}
+					}
+				}
+			}
+		}`, category.ID, endCursor),
+		Context: ctx,
+	})
+	if len(result.Errors) > 0 {
+		t.Fatalf("page2 errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	node = data["node"].(map[string]interface{})
+	todosConn = node["todos"].(map[string]interface{})
+	edges = todosConn["edges"].([]interface{})
+
+	if len(edges) != 2 {
+		t.Errorf("page2: expected 2 edges, got %d", len(edges))
+	}
+
+	pageInfo = todosConn["pageInfo"].(map[string]interface{})
+	// after is set → hasPreviousPage must be true.
+	if pageInfo["hasPreviousPage"] != true {
+		t.Errorf("page2: expected hasPreviousPage=true, got %v", pageInfo["hasPreviousPage"])
+	}
+	// Still one item left (Task 5), so hasNextPage must be true.
+	if pageInfo["hasNextPage"] != true {
+		t.Errorf("page2: expected hasNextPage=true, got %v", pageInfo["hasNextPage"])
+	}
+
+	if len(edges) == 2 {
+		e0 := edges[0].(map[string]interface{})["node"].(map[string]interface{})
+		e1 := edges[1].(map[string]interface{})["node"].(map[string]interface{})
+		if e0["text"] != "Task 3" {
+			t.Errorf("page2 edge[0]: expected 'Task 3', got %v", e0["text"])
+		}
+		if e1["text"] != "Task 4" {
+			t.Errorf("page2 edge[1]: expected 'Task 4', got %v", e1["text"])
+		}
+	}
+
+	// --- Backward: last: 2 (no before cursor) ---
+	// Should return the LAST 2 items in ascending order: Task 4, Task 5.
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			node(id: "%d") {
+				... on Category {
+					todos(last: 2) {
+						totalCount
+						edges {
+							node { text }
+						}
+						pageInfo {
+							hasNextPage
+							hasPreviousPage
+						}
+					}
+				}
+			}
+		}`, category.ID),
+		Context: ctx,
+	})
+	if len(result.Errors) > 0 {
+		t.Fatalf("backward errors: %v", result.Errors)
+	}
+
+	data = result.Data.(map[string]interface{})
+	node = data["node"].(map[string]interface{})
+	todosConn = node["todos"].(map[string]interface{})
+	edges = todosConn["edges"].([]interface{})
+
+	if len(edges) != 2 {
+		t.Errorf("backward: expected 2 edges, got %d", len(edges))
+	}
+
+	pageInfo = todosConn["pageInfo"].(map[string]interface{})
+	// last: 2 with 5 total → more items exist before → hasPreviousPage=true.
+	if pageInfo["hasPreviousPage"] != true {
+		t.Errorf("backward: expected hasPreviousPage=true, got %v", pageInfo["hasPreviousPage"])
+	}
+	// No before cursor → hasNextPage=false.
+	if pageInfo["hasNextPage"] != false {
+		t.Errorf("backward: expected hasNextPage=false, got %v", pageInfo["hasNextPage"])
+	}
+
+	// Results must be in ascending order after reversal: Task 4, Task 5.
+	if len(edges) == 2 {
+		e0 := edges[0].(map[string]interface{})["node"].(map[string]interface{})
+		e1 := edges[1].(map[string]interface{})["node"].(map[string]interface{})
+		if e0["text"] != "Task 4" {
+			t.Errorf("backward edge[0]: expected 'Task 4', got %v", e0["text"])
+		}
+		if e1["text"] != "Task 5" {
+			t.Errorf("backward edge[1]: expected 'Task 5', got %v", e1["text"])
+		}
+	}
+}
+
 // Helper function for int pointers
 func intPtr(i int) *int {
 	return &i
