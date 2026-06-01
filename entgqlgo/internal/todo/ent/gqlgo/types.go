@@ -17,6 +17,8 @@
 package gqlgo
 
 import (
+	"fmt"
+
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"github.com/graphql-go/graphql"
 )
@@ -40,17 +42,43 @@ func init() {
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"text": &graphql.Field{
-					Type: graphql.String,
+					Type: graphql.NewNonNull(graphql.String),
 				},
 				"status": &graphql.Field{
-					Type: graphql.String,
+					Type: graphql.NewNonNull(graphql.String),
 				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Category.",
 				},
 				"todos": &graphql.Field{
-					Type:    graphql.NewList(TodoType),
+					Type: TodoConnectionType,
+					Args: graphql.FieldConfigArgument{
+						"first": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the first n elements from the list.",
+						},
+						"last": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the last n elements from the list.",
+						},
+						"after": &graphql.ArgumentConfig{
+							Type:        CursorScalar,
+							Description: "Returns the elements that come after the specified cursor.",
+						},
+						"before": &graphql.ArgumentConfig{
+							Type:        CursorScalar,
+							Description: "Returns the elements that come before the specified cursor.",
+						},
+						"where": &graphql.ArgumentConfig{
+							Type:        TodoWhereInputType,
+							Description: "Filter Todo by conditions.",
+						},
+						"orderBy": &graphql.ArgumentConfig{
+							Type:        graphql.NewList(TodoOrderInputType),
+							Description: "Ordering options for Todo. Multiple orders can be specified.",
+						},
+					},
 					Resolve: resolveCategoryTodos,
 				},
 			}
@@ -64,16 +92,16 @@ func init() {
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"createdAt": &graphql.Field{
-					Type: graphql.DateTime,
+					Type: graphql.NewNonNull(TimeScalar),
 				},
 				"status": &graphql.Field{
-					Type: graphql.String,
+					Type: graphql.NewNonNull(graphql.String),
 				},
 				"priority": &graphql.Field{
-					Type: graphql.Int,
+					Type: graphql.NewNonNull(graphql.Int),
 				},
 				"text": &graphql.Field{
-					Type: graphql.String,
+					Type: graphql.NewNonNull(graphql.String),
 				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
@@ -84,7 +112,33 @@ func init() {
 					Resolve: resolveTodoParent,
 				},
 				"children": &graphql.Field{
-					Type:    graphql.NewList(TodoType),
+					Type: TodoConnectionType,
+					Args: graphql.FieldConfigArgument{
+						"first": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the first n elements from the list.",
+						},
+						"last": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the last n elements from the list.",
+						},
+						"after": &graphql.ArgumentConfig{
+							Type:        CursorScalar,
+							Description: "Returns the elements that come after the specified cursor.",
+						},
+						"before": &graphql.ArgumentConfig{
+							Type:        CursorScalar,
+							Description: "Returns the elements that come before the specified cursor.",
+						},
+						"where": &graphql.ArgumentConfig{
+							Type:        TodoWhereInputType,
+							Description: "Filter Todo by conditions.",
+						},
+						"orderBy": &graphql.ArgumentConfig{
+							Type:        graphql.NewList(TodoOrderInputType),
+							Description: "Ordering options for Todo. Multiple orders can be specified.",
+						},
+					},
 					Resolve: resolveTodoChildren,
 				},
 				"category": &graphql.Field{
@@ -96,19 +150,39 @@ func init() {
 	})
 }
 
-// resolveCategoryTodos resolves the todos edge for Category.
-// It checks if the edge was already eager-loaded to avoid N+1 queries.
+// resolveCategoryTodos resolves the todos edge for Category
+// as a Relay connection with cursor pagination.
 func resolveCategoryTodos(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*ent.Category)
 	if !ok {
 		return nil, nil
 	}
-	// Check if edge was already loaded via eager loading
-	if edges := source.Edges.Todos; edges != nil {
-		return edges, nil
+	args, err := ParsePaginationArgs(p)
+	if err != nil {
+		return nil, err
 	}
-	// Fall back to query
-	return source.QueryTodos().All(p.Context)
+	query := source.QueryTodos()
+	// Apply where filter.
+	if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
+		whereInput, err := ParseTodoWhereInput(whereArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing where input: %w", err)
+		}
+		query, err = whereInput.Filter(query)
+		if err != nil {
+			return nil, fmt.Errorf("applying where filter: %w", err)
+		}
+	}
+	// Eager-load nested edges selected under edges { node { ... } }.
+	query = TodoQueryCollectFieldsConnection(p.Context, p.Info, query)
+	var orders []*TodoOrder
+	if orderByArg, ok := p.Args["orderBy"].([]interface{}); ok {
+		orders, err = ParseTodoOrderList(orderByArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing orderBy: %w", err)
+		}
+	}
+	return paginateTodoQuery(p.Context, query, args.After, args.Before, args.First, args.Last, orders)
 }
 
 // resolveTodoParent resolves the parent edge for Todo.
@@ -134,19 +208,39 @@ func resolveTodoParent(p graphql.ResolveParams) (interface{}, error) {
 	return edge, nil
 }
 
-// resolveTodoChildren resolves the children edge for Todo.
-// It checks if the edge was already eager-loaded to avoid N+1 queries.
+// resolveTodoChildren resolves the children edge for Todo
+// as a Relay connection with cursor pagination.
 func resolveTodoChildren(p graphql.ResolveParams) (interface{}, error) {
 	source, ok := p.Source.(*ent.Todo)
 	if !ok {
 		return nil, nil
 	}
-	// Check if edge was already loaded via eager loading
-	if edges := source.Edges.Children; edges != nil {
-		return edges, nil
+	args, err := ParsePaginationArgs(p)
+	if err != nil {
+		return nil, err
 	}
-	// Fall back to query
-	return source.QueryChildren().All(p.Context)
+	query := source.QueryChildren()
+	// Apply where filter.
+	if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
+		whereInput, err := ParseTodoWhereInput(whereArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing where input: %w", err)
+		}
+		query, err = whereInput.Filter(query)
+		if err != nil {
+			return nil, fmt.Errorf("applying where filter: %w", err)
+		}
+	}
+	// Eager-load nested edges selected under edges { node { ... } }.
+	query = TodoQueryCollectFieldsConnection(p.Context, p.Info, query)
+	var orders []*TodoOrder
+	if orderByArg, ok := p.Args["orderBy"].([]interface{}); ok {
+		orders, err = ParseTodoOrderList(orderByArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing orderBy: %w", err)
+		}
+	}
+	return paginateTodoQuery(p.Context, query, args.After, args.Before, args.First, args.Last, orders)
 }
 
 // resolveTodoCategory resolves the category edge for Todo.

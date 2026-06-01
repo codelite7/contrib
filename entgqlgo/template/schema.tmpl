@@ -189,7 +189,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 			{{- range $m := gqlgoMutationInputs $.Nodes }}
 			{{- $n := $m.Type }}
 			{{- if $m.IsCreate }}
-			"Create{{ $n.Name }}": &graphql.Field{
+			"create{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
@@ -216,7 +216,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 				},
 			},
 			{{- else }}
-			"Update{{ $n.Name }}": &graphql.Field{
+			"update{{ $n.Name }}": &graphql.Field{
 				Type: {{ $n.Name }}Type,
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -262,7 +262,7 @@ func newMutationType(client *{{ $entPkg }}.Client) *graphql.Object {
 					{{- end }}
 				},
 			},
-			"Delete{{ $n.Name }}": &graphql.Field{
+			"delete{{ $n.Name }}": &graphql.Field{
 				Type: graphql.Boolean,
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{

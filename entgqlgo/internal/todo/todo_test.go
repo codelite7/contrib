@@ -2268,7 +2268,7 @@ func TestNestedEagerLoad(t *testing.T) {
 		}
 	}
 
-	// Query todos with nested edges: children -> category
+	// Query todos with nested edges: children (RelayConnection) -> category
 	result := graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `query {
@@ -2276,11 +2276,16 @@ func TestNestedEagerLoad(t *testing.T) {
 				id
 				text
 				children {
-					id
-					text
-					category {
-						id
-						text
+					totalCount
+					edges {
+						node {
+							id
+							text
+							category {
+								id
+								text
+							}
+						}
 					}
 				}
 			}
@@ -2318,11 +2323,16 @@ func TestNestedEagerLoad(t *testing.T) {
 					id
 					text
 					children {
-						id
-						text
-						category {
-							id
-							text
+						totalCount
+						edges {
+							node {
+								id
+								text
+								category {
+									id
+									text
+								}
+							}
 						}
 					}
 				}
@@ -2338,19 +2348,25 @@ func TestNestedEagerLoad(t *testing.T) {
 		parentTodo = data["node"].(map[string]interface{})
 	}
 
-	// Verify children are loaded
-	children, ok := parentTodo["children"].([]interface{})
+	// Verify children are loaded (children is now a TodoConnection)
+	childrenConn, ok := parentTodo["children"].(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected children to be a list, got %T", parentTodo["children"])
+		t.Fatalf("expected children to be a connection map, got %T", parentTodo["children"])
 	}
 
-	if len(children) != 3 {
-		t.Errorf("expected 3 children, got %d", len(children))
+	edges, ok := childrenConn["edges"].([]interface{})
+	if !ok {
+		t.Fatalf("expected children.edges to be a list, got %T", childrenConn["edges"])
+	}
+
+	if len(edges) != 3 {
+		t.Errorf("expected 3 children edges, got %d", len(edges))
 	}
 
 	// Verify each child has its category loaded
-	for i, childItem := range children {
-		child := childItem.(map[string]interface{})
+	for i, edgeItem := range edges {
+		edge := edgeItem.(map[string]interface{})
+		child := edge["node"].(map[string]interface{})
 		cat, ok := child["category"].(map[string]interface{})
 		if !ok {
 			t.Errorf("child %d: expected category to be loaded, got %v", i, child["category"])
@@ -2517,7 +2533,7 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 		}
 	}
 
-	// Query categories with todos edge selected
+	// Query categories with todos edge selected (todos is a RelayConnection)
 	result := graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `query {
@@ -2525,8 +2541,13 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 				id
 				text
 				todos {
-					id
-					text
+					totalCount
+					edges {
+						node {
+							id
+							text
+						}
+					}
 				}
 			}
 		}`,
@@ -2544,16 +2565,21 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 		t.Fatalf("expected 2 categories, got %d", len(categories))
 	}
 
-	// Verify each category has its todos loaded
+	// Verify each category has its todos loaded (todos is now a TodoConnection)
 	for _, catItem := range categories {
 		cat := catItem.(map[string]interface{})
-		todos, ok := cat["todos"].([]interface{})
+		todosConn, ok := cat["todos"].(map[string]interface{})
 		if !ok {
-			t.Errorf("category %v: expected todos to be loaded", cat["text"])
+			t.Errorf("category %v: expected todos to be a connection map", cat["text"])
 			continue
 		}
-		if len(todos) != 3 {
-			t.Errorf("category %v: expected 3 todos, got %d", cat["text"], len(todos))
+		edges, ok := todosConn["edges"].([]interface{})
+		if !ok {
+			t.Errorf("category %v: expected todos.edges to be a list", cat["text"])
+			continue
+		}
+		if len(edges) != 3 {
+			t.Errorf("category %v: expected 3 todo edges, got %d", cat["text"], len(edges))
 		}
 	}
 }

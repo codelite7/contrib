@@ -59,9 +59,6 @@ var (
 	// SchemaTemplate generates graphql.NewSchema builder.
 	SchemaTemplate = parseT("template/schema.tmpl")
 
-	// ResolversTemplate generates resolver functions using ent queries.
-	ResolversTemplate = parseT("template/resolvers.tmpl")
-
 	// ScalarsTemplate generates Cursor, enum scalars for graphql-go.
 	ScalarsTemplate = parseT("template/scalars.tmpl")
 
@@ -81,7 +78,6 @@ var (
 		MutationInputTemplate,
 		TypesTemplate,
 		SchemaTemplate,
-		ResolversTemplate,
 		ScalarsTemplate,
 		OrderingTemplate,
 	}

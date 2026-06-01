@@ -187,28 +187,28 @@ func init() {
 					Type: graphql.ID,
 				},
 				"createdAt": &graphql.InputObjectFieldConfig{
-					Type: graphql.DateTime,
+					Type: TimeScalar,
 				},
 				"createdAtNEQ": &graphql.InputObjectFieldConfig{
-					Type: graphql.DateTime,
+					Type: TimeScalar,
 				},
 				"createdAtIn": &graphql.InputObjectFieldConfig{
-					Type: graphql.NewList(graphql.NewNonNull(graphql.DateTime)),
+					Type: graphql.NewList(graphql.NewNonNull(TimeScalar)),
 				},
 				"createdAtNotIn": &graphql.InputObjectFieldConfig{
-					Type: graphql.NewList(graphql.NewNonNull(graphql.DateTime)),
+					Type: graphql.NewList(graphql.NewNonNull(TimeScalar)),
 				},
 				"createdAtGT": &graphql.InputObjectFieldConfig{
-					Type: graphql.DateTime,
+					Type: TimeScalar,
 				},
 				"createdAtGTE": &graphql.InputObjectFieldConfig{
-					Type: graphql.DateTime,
+					Type: TimeScalar,
 				},
 				"createdAtLT": &graphql.InputObjectFieldConfig{
-					Type: graphql.DateTime,
+					Type: TimeScalar,
 				},
 				"createdAtLTE": &graphql.InputObjectFieldConfig{
-					Type: graphql.DateTime,
+					Type: TimeScalar,
 				},
 				"status": &graphql.InputObjectFieldConfig{
 					Type: TodoStatusEnum,

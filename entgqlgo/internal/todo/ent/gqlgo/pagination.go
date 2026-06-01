@@ -152,111 +152,22 @@ var CategoryConnectionType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// CategoryQueryOption is a function that modifies a CategoryQuery.
-type CategoryQueryOption func(*ent.CategoryQuery)
-
-// PaginateCategories returns a paginated list of Categories.
-func PaginateCategories(
-	client *ent.Client,
+// paginateCategoryQuery applies Relay-style cursor pagination to the given query.
+// The query may already have filters and eager-loading applied; ent executes all queries.
+func paginateCategoryQuery(
 	ctx context.Context,
-	after, before *entgqlgo.Cursor[int],
-	first, last *int,
-	opts ...CategoryQueryOption,
-) (*CategoryConnection, error) {
-	query := client.Category.Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-
-	// Get total count
-	totalCount, err := query.Clone().Count(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply cursor pagination
-	if after != nil {
-		query = query.Where(category.IDGT(after.ID))
-	}
-	if before != nil {
-		query = query.Where(category.IDLT(before.ID))
-	}
-
-	// Apply limit
-	limit := 0
-	if first != nil {
-		limit = *first + 1 // +1 to check if there are more items
-		query = query.Limit(limit)
-	} else if last != nil {
-		limit = *last + 1
-		query = query.Order(category.ByID(sql.OrderDesc()))
-		query = query.Limit(limit)
-	}
-
-	nodes, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build connection
-	conn := &CategoryConnection{
-		TotalCount: totalCount,
-	}
-
-	// Check for more pages
-	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
-	if hasMore {
-		nodes = nodes[:len(nodes)-1]
-	}
-
-	// Reverse if paginating backwards
-	if last != nil {
-		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
-			nodes[i], nodes[j] = nodes[j], nodes[i]
-		}
-	}
-
-	// Build edges
-	conn.Edges = make([]*CategoryEdge, len(nodes))
-	for i, node := range nodes {
-		conn.Edges[i] = &CategoryEdge{
-			Node:   node,
-			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
-		}
-	}
-
-	// Build page info
-	if len(conn.Edges) > 0 {
-		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
-		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
-	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
-
-	return conn, nil
-}
-
-// PaginateCategoriesWithOrder returns a paginated list of Categories with ordering.
-func PaginateCategoriesWithOrder(
-	client *ent.Client,
-	ctx context.Context,
+	query *ent.CategoryQuery,
 	after, before *entgqlgo.Cursor[int],
 	first, last *int,
 	order *CategoryOrder,
-	opts ...CategoryQueryOption,
 ) (*CategoryConnection, error) {
-	query := client.Category.Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-
-	// Get total count
+	// Total count before cursor/limit constraints.
 	totalCount, err := query.Clone().Count(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply cursor pagination
+	// Apply cursor predicates.
 	if after != nil {
 		query = query.Where(category.IDGT(after.ID))
 	}
@@ -264,34 +175,27 @@ func PaginateCategoriesWithOrder(
 		query = query.Where(category.IDLT(before.ID))
 	}
 
-	// Apply ordering and limit
-	// Note: ordering must be applied in the same block as pagination direction
-	// to avoid applying conflicting orders (e.g., ASC then DESC)
+	// Apply ordering and limit. Ordering must be applied together with the
+	// pagination direction to avoid conflicting orders.
 	limit := 0
 	if first != nil {
-		// Forward pagination - apply ordering then limit
+		limit = *first + 1 // +1 to detect whether more items exist
 		if order != nil {
 			query = query.Order(order.ToOrderOption())
 		} else {
 			query = query.Order(category.ByID())
 		}
-		limit = *first + 1 // +1 to check if there are more items
 		query = query.Limit(limit)
 	} else if last != nil {
-		// Backward pagination - apply reversed ordering then limit
 		limit = *last + 1
 		if order != nil {
-			reversedOrder := &CategoryOrder{
-				Field:     order.Field,
-				Direction: order.Direction.Reverse(),
-			}
-			query = query.Order(reversedOrder.ToOrderOption())
+			reversed := &CategoryOrder{Field: order.Field, Direction: order.Direction.Reverse()}
+			query = query.Order(reversed.ToOrderOption())
 		} else {
 			query = query.Order(category.ByID(sql.OrderDesc()))
 		}
 		query = query.Limit(limit)
 	} else {
-		// No pagination - apply default ordering
 		if order != nil {
 			query = query.Order(order.ToOrderOption())
 		} else {
@@ -304,25 +208,21 @@ func PaginateCategoriesWithOrder(
 		return nil, err
 	}
 
-	// Build connection
-	conn := &CategoryConnection{
-		TotalCount: totalCount,
-	}
+	conn := &CategoryConnection{TotalCount: totalCount}
 
-	// Check for more pages
+	// Trim the +1 lookahead row.
 	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
 	if hasMore {
 		nodes = nodes[:len(nodes)-1]
 	}
 
-	// Reverse if paginating backwards
+	// Restore requested order for backward pagination.
 	if last != nil {
 		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
 			nodes[i], nodes[j] = nodes[j], nodes[i]
 		}
 	}
 
-	// Build edges
 	conn.Edges = make([]*CategoryEdge, len(nodes))
 	for i, node := range nodes {
 		conn.Edges[i] = &CategoryEdge{
@@ -331,7 +231,6 @@ func PaginateCategoriesWithOrder(
 		}
 	}
 
-	// Build page info
 	if len(conn.Edges) > 0 {
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
@@ -393,111 +292,22 @@ var TodoConnectionType = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// TodoQueryOption is a function that modifies a TodoQuery.
-type TodoQueryOption func(*ent.TodoQuery)
-
-// PaginateTodos returns a paginated list of Todos.
-func PaginateTodos(
-	client *ent.Client,
+// paginateTodoQuery applies Relay-style cursor pagination to the given query.
+// The query may already have filters and eager-loading applied; ent executes all queries.
+func paginateTodoQuery(
 	ctx context.Context,
-	after, before *entgqlgo.Cursor[int],
-	first, last *int,
-	opts ...TodoQueryOption,
-) (*TodoConnection, error) {
-	query := client.Todo.Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-
-	// Get total count
-	totalCount, err := query.Clone().Count(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply cursor pagination
-	if after != nil {
-		query = query.Where(todo.IDGT(after.ID))
-	}
-	if before != nil {
-		query = query.Where(todo.IDLT(before.ID))
-	}
-
-	// Apply limit
-	limit := 0
-	if first != nil {
-		limit = *first + 1 // +1 to check if there are more items
-		query = query.Limit(limit)
-	} else if last != nil {
-		limit = *last + 1
-		query = query.Order(todo.ByID(sql.OrderDesc()))
-		query = query.Limit(limit)
-	}
-
-	nodes, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build connection
-	conn := &TodoConnection{
-		TotalCount: totalCount,
-	}
-
-	// Check for more pages
-	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
-	if hasMore {
-		nodes = nodes[:len(nodes)-1]
-	}
-
-	// Reverse if paginating backwards
-	if last != nil {
-		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
-			nodes[i], nodes[j] = nodes[j], nodes[i]
-		}
-	}
-
-	// Build edges
-	conn.Edges = make([]*TodoEdge, len(nodes))
-	for i, node := range nodes {
-		conn.Edges[i] = &TodoEdge{
-			Node:   node,
-			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
-		}
-	}
-
-	// Build page info
-	if len(conn.Edges) > 0 {
-		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
-		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
-	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
-
-	return conn, nil
-}
-
-// PaginateTodosWithOrder returns a paginated list of Todos with ordering.
-func PaginateTodosWithOrder(
-	client *ent.Client,
-	ctx context.Context,
+	query *ent.TodoQuery,
 	after, before *entgqlgo.Cursor[int],
 	first, last *int,
 	orders []*TodoOrder,
-	opts ...TodoQueryOption,
 ) (*TodoConnection, error) {
-	query := client.Todo.Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-
-	// Get total count
+	// Total count before cursor/limit constraints.
 	totalCount, err := query.Clone().Count(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply cursor pagination
+	// Apply cursor predicates.
 	if after != nil {
 		query = query.Where(todo.IDGT(after.ID))
 	}
@@ -505,38 +315,30 @@ func PaginateTodosWithOrder(
 		query = query.Where(todo.IDLT(before.ID))
 	}
 
-	// Apply ordering and limit
-	// Note: ordering must be applied in the same block as pagination direction
-	// to avoid applying conflicting orders (e.g., ASC then DESC)
+	// Apply ordering and limit. Ordering must be applied together with the
+	// pagination direction to avoid conflicting orders.
 	limit := 0
 	if first != nil {
-		// Forward pagination - apply ordering then limit
+		limit = *first + 1 // +1 to detect whether more items exist
 		if len(orders) > 0 {
 			query = ApplyTodoOrderList(query, orders)
 		} else {
 			query = query.Order(todo.ByID())
 		}
-		limit = *first + 1 // +1 to check if there are more items
 		query = query.Limit(limit)
 	} else if last != nil {
-		// Backward pagination - apply reversed ordering then limit
 		limit = *last + 1
 		if len(orders) > 0 {
-			// Reverse each order direction for backward pagination
-			reversedOrders := make([]*TodoOrder, len(orders))
+			reversed := make([]*TodoOrder, len(orders))
 			for i, o := range orders {
-				reversedOrders[i] = &TodoOrder{
-					Field:     o.Field,
-					Direction: o.Direction.Reverse(),
-				}
+				reversed[i] = &TodoOrder{Field: o.Field, Direction: o.Direction.Reverse()}
 			}
-			query = ApplyTodoOrderList(query, reversedOrders)
+			query = ApplyTodoOrderList(query, reversed)
 		} else {
 			query = query.Order(todo.ByID(sql.OrderDesc()))
 		}
 		query = query.Limit(limit)
 	} else {
-		// No pagination - apply default ordering
 		if len(orders) > 0 {
 			query = ApplyTodoOrderList(query, orders)
 		} else {
@@ -549,25 +351,21 @@ func PaginateTodosWithOrder(
 		return nil, err
 	}
 
-	// Build connection
-	conn := &TodoConnection{
-		TotalCount: totalCount,
-	}
+	conn := &TodoConnection{TotalCount: totalCount}
 
-	// Check for more pages
+	// Trim the +1 lookahead row.
 	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
 	if hasMore {
 		nodes = nodes[:len(nodes)-1]
 	}
 
-	// Reverse if paginating backwards
+	// Restore requested order for backward pagination.
 	if last != nil {
 		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
 			nodes[i], nodes[j] = nodes[j], nodes[i]
 		}
 	}
 
-	// Build edges
 	conn.Edges = make([]*TodoEdge, len(nodes))
 	for i, node := range nodes {
 		conn.Edges[i] = &TodoEdge{
@@ -576,7 +374,6 @@ func PaginateTodosWithOrder(
 		}
 	}
 
-	// Build page info
 	if len(conn.Edges) > 0 {
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor

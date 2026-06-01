@@ -158,117 +158,28 @@ var {{ $names.Connection }}Type = graphql.NewObject(graphql.ObjectConfig{
 	},
 })
 
-// {{ $n.QueryName }}Option is a function that modifies a {{ $n.QueryName }}.
-type {{ $n.QueryName }}Option func(*{{ $entPkg }}.{{ $n.QueryName }})
-
-// Paginate{{ plural $n.Name }} returns a paginated list of {{ plural $n.Name }}.
-func Paginate{{ plural $n.Name }}(
-	client *{{ $entPkg }}.Client,
+// paginate{{ $n.Name }}Query applies Relay-style cursor pagination to the given query.
+// The query may already have filters and eager-loading applied; ent executes all queries.
+func paginate{{ $n.Name }}Query(
 	ctx context.Context,
+	query *{{ $entPkg }}.{{ $n.QueryName }},
 	after, before *entgqlgo.Cursor[{{ $idType }}],
 	first, last *int,
-	opts ...{{ $n.QueryName }}Option,
-) (*{{ $names.Connection }}, error) {
-	query := client.{{ $n.Name }}.Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-
-	// Get total count
-	totalCount, err := query.Clone().Count(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply cursor pagination
-	if after != nil {
-		query = query.Where({{ $n.Package }}.IDGT(after.ID))
-	}
-	if before != nil {
-		query = query.Where({{ $n.Package }}.IDLT(before.ID))
-	}
-
-	// Apply limit
-	limit := 0
-	if first != nil {
-		limit = *first + 1 // +1 to check if there are more items
-		query = query.Limit(limit)
-	} else if last != nil {
-		limit = *last + 1
-		query = query.Order({{ $n.Package }}.ByID(sql.OrderDesc()))
-		query = query.Limit(limit)
-	}
-
-	nodes, err := query.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build connection
-	conn := &{{ $names.Connection }}{
-		TotalCount: totalCount,
-	}
-
-	// Check for more pages
-	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
-	if hasMore {
-		nodes = nodes[:len(nodes)-1]
-	}
-
-	// Reverse if paginating backwards
-	if last != nil {
-		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
-			nodes[i], nodes[j] = nodes[j], nodes[i]
-		}
-	}
-
-	// Build edges
-	conn.Edges = make([]*{{ $names.Edge }}, len(nodes))
-	for i, node := range nodes {
-		conn.Edges[i] = &{{ $names.Edge }}{
-			Node: node,
-			Cursor: entgqlgo.Cursor[{{ $idType }}]{ID: node.ID},
-		}
-	}
-
-	// Build page info
-	if len(conn.Edges) > 0 {
-		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
-		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
-	}
-	conn.PageInfo.HasNextPage = (first != nil && hasMore) || (last != nil && before != nil)
-	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || (first != nil && after != nil)
-
-	return conn, nil
-}
-
 {{- if $gqlgoOrderFields }}
-
-// Paginate{{ plural $n.Name }}WithOrder returns a paginated list of {{ plural $n.Name }} with ordering.
-func Paginate{{ plural $n.Name }}WithOrder(
-	client *{{ $entPkg }}.Client,
-	ctx context.Context,
-	after, before *entgqlgo.Cursor[{{ $idType }}],
-	first, last *int,
-	{{- if $multiOrder }}
+{{- if $multiOrder }}
 	orders []*{{ $names.Order }},
-	{{- else }}
+{{- else }}
 	order *{{ $names.Order }},
-	{{- end }}
-	opts ...{{ $n.QueryName }}Option,
+{{- end }}
+{{- end }}
 ) (*{{ $names.Connection }}, error) {
-	query := client.{{ $n.Name }}.Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-
-	// Get total count
+	// Total count before cursor/limit constraints.
 	totalCount, err := query.Clone().Count(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply cursor pagination
+	// Apply cursor predicates.
 	if after != nil {
 		query = query.Where({{ $n.Package }}.IDGT(after.ID))
 	}
@@ -276,71 +187,72 @@ func Paginate{{ plural $n.Name }}WithOrder(
 		query = query.Where({{ $n.Package }}.IDLT(before.ID))
 	}
 
-	// Apply ordering and limit
-	// Note: ordering must be applied in the same block as pagination direction
-	// to avoid applying conflicting orders (e.g., ASC then DESC)
+	// Apply ordering and limit. Ordering must be applied together with the
+	// pagination direction to avoid conflicting orders.
 	limit := 0
 	if first != nil {
-		// Forward pagination - apply ordering then limit
-		{{- if $multiOrder }}
+		limit = *first + 1 // +1 to detect whether more items exist
+{{- if $gqlgoOrderFields }}
+{{- if $multiOrder }}
 		if len(orders) > 0 {
 			query = Apply{{ $names.Order }}List(query, orders)
 		} else {
 			query = query.Order({{ $n.Package }}.ByID())
 		}
-		{{- else }}
+{{- else }}
 		if order != nil {
 			query = query.Order(order.ToOrderOption())
 		} else {
 			query = query.Order({{ $n.Package }}.ByID())
 		}
-		{{- end }}
-		limit = *first + 1 // +1 to check if there are more items
+{{- end }}
+{{- else }}
+		query = query.Order({{ $n.Package }}.ByID())
+{{- end }}
 		query = query.Limit(limit)
 	} else if last != nil {
-		// Backward pagination - apply reversed ordering then limit
 		limit = *last + 1
-		{{- if $multiOrder }}
+{{- if $gqlgoOrderFields }}
+{{- if $multiOrder }}
 		if len(orders) > 0 {
-			// Reverse each order direction for backward pagination
-			reversedOrders := make([]*{{ $names.Order }}, len(orders))
+			reversed := make([]*{{ $names.Order }}, len(orders))
 			for i, o := range orders {
-				reversedOrders[i] = &{{ $names.Order }}{
-					Field:     o.Field,
-					Direction: o.Direction.Reverse(),
-				}
+				reversed[i] = &{{ $names.Order }}{Field: o.Field, Direction: o.Direction.Reverse()}
 			}
-			query = Apply{{ $names.Order }}List(query, reversedOrders)
+			query = Apply{{ $names.Order }}List(query, reversed)
 		} else {
 			query = query.Order({{ $n.Package }}.ByID(sql.OrderDesc()))
 		}
-		{{- else }}
+{{- else }}
 		if order != nil {
-			reversedOrder := &{{ $names.Order }}{
-				Field:     order.Field,
-				Direction: order.Direction.Reverse(),
-			}
-			query = query.Order(reversedOrder.ToOrderOption())
+			reversed := &{{ $names.Order }}{Field: order.Field, Direction: order.Direction.Reverse()}
+			query = query.Order(reversed.ToOrderOption())
 		} else {
 			query = query.Order({{ $n.Package }}.ByID(sql.OrderDesc()))
 		}
-		{{- end }}
+{{- end }}
+{{- else }}
+		query = query.Order({{ $n.Package }}.ByID(sql.OrderDesc()))
+{{- end }}
 		query = query.Limit(limit)
 	} else {
-		// No pagination - apply default ordering
-		{{- if $multiOrder }}
+{{- if $gqlgoOrderFields }}
+{{- if $multiOrder }}
 		if len(orders) > 0 {
 			query = Apply{{ $names.Order }}List(query, orders)
 		} else {
 			query = query.Order({{ $n.Package }}.ByID())
 		}
-		{{- else }}
+{{- else }}
 		if order != nil {
 			query = query.Order(order.ToOrderOption())
 		} else {
 			query = query.Order({{ $n.Package }}.ByID())
 		}
-		{{- end }}
+{{- end }}
+{{- else }}
+		query = query.Order({{ $n.Package }}.ByID())
+{{- end }}
 	}
 
 	nodes, err := query.All(ctx)
@@ -348,34 +260,29 @@ func Paginate{{ plural $n.Name }}WithOrder(
 		return nil, err
 	}
 
-	// Build connection
-	conn := &{{ $names.Connection }}{
-		TotalCount: totalCount,
-	}
+	conn := &{{ $names.Connection }}{TotalCount: totalCount}
 
-	// Check for more pages
+	// Trim the +1 lookahead row.
 	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
 	if hasMore {
 		nodes = nodes[:len(nodes)-1]
 	}
 
-	// Reverse if paginating backwards
+	// Restore requested order for backward pagination.
 	if last != nil {
 		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
 			nodes[i], nodes[j] = nodes[j], nodes[i]
 		}
 	}
 
-	// Build edges
 	conn.Edges = make([]*{{ $names.Edge }}, len(nodes))
 	for i, node := range nodes {
 		conn.Edges[i] = &{{ $names.Edge }}{
-			Node: node,
+			Node:   node,
 			Cursor: entgqlgo.Cursor[{{ $idType }}]{ID: node.ID},
 		}
 	}
 
-	// Build page info
 	if len(conn.Edges) > 0 {
 		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
 		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
@@ -385,7 +292,6 @@ func Paginate{{ plural $n.Name }}WithOrder(
 
 	return conn, nil
 }
-{{- end }}
 {{- end }}
 
 {{ end }}

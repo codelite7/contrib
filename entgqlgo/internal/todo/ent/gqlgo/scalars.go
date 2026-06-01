@@ -71,10 +71,10 @@ var CursorScalar = graphql.NewScalar(graphql.ScalarConfig{
 	},
 })
 
-// DateTime scalar for graphql-go.
+// TimeScalar is a custom scalar for graphql-go.
 // Represents a point in time as an RFC 3339 timestamp.
-var DateTimeScalar = graphql.NewScalar(graphql.ScalarConfig{
-	Name:        "DateTime",
+var TimeScalar = graphql.NewScalar(graphql.ScalarConfig{
+	Name:        "Time",
 	Description: "A date-time string in RFC 3339 format.",
 	Serialize: func(value interface{}) interface{} {
 		switch v := value.(type) {

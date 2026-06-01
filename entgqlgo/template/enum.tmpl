@@ -42,7 +42,7 @@ var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
 			Description: "Database value: {{ $e.Value }}",
 		},
 		{{- else }}
-		"{{ gqlgoTrimPrefix $e.Name (pascal $f.Name) }}": &graphql.EnumValueConfig{
+		"{{ $e.Value }}": &graphql.EnumValueConfig{
 			Value: "{{ $e.Value }}",
 		},
 		{{- end }}

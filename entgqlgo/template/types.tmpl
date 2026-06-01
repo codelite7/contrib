@@ -16,6 +16,8 @@ in the LICENSE file in the root directory of this source tree.
 {{ $entPkg := base $.Config.Package }}
 
 import (
+	"fmt"
+
 	"{{ $.Config.Package }}"
 	"github.com/graphql-go/graphql"
 )
@@ -129,9 +131,68 @@ func init() {
 	{{- end }}
 }
 
-{{- /* Generate edge resolvers that check for eager-loaded data first */ -}}
+{{- /* Generate edge resolvers */ -}}
 {{- range $n := $gqlNodes }}
 {{- range $e := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
+{{- $isRC := gqlgoIsRelayConn $e }}
+{{- if $isRC }}
+{{- $edgeNames := gqlgoNodePaginationNames $e.Type }}
+{{- $edgeOrderFields := gqlgoOrderFields $e.Type }}
+{{- $edgeMultiOrder := $e.Type.Annotations.EntGQL.MultiOrder }}
+{{- $edgeHasWhere := gqlgoHasWhereInput $e }}
+
+// resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}
+// as a Relay connection with cursor pagination.
+func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*{{ $entPkg }}.{{ $n.Name }})
+	if !ok {
+		return nil, nil
+	}
+	args, err := ParsePaginationArgs(p)
+	if err != nil {
+		return nil, err
+	}
+	query := source.Query{{ $e.StructField }}()
+	{{- if $edgeHasWhere }}
+	// Apply where filter.
+	if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
+		whereInput, err := Parse{{ $edgeNames.WhereInput }}(whereArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing where input: %w", err)
+		}
+		query, err = whereInput.Filter(query)
+		if err != nil {
+			return nil, fmt.Errorf("applying where filter: %w", err)
+		}
+	}
+	{{- end }}
+	// Eager-load nested edges selected under edges { node { ... } }.
+	query = {{ $e.Type.Name }}QueryCollectFieldsConnection(p.Context, p.Info, query)
+	{{- if $edgeOrderFields }}
+	{{- if $edgeMultiOrder }}
+	var orders []*{{ $edgeNames.Order }}
+	if orderByArg, ok := p.Args["orderBy"].([]interface{}); ok {
+		orders, err = Parse{{ $edgeNames.Order }}List(orderByArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing orderBy: %w", err)
+		}
+	}
+	return paginate{{ $e.Type.Name }}Query(p.Context, query, args.After, args.Before, args.First, args.Last, orders)
+	{{- else }}
+	var order *{{ $edgeNames.Order }}
+	if orderByArg, ok := p.Args["orderBy"].(map[string]interface{}); ok {
+		order, err = Parse{{ $edgeNames.Order }}(orderByArg)
+		if err != nil {
+			return nil, fmt.Errorf("parsing orderBy: %w", err)
+		}
+	}
+	return paginate{{ $e.Type.Name }}Query(p.Context, query, args.After, args.Before, args.First, args.Last, order)
+	{{- end }}
+	{{- else }}
+	return paginate{{ $e.Type.Name }}Query(p.Context, query, args.After, args.Before, args.First, args.Last)
+	{{- end }}
+}
+{{- else }}
 
 // resolve{{ $n.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge for {{ $n.Name }}.
 // It checks if the edge was already eager-loaded to avoid N+1 queries.
@@ -164,6 +225,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 	return source.Query{{ $e.StructField }}().All(p.Context)
 	{{- end }}
 }
+{{- end }}
 {{- end }}
 {{- end }}
 
