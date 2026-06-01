@@ -27,30 +27,98 @@ import (
 	"github.com/graphql-go/graphql"
 )
 
-// clientFromContext returns the client from context if available, otherwise falls back to the provided client.
-// This enables transactional operations when the context contains a transactional client.
-func clientFromContext(ctx context.Context, fallback *ent.Client) *ent.Client {
+// ClientFromContext returns the client stored in the context if present,
+// otherwise falls back to the provided client. This enables transactional
+// operations when the context carries a transactional client (see WithTx).
+func ClientFromContext(ctx context.Context, fallback *ent.Client) *ent.Client {
 	if c := ent.FromContext(ctx); c != nil {
 		return c
 	}
 	return fallback
 }
 
+// clientFromContext is kept as an internal alias used by generated resolvers.
+func clientFromContext(ctx context.Context, fallback *ent.Client) *ent.Client {
+	return ClientFromContext(ctx, fallback)
+}
+
+// SchemaOption configures the generated schema.
+type SchemaOption func(*schemaOptions)
+
+type schemaOptions struct {
+	transactions bool
+}
+
+// WithTransactions wraps every generated mutation resolver in a database
+// transaction. The transactional client is propagated via context, so all ent
+// operations inside the resolver participate in the same transaction.
+// Equivalent to entgql's Transactioner middleware.
+func WithTransactions() SchemaOption {
+	return func(o *schemaOptions) {
+		o.transactions = true
+	}
+}
+
+// WithTx wraps a resolver so it runs inside a transaction opened on client.
+// On success the transaction is committed; on error or panic it is rolled back.
+// The transactional client is stored in the resolver context and can be
+// retrieved with ClientFromContext.
+func WithTx(client *ent.Client, resolve graphql.FieldResolveFn) graphql.FieldResolveFn {
+	return func(p graphql.ResolveParams) (result interface{}, err error) {
+		tx, err := client.Tx(p.Context)
+		if err != nil {
+			return nil, fmt.Errorf("opening transaction: %w", err)
+		}
+		defer func() {
+			if r := recover(); r != nil {
+				_ = tx.Rollback()
+				panic(r)
+			}
+		}()
+		p.Context = ent.NewContext(p.Context, tx.Client())
+		result, err = resolve(p)
+		if err != nil {
+			if rerr := tx.Rollback(); rerr != nil {
+				err = fmt.Errorf("%w: rolling back transaction: %v", err, rerr)
+			}
+			return nil, err
+		}
+		if cerr := tx.Commit(); cerr != nil {
+			return nil, fmt.Errorf("committing transaction: %w", cerr)
+		}
+		return result, nil
+	}
+}
+
+// maybeWithTx wraps the resolver in a transaction when transactions are enabled.
+func maybeWithTx(client *ent.Client, o *schemaOptions, resolve graphql.FieldResolveFn) graphql.FieldResolveFn {
+	if o == nil || !o.transactions {
+		return resolve
+	}
+	return WithTx(client, resolve)
+}
+
 // SchemaConfig returns the graphql.SchemaConfig used to build the generated schema.
 // Callers may modify the returned config before building the schema with
 // graphql.NewSchema — e.g. add custom query/mutation fields with
 // cfg.Query.AddFieldConfig(...) or attach a Subscription root type.
-func SchemaConfig(client *ent.Client) graphql.SchemaConfig {
+// opts are applied to configure schema behaviour (e.g. WithTransactions).
+func SchemaConfig(client *ent.Client, opts ...SchemaOption) graphql.SchemaConfig {
+	o := &schemaOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
 	return graphql.SchemaConfig{
 		Query:    newQueryType(client),
-		Mutation: newMutationType(client),
+		Mutation: newMutationType(client, o),
 	}
 }
 
 // NewSchema creates a new GraphQL schema with Query and Mutation types.
 // The client is used for database operations in resolvers.
-func NewSchema(client *ent.Client) (graphql.Schema, error) {
-	return graphql.NewSchema(SchemaConfig(client))
+// opts are applied to configure schema behaviour (e.g. WithTransactions).
+func NewSchema(client *ent.Client, opts ...SchemaOption) (graphql.Schema, error) {
+	return graphql.NewSchema(SchemaConfig(client, opts...))
 }
 
 // newQueryType creates the root Query type.
@@ -224,7 +292,7 @@ func newQueryType(client *ent.Client) *graphql.Object {
 }
 
 // newMutationType creates the root Mutation type.
-func newMutationType(client *ent.Client) *graphql.Object {
+func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
@@ -237,7 +305,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					},
 				},
 				Description: "Create a new Category.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
 					inputArg, ok := p.Args["input"]
 					if !ok {
 						return nil, fmt.Errorf("input is required")
@@ -252,7 +320,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					}
 					c := clientFromContext(p.Context, client)
 					return c.Category.Create().SetInput(*input).Save(p.Context)
-				},
+				}),
 			},
 			"updateCategory": &graphql.Field{
 				Type: CategoryType,
@@ -267,7 +335,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					},
 				},
 				Description: "Update an existing Category.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
 					id, ok := p.Args["id"]
 					if !ok {
 						return nil, fmt.Errorf("id is required")
@@ -290,7 +358,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 						return nil, err
 					}
 					return c.Category.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
-				},
+				}),
 			},
 			"deleteCategory": &graphql.Field{
 				Type: graphql.Boolean,
@@ -301,7 +369,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					},
 				},
 				Description: "Delete a Category.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
 					id, ok := p.Args["id"]
 					if !ok {
 						return false, fmt.Errorf("id is required")
@@ -313,7 +381,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					}
 					err = c.Category.DeleteOneID(idInt).Exec(p.Context)
 					return err == nil, err
-				},
+				}),
 			},
 			"createTodo": &graphql.Field{
 				Type: TodoType,
@@ -324,7 +392,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					},
 				},
 				Description: "Create a new Todo.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
 					inputArg, ok := p.Args["input"]
 					if !ok {
 						return nil, fmt.Errorf("input is required")
@@ -339,7 +407,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					}
 					c := clientFromContext(p.Context, client)
 					return c.Todo.Create().SetInput(*input).Save(p.Context)
-				},
+				}),
 			},
 			"updateTodo": &graphql.Field{
 				Type: TodoType,
@@ -354,7 +422,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					},
 				},
 				Description: "Update an existing Todo.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
 					id, ok := p.Args["id"]
 					if !ok {
 						return nil, fmt.Errorf("id is required")
@@ -377,7 +445,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 						return nil, err
 					}
 					return c.Todo.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
-				},
+				}),
 			},
 			"deleteTodo": &graphql.Field{
 				Type: graphql.Boolean,
@@ -388,7 +456,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					},
 				},
 				Description: "Delete a Todo.",
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
 					id, ok := p.Args["id"]
 					if !ok {
 						return false, fmt.Errorf("id is required")
@@ -400,7 +468,7 @@ func newMutationType(client *ent.Client) *graphql.Object {
 					}
 					err = c.Todo.DeleteOneID(idInt).Exec(p.Context)
 					return err == nil, err
-				},
+				}),
 			},
 		},
 	})
