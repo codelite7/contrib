@@ -27,6 +27,7 @@ import (
 
 	"github.com/graphql-go/graphql"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -3197,4 +3198,51 @@ func TestEdgeConnectionPagination(t *testing.T) {
 // Helper function for int pointers
 func intPtr(i int) *int {
 	return &i
+}
+
+// TestPlainListQueryField verifies that a QueryField type without RelayConnection
+// is exposed as a plain non-null list with no arguments (entgql parity).
+func TestPlainListQueryField(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	for i := 1; i <= 2; i++ {
+		client.BillProduct.Create().
+			SetName(fmt.Sprintf("Product %d", i)).
+			SetSku(fmt.Sprintf("SKU-%d", i)).
+			SetQuantity(i * 10).
+			SaveX(ctx)
+	}
+
+	schema, err := gqlgo.NewSchema(client)
+	require.NoError(t, err)
+
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			billProducts {
+				id
+				name
+				sku
+				quantity
+			}
+		}`,
+		Context: ctx,
+	})
+	require.Empty(t, result.Errors)
+
+	data := result.Data.(map[string]interface{})
+	products := data["billProducts"].([]interface{})
+	require.Len(t, products, 2)
+	first := products[0].(map[string]interface{})
+	require.Equal(t, "Product 1", first["name"])
+
+	// Plain-list fields accept no arguments (parity with entgql's billProducts).
+	result = graphql.Do(graphql.Params{
+		Schema:        schema,
+		RequestString: `query { billProducts(first: 1) { id } }`,
+		Context:       ctx,
+	})
+	require.NotEmpty(t, result.Errors, "billProducts must not accept pagination arguments")
 }

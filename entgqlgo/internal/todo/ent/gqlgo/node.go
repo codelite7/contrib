@@ -51,6 +51,8 @@ var NodeInterface = graphql.NewInterface(graphql.InterfaceConfig{
 	},
 	ResolveType: func(p graphql.ResolveTypeParams) *graphql.Object {
 		switch p.Value.(type) {
+		case *ent.BillProduct:
+			return BillProductType
 		case *ent.Category:
 			return CategoryType
 		case *ent.Todo:
@@ -111,6 +113,12 @@ func Noder_(client *ent.Client, ctx context.Context, id interface{}) (interface{
 	if err == nil {
 		// Successfully parsed as global ID, route to the right type
 		switch typeName {
+		case "BillProduct":
+			idInt, err := parseInt(localID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid BillProduct ID: %w", err)
+			}
+			return client.BillProduct.Get(ctx, idInt)
 		case "Category":
 			idInt, err := parseInt(localID)
 			if err != nil {
@@ -130,6 +138,11 @@ func Noder_(client *ent.Client, ctx context.Context, id interface{}) (interface{
 
 	// Fallback: try as raw ID (for backward compatibility)
 	// Try each type until we find a match
+	if idInt, err := parseInt(idStr); err == nil {
+		if node, err := client.BillProduct.Get(ctx, idInt); err == nil {
+			return node, nil
+		}
+	}
 	if idInt, err := parseInt(idStr); err == nil {
 		if node, err := client.Category.Get(ctx, idInt); err == nil {
 			return node, nil

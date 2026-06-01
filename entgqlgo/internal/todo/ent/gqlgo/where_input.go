@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
@@ -32,6 +33,9 @@ import (
 // WhereInput GraphQL InputObject types for filtering
 var (
 
+	// BillProductWhereInputType is the GraphQL InputObject for filtering BillProduct queries.
+	BillProductWhereInputType *graphql.InputObject
+
 	// CategoryWhereInputType is the GraphQL InputObject for filtering Category queries.
 	CategoryWhereInputType *graphql.InputObject
 
@@ -40,6 +44,153 @@ var (
 )
 
 func init() {
+
+	BillProductWhereInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name:        "BillProductWhereInput",
+		Description: "BillProductWhereInput is used for filtering BillProduct objects.",
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"not": &graphql.InputObjectFieldConfig{
+					Type:        BillProductWhereInputType,
+					Description: "Logical NOT of the condition.",
+				},
+				"and": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(BillProductWhereInputType)),
+					Description: "Logical AND of conditions.",
+				},
+				"or": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(BillProductWhereInputType)),
+					Description: "Logical OR of conditions.",
+				},
+				"id": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"name": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"nameNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"nameGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameContains": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameHasPrefix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameHasSuffix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameEqualFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"nameContainsFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"sku": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"skuNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"skuGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuContains": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuHasPrefix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuHasSuffix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuEqualFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"skuContainsFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"quantity": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"quantityNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"quantityIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Int)),
+				},
+				"quantityNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Int)),
+				},
+				"quantityGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"quantityGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"quantityLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"quantityLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+			}
+		}),
+	})
 
 	CategoryWhereInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name:        "CategoryWhereInput",
@@ -312,6 +463,617 @@ func init() {
 			}
 		}),
 	})
+}
+
+// BillProductWhereInput represents a where input for filtering BillProduct queries.
+type BillProductWhereInput struct {
+	Predicates []predicate.BillProduct  `json:"-"`
+	Not        *BillProductWhereInput   `json:"not,omitempty"`
+	Or         []*BillProductWhereInput `json:"or,omitempty"`
+	And        []*BillProductWhereInput `json:"and,omitempty"`
+
+	// "id" field predicates.
+	ID      *int  `json:"id,omitempty"`
+	IDNEQ   *int  `json:"idNEQ,omitempty"`
+	IDIn    []int `json:"idIn,omitempty"`
+	IDNotIn []int `json:"idNotIn,omitempty"`
+	IDGT    *int  `json:"idGT,omitempty"`
+	IDGTE   *int  `json:"idGTE,omitempty"`
+	IDLT    *int  `json:"idLT,omitempty"`
+	IDLTE   *int  `json:"idLTE,omitempty"`
+
+	// "name" field predicates.
+	Name             *string  `json:"name,omitempty"`
+	NameNEQ          *string  `json:"nameNEQ,omitempty"`
+	NameIn           []string `json:"nameIn,omitempty"`
+	NameNotIn        []string `json:"nameNotIn,omitempty"`
+	NameGT           *string  `json:"nameGT,omitempty"`
+	NameGTE          *string  `json:"nameGTE,omitempty"`
+	NameLT           *string  `json:"nameLT,omitempty"`
+	NameLTE          *string  `json:"nameLTE,omitempty"`
+	NameContains     *string  `json:"nameContains,omitempty"`
+	NameHasPrefix    *string  `json:"nameHasPrefix,omitempty"`
+	NameHasSuffix    *string  `json:"nameHasSuffix,omitempty"`
+	NameEqualFold    *string  `json:"nameEqualFold,omitempty"`
+	NameContainsFold *string  `json:"nameContainsFold,omitempty"`
+
+	// "sku" field predicates.
+	Sku             *string  `json:"sku,omitempty"`
+	SkuNEQ          *string  `json:"skuNEQ,omitempty"`
+	SkuIn           []string `json:"skuIn,omitempty"`
+	SkuNotIn        []string `json:"skuNotIn,omitempty"`
+	SkuGT           *string  `json:"skuGT,omitempty"`
+	SkuGTE          *string  `json:"skuGTE,omitempty"`
+	SkuLT           *string  `json:"skuLT,omitempty"`
+	SkuLTE          *string  `json:"skuLTE,omitempty"`
+	SkuContains     *string  `json:"skuContains,omitempty"`
+	SkuHasPrefix    *string  `json:"skuHasPrefix,omitempty"`
+	SkuHasSuffix    *string  `json:"skuHasSuffix,omitempty"`
+	SkuEqualFold    *string  `json:"skuEqualFold,omitempty"`
+	SkuContainsFold *string  `json:"skuContainsFold,omitempty"`
+
+	// "quantity" field predicates.
+	Quantity      *int  `json:"quantity,omitempty"`
+	QuantityNEQ   *int  `json:"quantityNEQ,omitempty"`
+	QuantityIn    []int `json:"quantityIn,omitempty"`
+	QuantityNotIn []int `json:"quantityNotIn,omitempty"`
+	QuantityGT    *int  `json:"quantityGT,omitempty"`
+	QuantityGTE   *int  `json:"quantityGTE,omitempty"`
+	QuantityLT    *int  `json:"quantityLT,omitempty"`
+	QuantityLTE   *int  `json:"quantityLTE,omitempty"`
+}
+
+// AddPredicates adds custom predicates to the where input to be used during the filtering phase.
+func (i *BillProductWhereInput) AddPredicates(predicates ...predicate.BillProduct) {
+	i.Predicates = append(i.Predicates, predicates...)
+}
+
+// Filter applies the BillProductWhereInput filter on the BillProductQuery builder.
+func (i *BillProductWhereInput) Filter(q *ent.BillProductQuery) (*ent.BillProductQuery, error) {
+	if i == nil {
+		return q, nil
+	}
+	p, err := i.P()
+	if err != nil {
+		if err == ErrEmptyBillProductWhereInput {
+			return q, nil
+		}
+		return nil, err
+	}
+	return q.Where(p), nil
+}
+
+// ErrEmptyBillProductWhereInput is returned in case the BillProductWhereInput is empty.
+var ErrEmptyBillProductWhereInput = errors.New("gqlgo: empty predicate BillProductWhereInput")
+
+// P returns a predicate for filtering billproducts.
+// An error is returned if the input is empty or invalid.
+func (i *BillProductWhereInput) P() (predicate.BillProduct, error) {
+	var predicates []predicate.BillProduct
+	if i.Not != nil {
+		p, err := i.Not.P()
+		if err != nil {
+			return nil, fmt.Errorf("%w: field 'not'", err)
+		}
+		predicates = append(predicates, billproduct.Not(p))
+	}
+	switch n := len(i.Or); {
+	case n == 1:
+		p, err := i.Or[0].P()
+		if err != nil {
+			return nil, fmt.Errorf("%w: field 'or'", err)
+		}
+		predicates = append(predicates, p)
+	case n > 1:
+		or := make([]predicate.BillProduct, 0, n)
+		for _, w := range i.Or {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'or'", err)
+			}
+			or = append(or, p)
+		}
+		predicates = append(predicates, billproduct.Or(or...))
+	}
+	switch n := len(i.And); {
+	case n == 1:
+		p, err := i.And[0].P()
+		if err != nil {
+			return nil, fmt.Errorf("%w: field 'and'", err)
+		}
+		predicates = append(predicates, p)
+	case n > 1:
+		and := make([]predicate.BillProduct, 0, n)
+		for _, w := range i.And {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'and'", err)
+			}
+			and = append(and, p)
+		}
+		predicates = append(predicates, billproduct.And(and...))
+	}
+	predicates = append(predicates, i.Predicates...)
+	if i.ID != nil {
+		predicates = append(predicates, billproduct.IDEQ(*i.ID))
+	}
+	if i.IDNEQ != nil {
+		predicates = append(predicates, billproduct.IDNEQ(*i.IDNEQ))
+	}
+	if len(i.IDIn) > 0 {
+		predicates = append(predicates, billproduct.IDIn(i.IDIn...))
+	}
+	if len(i.IDNotIn) > 0 {
+		predicates = append(predicates, billproduct.IDNotIn(i.IDNotIn...))
+	}
+	if i.IDGT != nil {
+		predicates = append(predicates, billproduct.IDGT(*i.IDGT))
+	}
+	if i.IDGTE != nil {
+		predicates = append(predicates, billproduct.IDGTE(*i.IDGTE))
+	}
+	if i.IDLT != nil {
+		predicates = append(predicates, billproduct.IDLT(*i.IDLT))
+	}
+	if i.IDLTE != nil {
+		predicates = append(predicates, billproduct.IDLTE(*i.IDLTE))
+	}
+	if i.Name != nil {
+		predicates = append(predicates, billproduct.NameEQ(*i.Name))
+	}
+	if i.NameNEQ != nil {
+		predicates = append(predicates, billproduct.NameNEQ(*i.NameNEQ))
+	}
+	if len(i.NameIn) > 0 {
+		predicates = append(predicates, billproduct.NameIn(i.NameIn...))
+	}
+	if len(i.NameNotIn) > 0 {
+		predicates = append(predicates, billproduct.NameNotIn(i.NameNotIn...))
+	}
+	if i.NameGT != nil {
+		predicates = append(predicates, billproduct.NameGT(*i.NameGT))
+	}
+	if i.NameGTE != nil {
+		predicates = append(predicates, billproduct.NameGTE(*i.NameGTE))
+	}
+	if i.NameLT != nil {
+		predicates = append(predicates, billproduct.NameLT(*i.NameLT))
+	}
+	if i.NameLTE != nil {
+		predicates = append(predicates, billproduct.NameLTE(*i.NameLTE))
+	}
+	if i.NameContains != nil {
+		predicates = append(predicates, billproduct.NameContains(*i.NameContains))
+	}
+	if i.NameHasPrefix != nil {
+		predicates = append(predicates, billproduct.NameHasPrefix(*i.NameHasPrefix))
+	}
+	if i.NameHasSuffix != nil {
+		predicates = append(predicates, billproduct.NameHasSuffix(*i.NameHasSuffix))
+	}
+	if i.NameEqualFold != nil {
+		predicates = append(predicates, billproduct.NameEqualFold(*i.NameEqualFold))
+	}
+	if i.NameContainsFold != nil {
+		predicates = append(predicates, billproduct.NameContainsFold(*i.NameContainsFold))
+	}
+	if i.Sku != nil {
+		predicates = append(predicates, billproduct.SkuEQ(*i.Sku))
+	}
+	if i.SkuNEQ != nil {
+		predicates = append(predicates, billproduct.SkuNEQ(*i.SkuNEQ))
+	}
+	if len(i.SkuIn) > 0 {
+		predicates = append(predicates, billproduct.SkuIn(i.SkuIn...))
+	}
+	if len(i.SkuNotIn) > 0 {
+		predicates = append(predicates, billproduct.SkuNotIn(i.SkuNotIn...))
+	}
+	if i.SkuGT != nil {
+		predicates = append(predicates, billproduct.SkuGT(*i.SkuGT))
+	}
+	if i.SkuGTE != nil {
+		predicates = append(predicates, billproduct.SkuGTE(*i.SkuGTE))
+	}
+	if i.SkuLT != nil {
+		predicates = append(predicates, billproduct.SkuLT(*i.SkuLT))
+	}
+	if i.SkuLTE != nil {
+		predicates = append(predicates, billproduct.SkuLTE(*i.SkuLTE))
+	}
+	if i.SkuContains != nil {
+		predicates = append(predicates, billproduct.SkuContains(*i.SkuContains))
+	}
+	if i.SkuHasPrefix != nil {
+		predicates = append(predicates, billproduct.SkuHasPrefix(*i.SkuHasPrefix))
+	}
+	if i.SkuHasSuffix != nil {
+		predicates = append(predicates, billproduct.SkuHasSuffix(*i.SkuHasSuffix))
+	}
+	if i.SkuEqualFold != nil {
+		predicates = append(predicates, billproduct.SkuEqualFold(*i.SkuEqualFold))
+	}
+	if i.SkuContainsFold != nil {
+		predicates = append(predicates, billproduct.SkuContainsFold(*i.SkuContainsFold))
+	}
+	if i.Quantity != nil {
+		predicates = append(predicates, billproduct.QuantityEQ(*i.Quantity))
+	}
+	if i.QuantityNEQ != nil {
+		predicates = append(predicates, billproduct.QuantityNEQ(*i.QuantityNEQ))
+	}
+	if len(i.QuantityIn) > 0 {
+		predicates = append(predicates, billproduct.QuantityIn(i.QuantityIn...))
+	}
+	if len(i.QuantityNotIn) > 0 {
+		predicates = append(predicates, billproduct.QuantityNotIn(i.QuantityNotIn...))
+	}
+	if i.QuantityGT != nil {
+		predicates = append(predicates, billproduct.QuantityGT(*i.QuantityGT))
+	}
+	if i.QuantityGTE != nil {
+		predicates = append(predicates, billproduct.QuantityGTE(*i.QuantityGTE))
+	}
+	if i.QuantityLT != nil {
+		predicates = append(predicates, billproduct.QuantityLT(*i.QuantityLT))
+	}
+	if i.QuantityLTE != nil {
+		predicates = append(predicates, billproduct.QuantityLTE(*i.QuantityLTE))
+	}
+
+	switch len(predicates) {
+	case 1:
+		return predicates[0], nil
+	default:
+		return billproduct.And(predicates...), nil
+	}
+}
+
+// ParseBillProductWhereInput converts a map[string]interface{} from GraphQL into a typed BillProductWhereInput.
+func ParseBillProductWhereInput(m map[string]interface{}) (*BillProductWhereInput, error) {
+	if m == nil {
+		return nil, nil
+	}
+	input := &BillProductWhereInput{}
+
+	// Parse not
+	if v, ok := m["not"]; ok && v != nil {
+		if notMap, ok := v.(map[string]interface{}); ok {
+			notInput, err := ParseBillProductWhereInput(notMap)
+			if err != nil {
+				return nil, fmt.Errorf("parsing 'not': %w", err)
+			}
+			input.Not = notInput
+		}
+	}
+
+	// Parse and
+	if v, ok := m["and"]; ok && v != nil {
+		if andSlice, ok := v.([]interface{}); ok {
+			for i, item := range andSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					andInput, err := ParseBillProductWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
+					}
+					input.And = append(input.And, andInput)
+				}
+			}
+		}
+	}
+
+	// Parse or
+	if v, ok := m["or"]; ok && v != nil {
+		if orSlice, ok := v.([]interface{}); ok {
+			for i, item := range orSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					orInput, err := ParseBillProductWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
+					}
+					input.Or = append(input.Or, orInput)
+				}
+			}
+		}
+	}
+	// Parse id
+	if v, ok := m["id"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.ID = &val
+		}
+	}
+	// Parse idNEQ
+	if v, ok := m["idNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDNEQ = &val
+		}
+	}
+	// Parse idIn
+	if v, ok := m["idIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDIn = append(input.IDIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idNotIn
+	if v, ok := m["idNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDNotIn = append(input.IDNotIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idGT
+	if v, ok := m["idGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGT = &val
+		}
+	}
+	// Parse idGTE
+	if v, ok := m["idGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGTE = &val
+		}
+	}
+	// Parse idLT
+	if v, ok := m["idLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLT = &val
+		}
+	}
+	// Parse idLTE
+	if v, ok := m["idLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLTE = &val
+		}
+	}
+	// Parse name
+	if v, ok := m["name"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.Name = &s
+		}
+	}
+	// Parse nameNEQ
+	if v, ok := m["nameNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameNEQ = &s
+		}
+	}
+	// Parse nameIn
+	if v, ok := m["nameIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.NameIn = append(input.NameIn, s)
+				}
+			}
+		}
+	}
+	// Parse nameNotIn
+	if v, ok := m["nameNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.NameNotIn = append(input.NameNotIn, s)
+				}
+			}
+		}
+	}
+	// Parse nameGT
+	if v, ok := m["nameGT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameGT = &s
+		}
+	}
+	// Parse nameGTE
+	if v, ok := m["nameGTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameGTE = &s
+		}
+	}
+	// Parse nameLT
+	if v, ok := m["nameLT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameLT = &s
+		}
+	}
+	// Parse nameLTE
+	if v, ok := m["nameLTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameLTE = &s
+		}
+	}
+	// Parse nameContains
+	if v, ok := m["nameContains"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameContains = &s
+		}
+	}
+	// Parse nameHasPrefix
+	if v, ok := m["nameHasPrefix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameHasPrefix = &s
+		}
+	}
+	// Parse nameHasSuffix
+	if v, ok := m["nameHasSuffix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameHasSuffix = &s
+		}
+	}
+	// Parse nameEqualFold
+	if v, ok := m["nameEqualFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameEqualFold = &s
+		}
+	}
+	// Parse nameContainsFold
+	if v, ok := m["nameContainsFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NameContainsFold = &s
+		}
+	}
+	// Parse sku
+	if v, ok := m["sku"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.Sku = &s
+		}
+	}
+	// Parse skuNEQ
+	if v, ok := m["skuNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuNEQ = &s
+		}
+	}
+	// Parse skuIn
+	if v, ok := m["skuIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.SkuIn = append(input.SkuIn, s)
+				}
+			}
+		}
+	}
+	// Parse skuNotIn
+	if v, ok := m["skuNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.SkuNotIn = append(input.SkuNotIn, s)
+				}
+			}
+		}
+	}
+	// Parse skuGT
+	if v, ok := m["skuGT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuGT = &s
+		}
+	}
+	// Parse skuGTE
+	if v, ok := m["skuGTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuGTE = &s
+		}
+	}
+	// Parse skuLT
+	if v, ok := m["skuLT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuLT = &s
+		}
+	}
+	// Parse skuLTE
+	if v, ok := m["skuLTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuLTE = &s
+		}
+	}
+	// Parse skuContains
+	if v, ok := m["skuContains"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuContains = &s
+		}
+	}
+	// Parse skuHasPrefix
+	if v, ok := m["skuHasPrefix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuHasPrefix = &s
+		}
+	}
+	// Parse skuHasSuffix
+	if v, ok := m["skuHasSuffix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuHasSuffix = &s
+		}
+	}
+	// Parse skuEqualFold
+	if v, ok := m["skuEqualFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuEqualFold = &s
+		}
+	}
+	// Parse skuContainsFold
+	if v, ok := m["skuContainsFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.SkuContainsFold = &s
+		}
+	}
+	// Parse quantity
+	if v, ok := m["quantity"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.Quantity = &val
+		}
+	}
+	// Parse quantityNEQ
+	if v, ok := m["quantityNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.QuantityNEQ = &val
+		}
+	}
+	// Parse quantityIn
+	if v, ok := m["quantityIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.QuantityIn = append(input.QuantityIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse quantityNotIn
+	if v, ok := m["quantityNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.QuantityNotIn = append(input.QuantityNotIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse quantityGT
+	if v, ok := m["quantityGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.QuantityGT = &val
+		}
+	}
+	// Parse quantityGTE
+	if v, ok := m["quantityGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.QuantityGTE = &val
+		}
+	}
+	// Parse quantityLT
+	if v, ok := m["quantityLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.QuantityLT = &val
+		}
+	}
+	// Parse quantityLTE
+	if v, ok := m["quantityLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.QuantityLTE = &val
+		}
+	}
+
+	return input, nil
 }
 
 // CategoryWhereInput represents a where input for filtering Category queries.

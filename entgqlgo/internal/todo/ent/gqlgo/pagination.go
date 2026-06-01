@@ -22,6 +22,7 @@ import (
 
 	"entgo.io/contrib/entgqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent/dialect/sql"
@@ -99,6 +100,132 @@ func validatePaginationArgs(args *PaginationArgs) error {
 		return errors.New("passing both after and before is not supported")
 	}
 	return nil
+}
+
+// BillProductEdge represents an edge in a BillProduct connection.
+type BillProductEdge struct {
+	Node   *ent.BillProduct     `json:"node,omitempty"`
+	Cursor entgqlgo.Cursor[int] `json:"cursor"`
+}
+
+// BillProductConnection represents a connection to a list of BillProducts.
+type BillProductConnection struct {
+	Edges      []*BillProductEdge     `json:"edges,omitempty"`
+	PageInfo   entgqlgo.PageInfo[int] `json:"pageInfo"`
+	TotalCount int                    `json:"totalCount"`
+}
+
+// BillProductEdgeType is the GraphQL type for BillProductEdge.
+var BillProductEdgeType = graphql.NewObject(graphql.ObjectConfig{
+	Name:        "BillProductEdge",
+	Description: "An edge in a BillProduct connection.",
+	Fields: graphql.FieldsThunk(func() graphql.Fields {
+		return graphql.Fields{
+			"node": &graphql.Field{
+				Type:        BillProductType,
+				Description: "The item at the end of the edge.",
+			},
+			"cursor": &graphql.Field{
+				Type:        graphql.NewNonNull(CursorScalar),
+				Description: "A cursor for use in pagination.",
+			},
+		}
+	}),
+})
+
+// BillProductConnectionType is the GraphQL type for BillProductConnection.
+var BillProductConnectionType = graphql.NewObject(graphql.ObjectConfig{
+	Name:        "BillProductConnection",
+	Description: "A connection to a list of BillProducts.",
+	Fields: graphql.Fields{
+		"edges": &graphql.Field{
+			Type:        graphql.NewList(BillProductEdgeType),
+			Description: "A list of edges.",
+		},
+		"pageInfo": &graphql.Field{
+			Type:        graphql.NewNonNull(PageInfoType),
+			Description: "Information to aid in pagination.",
+		},
+		"totalCount": &graphql.Field{
+			Type:        graphql.NewNonNull(graphql.Int),
+			Description: "Identifies the total count of items in the connection.",
+		},
+	},
+})
+
+// paginateBillProductQuery applies Relay-style cursor pagination to the given query.
+// The query may already have filters and eager-loading applied; ent executes all queries.
+func paginateBillProductQuery(
+	ctx context.Context,
+	query *ent.BillProductQuery,
+	after, before *entgqlgo.Cursor[int],
+	first, last *int,
+) (*BillProductConnection, error) {
+	// Total count before cursor/limit constraints.
+	totalCount, err := query.Clone().Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply cursor predicates.
+	if after != nil {
+		query = query.Where(billproduct.IDGT(after.ID))
+	}
+	if before != nil {
+		query = query.Where(billproduct.IDLT(before.ID))
+	}
+
+	// Apply ordering and limit. Ordering must be applied together with the
+	// pagination direction to avoid conflicting orders.
+	limit := 0
+	if first != nil {
+		limit = *first + 1 // +1 to detect whether more items exist
+		query = query.Order(billproduct.ByID())
+		query = query.Limit(limit)
+	} else if last != nil {
+		limit = *last + 1
+		query = query.Order(billproduct.ByID(sql.OrderDesc()))
+		query = query.Limit(limit)
+	} else {
+		query = query.Order(billproduct.ByID())
+	}
+
+	nodes, err := query.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := &BillProductConnection{TotalCount: totalCount}
+
+	// Trim the +1 lookahead row.
+	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
+	if hasMore {
+		nodes = nodes[:len(nodes)-1]
+	}
+
+	// Restore requested order for backward pagination.
+	if last != nil {
+		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		}
+	}
+
+	conn.Edges = make([]*BillProductEdge, len(nodes))
+	for i, node := range nodes {
+		conn.Edges[i] = &BillProductEdge{
+			Node:   node,
+			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
+		}
+	}
+
+	if len(conn.Edges) > 0 {
+		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
+		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
+	}
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || before != nil
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || after != nil
+
+	return conn, nil
 }
 
 // CategoryEdge represents an edge in a Category connection.

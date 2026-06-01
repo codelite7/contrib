@@ -53,7 +53,12 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 			{{- $names := gqlgoNodePaginationNames $n }}
 			{{- $gqlgoOrderFields := gqlgoOrderFields $n }}
 			{{- $multiOrder := $n.Annotations.EntGQL.MultiOrder }}
-			"{{ camel (plural $n.Name) }}": &graphql.Field{
+			{{- $queryFieldName := gqlgoQueryFieldName $n }}
+			{{- if $queryFieldName }}
+			{{- $queryFieldDesc := gqlgoQueryFieldDescription $n }}
+			{{- $isRelayConn := gqlgoIsRelayConnNode $n }}
+			{{- if $isRelayConn }}
+			"{{ $queryFieldName }}": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList({{ $n.Name }}Type)),
 				Args: graphql.FieldConfigArgument{
 					"first": &graphql.ArgumentConfig{
@@ -80,7 +85,11 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					},
 					{{- end }}
 				},
+				{{- if $queryFieldDesc }}
+				Description: "{{ $queryFieldDesc }}",
+				{{- else }}
 				Description: "Query all {{ plural $n.Name }}.",
+				{{- end }}
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					c := clientFromContext(p.Context, client)
 					query := c.{{ $n.Name }}.Query()
@@ -139,6 +148,21 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					return query.All(p.Context)
 				},
 			},
+			{{- else }}
+			"{{ $queryFieldName }}": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull({{ $n.Name }}Type))),
+				{{- if $queryFieldDesc }}
+				Description: "{{ $queryFieldDesc }}",
+				{{- end }}
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					c := clientFromContext(p.Context, client)
+					query := c.{{ $n.Name }}.Query()
+					query = {{ $n.QueryName }}CollectFields(p.Context, p.Info, query)
+					return query.All(p.Context)
+				},
+			},
+			{{- end }}
+			{{- end }}
 			{{- end }}
 			{{- /* Relay Node interface */ -}}
 			"node": &graphql.Field{

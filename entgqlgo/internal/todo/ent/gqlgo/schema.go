@@ -51,6 +51,15 @@ func newQueryType(client *ent.Client) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Query",
 		Fields: graphql.Fields{
+			"billProducts": &graphql.Field{
+				Type: graphql.NewNonNull(graphql.NewList(graphql.NewNonNull(BillProductType))),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					c := clientFromContext(p.Context, client)
+					query := c.BillProduct.Query()
+					query = BillProductQueryCollectFields(p.Context, p.Info, query)
+					return query.All(p.Context)
+				},
+			},
 			"categories": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.NewList(CategoryType)),
 				Args: graphql.FieldConfigArgument{
@@ -133,7 +142,7 @@ func newQueryType(client *ent.Client) *graphql.Object {
 						Description: "Ordering options for Todos. Multiple orders can be specified.",
 					},
 				},
-				Description: "Query all Todos.",
+				Description: "This is the todo item",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					c := clientFromContext(p.Context, client)
 					query := c.Todo.Query()

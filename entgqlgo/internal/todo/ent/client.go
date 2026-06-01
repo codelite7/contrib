@@ -26,6 +26,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/migrate"
 	"entgo.io/ent"
 
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent/dialect"
@@ -38,6 +39,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// BillProduct is the client for interacting with the BillProduct builders.
+	BillProduct *BillProductClient
 	// Category is the client for interacting with the Category builders.
 	Category *CategoryClient
 	// Todo is the client for interacting with the Todo builders.
@@ -53,6 +56,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.BillProduct = NewBillProductClient(c.config)
 	c.Category = NewCategoryClient(c.config)
 	c.Todo = NewTodoClient(c.config)
 }
@@ -145,10 +149,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:      ctx,
-		config:   cfg,
-		Category: NewCategoryClient(cfg),
-		Todo:     NewTodoClient(cfg),
+		ctx:         ctx,
+		config:      cfg,
+		BillProduct: NewBillProductClient(cfg),
+		Category:    NewCategoryClient(cfg),
+		Todo:        NewTodoClient(cfg),
 	}, nil
 }
 
@@ -166,17 +171,18 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:      ctx,
-		config:   cfg,
-		Category: NewCategoryClient(cfg),
-		Todo:     NewTodoClient(cfg),
+		ctx:         ctx,
+		config:      cfg,
+		BillProduct: NewBillProductClient(cfg),
+		Category:    NewCategoryClient(cfg),
+		Todo:        NewTodoClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Category.
+//		BillProduct.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -198,6 +204,7 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.BillProduct.Use(hooks...)
 	c.Category.Use(hooks...)
 	c.Todo.Use(hooks...)
 }
@@ -205,6 +212,7 @@ func (c *Client) Use(hooks ...Hook) {
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.BillProduct.Intercept(interceptors...)
 	c.Category.Intercept(interceptors...)
 	c.Todo.Intercept(interceptors...)
 }
@@ -212,12 +220,147 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *BillProductMutation:
+		return c.BillProduct.mutate(ctx, m)
 	case *CategoryMutation:
 		return c.Category.mutate(ctx, m)
 	case *TodoMutation:
 		return c.Todo.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// BillProductClient is a client for the BillProduct schema.
+type BillProductClient struct {
+	config
+}
+
+// NewBillProductClient returns a client for the BillProduct from the given config.
+func NewBillProductClient(c config) *BillProductClient {
+	return &BillProductClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `billproduct.Hooks(f(g(h())))`.
+func (c *BillProductClient) Use(hooks ...Hook) {
+	c.hooks.BillProduct = append(c.hooks.BillProduct, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `billproduct.Intercept(f(g(h())))`.
+func (c *BillProductClient) Intercept(interceptors ...Interceptor) {
+	c.inters.BillProduct = append(c.inters.BillProduct, interceptors...)
+}
+
+// Create returns a builder for creating a BillProduct entity.
+func (c *BillProductClient) Create() *BillProductCreate {
+	mutation := newBillProductMutation(c.config, OpCreate)
+	return &BillProductCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of BillProduct entities.
+func (c *BillProductClient) CreateBulk(builders ...*BillProductCreate) *BillProductCreateBulk {
+	return &BillProductCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *BillProductClient) MapCreateBulk(slice any, setFunc func(*BillProductCreate, int)) *BillProductCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &BillProductCreateBulk{err: fmt.Errorf("calling to BillProductClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*BillProductCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &BillProductCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for BillProduct.
+func (c *BillProductClient) Update() *BillProductUpdate {
+	mutation := newBillProductMutation(c.config, OpUpdate)
+	return &BillProductUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *BillProductClient) UpdateOne(bp *BillProduct) *BillProductUpdateOne {
+	mutation := newBillProductMutation(c.config, OpUpdateOne, withBillProduct(bp))
+	return &BillProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *BillProductClient) UpdateOneID(id int) *BillProductUpdateOne {
+	mutation := newBillProductMutation(c.config, OpUpdateOne, withBillProductID(id))
+	return &BillProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for BillProduct.
+func (c *BillProductClient) Delete() *BillProductDelete {
+	mutation := newBillProductMutation(c.config, OpDelete)
+	return &BillProductDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *BillProductClient) DeleteOne(bp *BillProduct) *BillProductDeleteOne {
+	return c.DeleteOneID(bp.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *BillProductClient) DeleteOneID(id int) *BillProductDeleteOne {
+	builder := c.Delete().Where(billproduct.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &BillProductDeleteOne{builder}
+}
+
+// Query returns a query builder for BillProduct.
+func (c *BillProductClient) Query() *BillProductQuery {
+	return &BillProductQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeBillProduct},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a BillProduct entity by its id.
+func (c *BillProductClient) Get(ctx context.Context, id int) (*BillProduct, error) {
+	return c.Query().Where(billproduct.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *BillProductClient) GetX(ctx context.Context, id int) *BillProduct {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *BillProductClient) Hooks() []Hook {
+	return c.hooks.BillProduct
+}
+
+// Interceptors returns the client interceptors.
+func (c *BillProductClient) Interceptors() []Interceptor {
+	return c.inters.BillProduct
+}
+
+func (c *BillProductClient) mutate(ctx context.Context, m *BillProductMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&BillProductCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&BillProductUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&BillProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&BillProductDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown BillProduct mutation op: %q", m.Op())
 	}
 }
 
@@ -554,9 +697,9 @@ func (c *TodoClient) mutate(ctx context.Context, m *TodoMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Category, Todo []ent.Hook
+		BillProduct, Category, Todo []ent.Hook
 	}
 	inters struct {
-		Category, Todo []ent.Interceptor
+		BillProduct, Category, Todo []ent.Interceptor
 	}
 )

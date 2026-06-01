@@ -85,6 +85,9 @@ var (
 	// TemplateFuncs contains the extra template functions used by entgqlgo.
 	// All functions are prefixed with "gqlgo" to avoid conflicts with entgql's template functions.
 	TemplateFuncs = template.FuncMap{
+		"gqlgoQueryFieldName":        queryFieldName,
+		"gqlgoQueryFieldDescription": queryFieldDescription,
+		"gqlgoIsRelayConnNode":       isRelayConnNode,
 		"gqlgoFieldCollections":    fieldCollections,
 		"gqlgoFieldMapping":        fieldMapping,
 		"gqlgoFilterEdges":         filterEdges,
@@ -623,6 +626,38 @@ func skipMutationTemplate(g *gen.Graph) bool {
 		}
 	}
 	return true
+}
+
+// queryFieldName returns the root Query field name for the node, or "" if the
+// node has no QueryField annotation.
+func queryFieldName(t *gen.Type) (string, error) {
+	gqlType, ant, err := gqlTypeFromNode(t)
+	if err != nil {
+		return "", err
+	}
+	if ant.QueryField == nil {
+		return "", nil
+	}
+	return ant.QueryField.fieldName(gqlType), nil
+}
+
+// queryFieldDescription returns the description of the node's root Query field.
+func queryFieldDescription(t *gen.Type) (string, error) {
+	_, ant, err := gqlTypeFromNode(t)
+	if err != nil || ant.QueryField == nil {
+		return "", err
+	}
+	return ant.QueryField.Description, nil
+}
+
+// isRelayConnNode reports whether the node itself (not an edge) has the
+// RelayConnection annotation.
+func isRelayConnNode(t *gen.Type) (bool, error) {
+	ant, err := annotation(t.Annotations)
+	if err != nil {
+		return false, err
+	}
+	return ant.RelayConnection, nil
 }
 
 func nodeImplementors(n *gen.Type) (ifaces []string, err error) {

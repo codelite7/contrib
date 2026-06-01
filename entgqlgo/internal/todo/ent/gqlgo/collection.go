@@ -27,6 +27,51 @@ import (
 // Field collection helpers for graphql-go.
 // These allow automatic eager loading of edges based on GraphQL field selection.
 
+// BillProductQueryCollectFields adds eager loading to a BillProductQuery based on the
+// selected fields in the GraphQL query. This prevents N+1 query problems.
+func BillProductQueryCollectFields(ctx context.Context, info graphql.ResolveInfo, query *ent.BillProductQuery) *ent.BillProductQuery {
+	fields := entgqlgo.CollectFields(info)
+	return BillProductQueryCollectFieldsFromList(ctx, fields, query)
+}
+
+// BillProductQueryCollectFieldsFromList adds eager loading for a list of field names.
+func BillProductQueryCollectFieldsFromList(ctx context.Context, fields []string, query *ent.BillProductQuery) *ent.BillProductQuery {
+	return query
+}
+
+// BillProductQueryCollectFieldsNested adds eager loading based on nested field selection.
+// This is useful for Relay connections where you want to eager load based on
+// the selection within edges -> node.
+func BillProductQueryCollectFieldsNested(ctx context.Context, info graphql.ResolveInfo, query *ent.BillProductQuery, path ...string) *ent.BillProductQuery {
+	fields := entgqlgo.CollectNestedFields(info, path...)
+	return BillProductQueryCollectFieldsFromList(ctx, fields, query)
+}
+
+// BillProductQueryCollectFieldsConnection adds eager loading for Relay connection queries.
+// It looks at edges -> node -> <fields> to determine what to eager load.
+func BillProductQueryCollectFieldsConnection(ctx context.Context, info graphql.ResolveInfo, query *ent.BillProductQuery) *ent.BillProductQuery {
+	// Check direct fields
+	query = BillProductQueryCollectFields(ctx, info, query)
+
+	// Check nested fields in Relay connection pattern: edges -> node -> <fields>
+	query = BillProductQueryCollectFieldsNested(ctx, info, query, "edges", "node")
+
+	return query
+}
+
+// BillProductQueryCollectFieldsRecursive adds eager loading with support for nested edge selections.
+// It uses CollectFieldsWithArgs to recursively configure eager loading based on the full
+// GraphQL selection tree.
+func BillProductQueryCollectFieldsRecursive(ctx context.Context, info graphql.ResolveInfo, query *ent.BillProductQuery) *ent.BillProductQuery {
+	fields := entgqlgo.CollectFieldsWithArgs(info)
+	return BillProductQueryCollectFieldsFromFieldInfos(ctx, fields, query)
+}
+
+// BillProductQueryCollectFieldsFromFieldInfos adds eager loading for nested field selections.
+func BillProductQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *ent.BillProductQuery) *ent.BillProductQuery {
+	return query
+}
+
 // CategoryQueryCollectFields adds eager loading to a CategoryQuery based on the
 // selected fields in the GraphQL query. This prevents N+1 query problems.
 func CategoryQueryCollectFields(ctx context.Context, info graphql.ResolveInfo, query *ent.CategoryQuery) *ent.CategoryQuery {

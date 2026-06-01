@@ -27,6 +27,8 @@ import (
 // These are generated to work with github.com/graphql-go/graphql.
 
 var (
+	// BillProductType is the GraphQL type for BillProduct.
+	BillProductType *graphql.Object
 	// CategoryType is the GraphQL type for Category.
 	CategoryType *graphql.Object
 	// TodoType is the GraphQL type for Todo.
@@ -34,6 +36,29 @@ var (
 )
 
 func init() {
+	BillProductType = graphql.NewObject(graphql.ObjectConfig{
+		Name: "BillProduct",
+		Interfaces: []*graphql.Interface{
+			NodeInterface,
+		},
+		Fields: graphql.FieldsThunk(func() graphql.Fields {
+			return graphql.Fields{
+				"name": &graphql.Field{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"sku": &graphql.Field{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"quantity": &graphql.Field{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+				"id": &graphql.Field{
+					Type:        graphql.NewNonNull(graphql.ID),
+					Description: "The unique identifier of the BillProduct.",
+				},
+			}
+		}),
+	})
 	CategoryType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "Category",
 		Interfaces: []*graphql.Interface{

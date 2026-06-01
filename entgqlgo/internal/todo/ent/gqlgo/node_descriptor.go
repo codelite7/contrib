@@ -48,6 +48,43 @@ type Edge struct {
 	IDs  []int  `json:"ids,omitempty"`  // node ids (where this edge point to).
 }
 
+// BillProductNode returns the Node descriptor for a BillProduct.
+func BillProductNode(ctx context.Context, n *ent.BillProduct) (*Node, error) {
+	node := &Node{
+		ID:     n.ID,
+		Type:   "BillProduct",
+		Fields: make([]*Field, 3),
+		Edges:  make([]*Edge, 0),
+	}
+	var buf []byte
+	var err error
+	if buf, err = json.Marshal(n.Name); err != nil {
+		return nil, err
+	}
+	node.Fields[0] = &Field{
+		Type:  "string",
+		Name:  "name",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Sku); err != nil {
+		return nil, err
+	}
+	node.Fields[1] = &Field{
+		Type:  "string",
+		Name:  "sku",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Quantity); err != nil {
+		return nil, err
+	}
+	node.Fields[2] = &Field{
+		Type:  "int",
+		Name:  "quantity",
+		Value: string(buf),
+	}
+	return node, nil
+}
+
 // CategoryNode returns the Node descriptor for a Category.
 func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	node := &Node{
@@ -168,6 +205,8 @@ func NodeWithDescriptor(client *ent.Client, ctx context.Context, id int) (*Node,
 		return nil, err
 	}
 	switch v := n.(type) {
+	case *ent.BillProduct:
+		return BillProductNode(ctx, v)
 	case *ent.Category:
 		return CategoryNode(ctx, v)
 	case *ent.Todo:

@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sync"
 
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent"
@@ -88,8 +89,9 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			category.Table: category.ValidColumn,
-			todo.Table:     todo.ValidColumn,
+			billproduct.Table: billproduct.ValidColumn,
+			category.Table:    category.ValidColumn,
+			todo.Table:        todo.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

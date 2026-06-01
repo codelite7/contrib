@@ -19,6 +19,7 @@ package ent
 import (
 	"time"
 
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/schema"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
@@ -28,6 +29,20 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	billproductFields := schema.BillProduct{}.Fields()
+	_ = billproductFields
+	// billproductDescName is the schema descriptor for name field.
+	billproductDescName := billproductFields[0].Descriptor()
+	// billproduct.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	billproduct.NameValidator = billproductDescName.Validators[0].(func(string) error)
+	// billproductDescSku is the schema descriptor for sku field.
+	billproductDescSku := billproductFields[1].Descriptor()
+	// billproduct.SkuValidator is a validator for the "sku" field. It is called by the builders before save.
+	billproduct.SkuValidator = billproductDescSku.Validators[0].(func(string) error)
+	// billproductDescQuantity is the schema descriptor for quantity field.
+	billproductDescQuantity := billproductFields[2].Descriptor()
+	// billproduct.DefaultQuantity holds the default value on creation for the quantity field.
+	billproduct.DefaultQuantity = billproductDescQuantity.Default.(int)
 	categoryFields := schema.Category{}.Fields()
 	_ = categoryFields
 	// categoryDescText is the schema descriptor for text field.

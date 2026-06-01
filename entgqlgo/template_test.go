@@ -20,6 +20,7 @@ import (
 	"entgo.io/ent/entc/gen"
 	"entgo.io/ent/schema/field"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGqlgoType(t *testing.T) {
@@ -370,6 +371,65 @@ func TestIsRelayConn(t *testing.T) {
 			assert.Equal(t, tt.want, got, "isRelayConn(%+v)", tt.edge)
 		})
 	}
+}
+
+func TestQueryFieldName(t *testing.T) {
+	t.Parallel()
+
+	// Node without QueryField annotation -> no root query field.
+	node := &gen.Type{Name: "Todo", Annotations: gen.Annotations{}}
+	name, err := queryFieldName(node)
+	require.NoError(t, err)
+	require.Empty(t, name)
+
+	// Node with QueryField() -> default name: camel(snake(plural(type))).
+	node = &gen.Type{Name: "Todo", Annotations: gen.Annotations{
+		"EntGQL": map[string]interface{}{
+			"QueryField": map[string]interface{}{},
+		},
+	}}
+	name, err = queryFieldName(node)
+	require.NoError(t, err)
+	require.Equal(t, "todos", name)
+
+	// Node with QueryField("customName") -> custom name.
+	node = &gen.Type{Name: "Todo", Annotations: gen.Annotations{
+		"EntGQL": map[string]interface{}{
+			"QueryField": map[string]interface{}{"Name": "allTodos"},
+		},
+	}}
+	name, err = queryFieldName(node)
+	require.NoError(t, err)
+	require.Equal(t, "allTodos", name)
+}
+
+func TestQueryFieldDescription(t *testing.T) {
+	t.Parallel()
+
+	node := &gen.Type{Name: "Todo", Annotations: gen.Annotations{
+		"EntGQL": map[string]interface{}{
+			"QueryField": map[string]interface{}{"Description": "All the todos"},
+		},
+	}}
+	desc, err := queryFieldDescription(node)
+	require.NoError(t, err)
+	require.Equal(t, "All the todos", desc)
+}
+
+func TestIsRelayConnNode(t *testing.T) {
+	t.Parallel()
+
+	node := &gen.Type{Name: "Todo", Annotations: gen.Annotations{}}
+	rc, err := isRelayConnNode(node)
+	require.NoError(t, err)
+	require.False(t, rc)
+
+	node = &gen.Type{Name: "Todo", Annotations: gen.Annotations{
+		"EntGQL": map[string]interface{}{"RelayConnection": true},
+	}}
+	rc, err = isRelayConnNode(node)
+	require.NoError(t, err)
+	require.True(t, rc)
 }
 
 func TestRelayConnEdgePaginationNames(t *testing.T) {
