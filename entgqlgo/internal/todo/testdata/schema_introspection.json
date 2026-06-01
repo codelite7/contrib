@@ -315,6 +315,104 @@
           "possibleTypes": null
         },
         {
+          "description": "A connection to a list of Categories.",
+          "enumValues": null,
+          "fields": [
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "A list of edges.",
+              "isDeprecated": false,
+              "name": "edges",
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": {
+                  "kind": "OBJECT",
+                  "name": "CategoryEdge",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "Information to aid in pagination.",
+              "isDeprecated": false,
+              "name": "pageInfo",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "OBJECT",
+                  "name": "PageInfo",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "Identifies the total count of items in the connection.",
+              "isDeprecated": false,
+              "name": "totalCount",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Int",
+                  "ofType": null
+                }
+              }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "kind": "OBJECT",
+          "name": "CategoryConnection",
+          "possibleTypes": null
+        },
+        {
+          "description": "An edge in a Category connection.",
+          "enumValues": null,
+          "fields": [
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "A cursor for use in pagination.",
+              "isDeprecated": false,
+              "name": "cursor",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Cursor",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "The item at the end of the edge.",
+              "isDeprecated": false,
+              "name": "node",
+              "type": {
+                "kind": "OBJECT",
+                "name": "Category",
+                "ofType": null
+              }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "kind": "OBJECT",
+          "name": "CategoryEdge",
+          "possibleTypes": null
+        },
+        {
           "description": "Ordering options for Category connections.",
           "enumValues": null,
           "fields": null,
@@ -1349,7 +1447,27 @@
               "args": [
                 {
                   "defaultValue": null,
-                  "description": "Returns the first n elements.",
+                  "description": "Returns the elements in the list that come after the specified cursor.",
+                  "name": "after",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Cursor",
+                    "ofType": null
+                  }
+                },
+                {
+                  "defaultValue": null,
+                  "description": "Returns the elements in the list that come before the specified cursor.",
+                  "name": "before",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Cursor",
+                    "ofType": null
+                  }
+                },
+                {
+                  "defaultValue": null,
+                  "description": "Returns the first _n_ elements from the list.",
                   "name": "first",
                   "type": {
                     "kind": "SCALAR",
@@ -1359,8 +1477,8 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Skip the first n elements.",
-                  "name": "offset",
+                  "description": "Returns the last _n_ elements from the list.",
+                  "name": "last",
                   "type": {
                     "kind": "SCALAR",
                     "name": "Int",
@@ -1369,7 +1487,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Ordering options for Categories.",
+                  "description": "Ordering options for Categories returned from the connection.",
                   "name": "orderBy",
                   "type": {
                     "kind": "INPUT_OBJECT",
@@ -1379,7 +1497,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Filter Categories by conditions.",
+                  "description": "Filtering options for Categories returned from the connection.",
                   "name": "where",
                   "type": {
                     "kind": "INPUT_OBJECT",
@@ -1389,20 +1507,16 @@
                 }
               ],
               "deprecationReason": null,
-              "description": "Query all Categories.",
+              "description": "",
               "isDeprecated": false,
               "name": "categories",
               "type": {
                 "kind": "NON_NULL",
                 "name": null,
                 "ofType": {
-                  "kind": "LIST",
-                  "name": null,
-                  "ofType": {
-                    "kind": "OBJECT",
-                    "name": "Category",
-                    "ofType": null
-                  }
+                  "kind": "OBJECT",
+                  "name": "CategoryConnection",
+                  "ofType": null
                 }
               }
             },
@@ -1480,7 +1594,27 @@
               "args": [
                 {
                   "defaultValue": null,
-                  "description": "Returns the first n elements.",
+                  "description": "Returns the elements in the list that come after the specified cursor.",
+                  "name": "after",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Cursor",
+                    "ofType": null
+                  }
+                },
+                {
+                  "defaultValue": null,
+                  "description": "Returns the elements in the list that come before the specified cursor.",
+                  "name": "before",
+                  "type": {
+                    "kind": "SCALAR",
+                    "name": "Cursor",
+                    "ofType": null
+                  }
+                },
+                {
+                  "defaultValue": null,
+                  "description": "Returns the first _n_ elements from the list.",
                   "name": "first",
                   "type": {
                     "kind": "SCALAR",
@@ -1490,8 +1624,8 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Skip the first n elements.",
-                  "name": "offset",
+                  "description": "Returns the last _n_ elements from the list.",
+                  "name": "last",
                   "type": {
                     "kind": "SCALAR",
                     "name": "Int",
@@ -1500,21 +1634,25 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Ordering options for Todos. Multiple orders can be specified.",
+                  "description": "Ordering options for Todos returned from the connection.",
                   "name": "orderBy",
                   "type": {
                     "kind": "LIST",
                     "name": null,
                     "ofType": {
-                      "kind": "INPUT_OBJECT",
-                      "name": "TodoOrder",
-                      "ofType": null
+                      "kind": "NON_NULL",
+                      "name": null,
+                      "ofType": {
+                        "kind": "INPUT_OBJECT",
+                        "name": "TodoOrder",
+                        "ofType": null
+                      }
                     }
                   }
                 },
                 {
                   "defaultValue": null,
-                  "description": "Filter Todos by conditions.",
+                  "description": "Filtering options for Todos returned from the connection.",
                   "name": "where",
                   "type": {
                     "kind": "INPUT_OBJECT",
@@ -1531,13 +1669,9 @@
                 "kind": "NON_NULL",
                 "name": null,
                 "ofType": {
-                  "kind": "LIST",
-                  "name": null,
-                  "ofType": {
-                    "kind": "OBJECT",
-                    "name": "Todo",
-                    "ofType": null
-                  }
+                  "kind": "OBJECT",
+                  "name": "TodoConnection",
+                  "ofType": null
                 }
               }
             }

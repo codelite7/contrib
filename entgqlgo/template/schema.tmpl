@@ -23,7 +23,6 @@ import (
 	"{{ $.Config.Package }}"
 	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
-	"entgo.io/contrib/entgqlgo"
 )
 
 // clientFromContext returns the client from context if available, otherwise falls back to the provided client.
@@ -59,93 +58,85 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 			{{- $isRelayConn := gqlgoIsRelayConnNode $n }}
 			{{- if $isRelayConn }}
 			"{{ $queryFieldName }}": &graphql.Field{
-				Type: graphql.NewNonNull(graphql.NewList({{ $n.Name }}Type)),
+				Type: graphql.NewNonNull({{ $names.Connection }}Type),
+				{{- if $queryFieldDesc }}
+				Description: "{{ $queryFieldDesc }}",
+				{{- end }}
 				Args: graphql.FieldConfigArgument{
+					"after": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements in the list that come after the specified cursor.",
+					},
 					"first": &graphql.ArgumentConfig{
 						Type:        graphql.Int,
-						Description: "Returns the first n elements.",
+						Description: "Returns the first _n_ elements from the list.",
 					},
-					"offset": &graphql.ArgumentConfig{
+					"before": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements in the list that come before the specified cursor.",
+					},
+					"last": &graphql.ArgumentConfig{
 						Type:        graphql.Int,
-						Description: "Skip the first n elements.",
-					},
-					"where": &graphql.ArgumentConfig{
-						Type:        {{ $names.WhereInput }}Type,
-						Description: "Filter {{ plural $n.Name }} by conditions.",
+						Description: "Returns the last _n_ elements from the list.",
 					},
 					{{- if $gqlgoOrderFields }}
 					"orderBy": &graphql.ArgumentConfig{
 						{{- if $multiOrder }}
-						Type:        graphql.NewList({{ $names.Order }}InputType),
-						Description: "Ordering options for {{ plural $n.Name }}. Multiple orders can be specified.",
+						Type:        graphql.NewList(graphql.NewNonNull({{ $names.Order }}InputType)),
 						{{- else }}
 						Type:        {{ $names.Order }}InputType,
-						Description: "Ordering options for {{ plural $n.Name }}.",
 						{{- end }}
+						Description: "Ordering options for {{ plural $n.Name }} returned from the connection.",
 					},
 					{{- end }}
+					"where": &graphql.ArgumentConfig{
+						Type:        {{ $names.WhereInput }}Type,
+						Description: "Filtering options for {{ plural $n.Name }} returned from the connection.",
+					},
 				},
-				{{- if $queryFieldDesc }}
-				Description: "{{ $queryFieldDesc }}",
-				{{- else }}
-				Description: "Query all {{ plural $n.Name }}.",
-				{{- end }}
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					args, err := ParsePaginationArgs(p)
+					if err != nil {
+						return nil, err
+					}
 					c := clientFromContext(p.Context, client)
 					query := c.{{ $n.Name }}.Query()
-					{{- $edges := gqlgoFilterEdges $n.Edges (gqlgoSkipMode "type") }}
-					{{- if $edges }}
-					// Apply eager loading based on selection
-					fields := entgqlgo.CollectFields(p.Info)
-					{{- range $e := $edges }}
-					if contains(fields, "{{ camel $e.Name }}") {
-						query = query.With{{ $e.StructField }}()
-					}
-					{{- end }}
-					{{- end }}
-					// Apply where filter
-					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
-						if whereMap, ok := whereArg.(map[string]interface{}); ok {
-							whereInput, err := Parse{{ $names.WhereInput }}(whereMap)
-							if err != nil {
-								return nil, fmt.Errorf("parsing where input: %w", err)
-							}
-							query, err = whereInput.Filter(query)
-							if err != nil {
-								return nil, fmt.Errorf("applying where filter: %w", err)
-							}
+					// Apply where filter.
+					if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
+						whereInput, err := Parse{{ $names.WhereInput }}(whereArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing where input: %w", err)
+						}
+						query, err = whereInput.Filter(query)
+						if err != nil {
+							return nil, fmt.Errorf("applying where filter: %w", err)
 						}
 					}
+					// Eager-load edges selected under edges { node { ... } }.
+					query = {{ $n.QueryName }}CollectFieldsConnection(p.Context, p.Info, query)
 					{{- if $gqlgoOrderFields }}
-					// Apply ordering
-					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
-						{{- if $multiOrder }}
-						if orderList, ok := orderByArg.([]interface{}); ok {
-							orders, err := Parse{{ $names.Order }}List(orderList)
-							if err != nil {
-								return nil, fmt.Errorf("parsing orderBy: %w", err)
-							}
-							query = Apply{{ $names.Order }}List(query, orders)
+					{{- if $multiOrder }}
+					var orders []*{{ $names.Order }}
+					if orderByArg, ok := p.Args["orderBy"].([]interface{}); ok {
+						orders, err = Parse{{ $names.Order }}List(orderByArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing orderBy: %w", err)
 						}
-						{{- else }}
-						if orderMap, ok := orderByArg.(map[string]interface{}); ok {
-							order, err := Parse{{ $names.Order }}(orderMap)
-							if err != nil {
-								return nil, fmt.Errorf("parsing orderBy: %w", err)
-							}
-							query = query.Order(order.ToOrderOption())
-						}
-						{{- end }}
 					}
+					return paginate{{ $n.Name }}Query(p.Context, query, args.After, args.Before, args.First, args.Last, orders)
+					{{- else }}
+					var order *{{ $names.Order }}
+					if orderByArg, ok := p.Args["orderBy"].(map[string]interface{}); ok {
+						order, err = Parse{{ $names.Order }}(orderByArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing orderBy: %w", err)
+						}
+					}
+					return paginate{{ $n.Name }}Query(p.Context, query, args.After, args.Before, args.First, args.Last, order)
 					{{- end }}
-					// Apply pagination
-					if first, ok := p.Args["first"].(int); ok && first > 0 {
-						query = query.Limit(first)
-					}
-					if offset, ok := p.Args["offset"].(int); ok && offset > 0 {
-						query = query.Offset(offset)
-					}
-					return query.All(p.Context)
+					{{- else }}
+					return paginate{{ $n.Name }}Query(p.Context, query, args.After, args.Before, args.First, args.Last)
+					{{- end }}
 				},
 			},
 			{{- else }}
@@ -667,15 +658,5 @@ func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*{{ $entPkg }}
 }
 {{- end }}
 {{- end }}
-
-// contains checks if a slice contains a string.
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
 
 {{ end }}

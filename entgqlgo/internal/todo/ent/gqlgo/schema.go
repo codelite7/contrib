@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"entgo.io/contrib/entgqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
@@ -61,133 +60,120 @@ func newQueryType(client *ent.Client) *graphql.Object {
 				},
 			},
 			"categories": &graphql.Field{
-				Type: graphql.NewNonNull(graphql.NewList(CategoryType)),
+				Type: graphql.NewNonNull(CategoryConnectionType),
 				Args: graphql.FieldConfigArgument{
+					"after": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements in the list that come after the specified cursor.",
+					},
 					"first": &graphql.ArgumentConfig{
 						Type:        graphql.Int,
-						Description: "Returns the first n elements.",
+						Description: "Returns the first _n_ elements from the list.",
 					},
-					"offset": &graphql.ArgumentConfig{
+					"before": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements in the list that come before the specified cursor.",
+					},
+					"last": &graphql.ArgumentConfig{
 						Type:        graphql.Int,
-						Description: "Skip the first n elements.",
-					},
-					"where": &graphql.ArgumentConfig{
-						Type:        CategoryWhereInputType,
-						Description: "Filter Categories by conditions.",
+						Description: "Returns the last _n_ elements from the list.",
 					},
 					"orderBy": &graphql.ArgumentConfig{
 						Type:        CategoryOrderInputType,
-						Description: "Ordering options for Categories.",
+						Description: "Ordering options for Categories returned from the connection.",
+					},
+					"where": &graphql.ArgumentConfig{
+						Type:        CategoryWhereInputType,
+						Description: "Filtering options for Categories returned from the connection.",
 					},
 				},
-				Description: "Query all Categories.",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					args, err := ParsePaginationArgs(p)
+					if err != nil {
+						return nil, err
+					}
 					c := clientFromContext(p.Context, client)
 					query := c.Category.Query()
-					// Apply eager loading based on selection
-					fields := entgqlgo.CollectFields(p.Info)
-					if contains(fields, "todos") {
-						query = query.WithTodos()
-					}
-					// Apply where filter
-					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
-						if whereMap, ok := whereArg.(map[string]interface{}); ok {
-							whereInput, err := ParseCategoryWhereInput(whereMap)
-							if err != nil {
-								return nil, fmt.Errorf("parsing where input: %w", err)
-							}
-							query, err = whereInput.Filter(query)
-							if err != nil {
-								return nil, fmt.Errorf("applying where filter: %w", err)
-							}
+					// Apply where filter.
+					if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
+						whereInput, err := ParseCategoryWhereInput(whereArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing where input: %w", err)
+						}
+						query, err = whereInput.Filter(query)
+						if err != nil {
+							return nil, fmt.Errorf("applying where filter: %w", err)
 						}
 					}
-					// Apply ordering
-					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
-						if orderMap, ok := orderByArg.(map[string]interface{}); ok {
-							order, err := ParseCategoryOrder(orderMap)
-							if err != nil {
-								return nil, fmt.Errorf("parsing orderBy: %w", err)
-							}
-							query = query.Order(order.ToOrderOption())
+					// Eager-load edges selected under edges { node { ... } }.
+					query = CategoryQueryCollectFieldsConnection(p.Context, p.Info, query)
+					var order *CategoryOrder
+					if orderByArg, ok := p.Args["orderBy"].(map[string]interface{}); ok {
+						order, err = ParseCategoryOrder(orderByArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing orderBy: %w", err)
 						}
 					}
-					// Apply pagination
-					if first, ok := p.Args["first"].(int); ok && first > 0 {
-						query = query.Limit(first)
-					}
-					if offset, ok := p.Args["offset"].(int); ok && offset > 0 {
-						query = query.Offset(offset)
-					}
-					return query.All(p.Context)
+					return paginateCategoryQuery(p.Context, query, args.After, args.Before, args.First, args.Last, order)
 				},
 			},
 			"todos": &graphql.Field{
-				Type: graphql.NewNonNull(graphql.NewList(TodoType)),
+				Type:        graphql.NewNonNull(TodoConnectionType),
+				Description: "This is the todo item",
 				Args: graphql.FieldConfigArgument{
+					"after": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements in the list that come after the specified cursor.",
+					},
 					"first": &graphql.ArgumentConfig{
 						Type:        graphql.Int,
-						Description: "Returns the first n elements.",
+						Description: "Returns the first _n_ elements from the list.",
 					},
-					"offset": &graphql.ArgumentConfig{
+					"before": &graphql.ArgumentConfig{
+						Type:        CursorScalar,
+						Description: "Returns the elements in the list that come before the specified cursor.",
+					},
+					"last": &graphql.ArgumentConfig{
 						Type:        graphql.Int,
-						Description: "Skip the first n elements.",
+						Description: "Returns the last _n_ elements from the list.",
+					},
+					"orderBy": &graphql.ArgumentConfig{
+						Type:        graphql.NewList(graphql.NewNonNull(TodoOrderInputType)),
+						Description: "Ordering options for Todos returned from the connection.",
 					},
 					"where": &graphql.ArgumentConfig{
 						Type:        TodoWhereInputType,
-						Description: "Filter Todos by conditions.",
-					},
-					"orderBy": &graphql.ArgumentConfig{
-						Type:        graphql.NewList(TodoOrderInputType),
-						Description: "Ordering options for Todos. Multiple orders can be specified.",
+						Description: "Filtering options for Todos returned from the connection.",
 					},
 				},
-				Description: "This is the todo item",
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					args, err := ParsePaginationArgs(p)
+					if err != nil {
+						return nil, err
+					}
 					c := clientFromContext(p.Context, client)
 					query := c.Todo.Query()
-					// Apply eager loading based on selection
-					fields := entgqlgo.CollectFields(p.Info)
-					if contains(fields, "parent") {
-						query = query.WithParent()
-					}
-					if contains(fields, "children") {
-						query = query.WithChildren()
-					}
-					if contains(fields, "category") {
-						query = query.WithCategory()
-					}
-					// Apply where filter
-					if whereArg, ok := p.Args["where"]; ok && whereArg != nil {
-						if whereMap, ok := whereArg.(map[string]interface{}); ok {
-							whereInput, err := ParseTodoWhereInput(whereMap)
-							if err != nil {
-								return nil, fmt.Errorf("parsing where input: %w", err)
-							}
-							query, err = whereInput.Filter(query)
-							if err != nil {
-								return nil, fmt.Errorf("applying where filter: %w", err)
-							}
+					// Apply where filter.
+					if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
+						whereInput, err := ParseTodoWhereInput(whereArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing where input: %w", err)
+						}
+						query, err = whereInput.Filter(query)
+						if err != nil {
+							return nil, fmt.Errorf("applying where filter: %w", err)
 						}
 					}
-					// Apply ordering
-					if orderByArg, ok := p.Args["orderBy"]; ok && orderByArg != nil {
-						if orderList, ok := orderByArg.([]interface{}); ok {
-							orders, err := ParseTodoOrderList(orderList)
-							if err != nil {
-								return nil, fmt.Errorf("parsing orderBy: %w", err)
-							}
-							query = ApplyTodoOrderList(query, orders)
+					// Eager-load edges selected under edges { node { ... } }.
+					query = TodoQueryCollectFieldsConnection(p.Context, p.Info, query)
+					var orders []*TodoOrder
+					if orderByArg, ok := p.Args["orderBy"].([]interface{}); ok {
+						orders, err = ParseTodoOrderList(orderByArg)
+						if err != nil {
+							return nil, fmt.Errorf("parsing orderBy: %w", err)
 						}
 					}
-					// Apply pagination
-					if first, ok := p.Args["first"].(int); ok && first > 0 {
-						query = query.Limit(first)
-					}
-					if offset, ok := p.Args["offset"].(int); ok && offset > 0 {
-						query = query.Offset(offset)
-					}
-					return query.All(p.Context)
+					return paginateTodoQuery(p.Context, query, args.After, args.Before, args.First, args.Last, orders)
 				},
 			}, "node": &graphql.Field{
 				Type: NodeInterface,
@@ -725,14 +711,4 @@ func ParseUpdateTodoInput(input map[string]interface{}) (*ent.UpdateTodoInput, e
 		}
 	}
 	return result, nil
-}
-
-// contains checks if a slice contains a string.
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }

@@ -99,8 +99,12 @@ func (s *TodoTestSuite) TestQueryTodos() {
 	result := s.executeQuery(`
 		query {
 			todos {
-				id
-				text
+				edges {
+					node {
+						id
+						text
+					}
+				}
 			}
 		}
 	`)
@@ -111,9 +115,11 @@ func (s *TodoTestSuite) TestQueryTodos() {
 	data, ok := result.Data.(map[string]interface{})
 	s.Require().True(ok, "result.Data should be a map")
 
-	todos, ok := data["todos"].([]interface{})
-	s.Require().True(ok, "todos should be a slice")
-	s.Require().Len(todos, 3, "should have 3 todos")
+	conn, ok := data["todos"].(map[string]interface{})
+	s.Require().True(ok, "todos should be a connection map")
+	edges, ok := conn["edges"].([]interface{})
+	s.Require().True(ok, "todos.edges should be a slice")
+	s.Require().Len(edges, 3, "should have 3 todos")
 }
 
 // TestQueryCategories tests querying categories via GraphQL.
@@ -133,8 +139,12 @@ func (s *TodoTestSuite) TestQueryCategories() {
 	result := s.executeQuery(`
 		query {
 			categories {
-				id
-				text
+				edges {
+					node {
+						id
+						text
+					}
+				}
 			}
 		}
 	`)
@@ -145,9 +155,11 @@ func (s *TodoTestSuite) TestQueryCategories() {
 	data, ok := result.Data.(map[string]interface{})
 	s.Require().True(ok, "result.Data should be a map")
 
-	categories, ok := data["categories"].([]interface{})
-	s.Require().True(ok, "categories should be a slice")
-	s.Require().Len(categories, 2, "should have 2 categories")
+	conn, ok := data["categories"].(map[string]interface{})
+	s.Require().True(ok, "categories should be a connection map")
+	edges, ok := conn["edges"].([]interface{})
+	s.Require().True(ok, "categories.edges should be a slice")
+	s.Require().Len(edges, 2, "should have 2 categories")
 }
 
 // TestQueryTodoFields tests that all todo fields are resolved correctly.
@@ -164,11 +176,15 @@ func (s *TodoTestSuite) TestQueryTodoFields() {
 	result := s.executeQuery(`
 		query {
 			todos {
-				id
-				text
-				status
-				priority
-				createdAt
+				edges {
+					node {
+						id
+						text
+						status
+						priority
+						createdAt
+					}
+				}
 			}
 		}
 	`)
@@ -177,17 +193,18 @@ func (s *TodoTestSuite) TestQueryTodoFields() {
 	s.Require().NotNil(result.Data)
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
-	s.Require().Len(todos, 1)
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	s.Require().Len(edges, 1)
 
-	todo := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 
 	// Verify each field
-	s.Equal(fmt.Sprintf("%d", created.ID), todo["id"], "id should match")
-	s.Equal("Test todo", todo["text"], "text should match")
-	s.Equal("IN_PROGRESS", todo["status"], "status should match")
-	s.Equal(5, todo["priority"], "priority should match")
-	s.NotNil(todo["createdAt"], "createdAt should not be nil")
+	s.Equal(fmt.Sprintf("%d", created.ID), todoItem["id"], "id should match")
+	s.Equal("Test todo", todoItem["text"], "text should match")
+	s.Equal("IN_PROGRESS", todoItem["status"], "status should match")
+	s.Equal(5, todoItem["priority"], "priority should match")
+	s.NotNil(todoItem["createdAt"], "createdAt should not be nil")
 }
 
 // TestQuerySingleTodo tests querying a single todo by ID.
@@ -224,7 +241,7 @@ func (s *TodoTestSuite) TestQuerySingleTodo() {
 	s.Equal("COMPLETED", todoResult["status"])
 }
 
-// TestQueryTodosPagination tests pagination on todos query.
+// TestQueryTodosPagination tests cursor pagination on todos query.
 func (s *TodoTestSuite) TestQueryTodosPagination() {
 	// Create 5 todos
 	for i := 1; i <= 5; i++ {
@@ -236,11 +253,12 @@ func (s *TodoTestSuite) TestQueryTodosPagination() {
 		s.Require().NoError(err)
 	}
 
-	// Query with first: 2
+	// Query page 1: first 2
 	result := s.executeQuery(`
 		query {
 			todos(first: 2) {
-				id
+				edges { node { id } }
+				pageInfo { endCursor }
 			}
 		}
 	`)
@@ -248,23 +266,28 @@ func (s *TodoTestSuite) TestQueryTodosPagination() {
 	s.Require().Empty(result.Errors, "GraphQL query should not have errors: %v", result.Errors)
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
-	s.Require().Len(todos, 2, "should have 2 todos with first: 2")
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	s.Require().Len(edges, 2, "should have 2 todos with first: 2")
 
-	// Query with offset: 3
-	result = s.executeQuery(`
+	endCursor := conn["pageInfo"].(map[string]interface{})["endCursor"].(string)
+	s.Require().NotEmpty(endCursor, "endCursor should not be empty")
+
+	// Query page 2: skip past first 2 using cursor, get next 3
+	result = s.executeQuery(fmt.Sprintf(`
 		query {
-			todos(offset: 3) {
-				id
+			todos(first: 3, after: %q) {
+				edges { node { id } }
 			}
 		}
-	`)
+	`, endCursor))
 
 	s.Require().Empty(result.Errors, "GraphQL query should not have errors: %v", result.Errors)
 
 	data = result.Data.(map[string]interface{})
-	todos = data["todos"].([]interface{})
-	s.Require().Len(todos, 2, "should have 2 todos with offset: 3 (5 total - 3 skipped)")
+	conn = data["todos"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
+	s.Require().Len(edges, 3, "should have 3 todos after the first 2 (cursor pagination equivalent of offset: 2)")
 }
 
 // ========== Top-level tests that match -run 'TestQuery' ==========
@@ -297,7 +320,7 @@ func TestQueryTodos(t *testing.T) {
 	// Query via GraphQL
 	result := graphql.Do(graphql.Params{
 		Schema:        schema,
-		RequestString: `query { todos { id text } }`,
+		RequestString: `query { todos { edges { node { id text } } } }`,
 		Context:       ctx,
 	})
 
@@ -310,13 +333,18 @@ func TestQueryTodos(t *testing.T) {
 		t.Fatal("result.Data is not a map")
 	}
 
-	todos, ok := data["todos"].([]interface{})
+	conn, ok := data["todos"].(map[string]interface{})
 	if !ok {
-		t.Fatal("todos is not a slice")
+		t.Fatal("todos is not a connection map")
 	}
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	edges, ok := conn["edges"].([]interface{})
+	if !ok {
+		t.Fatal("todos.edges is not a slice")
+	}
+
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 }
 
@@ -349,7 +377,7 @@ func TestQueryCategories(t *testing.T) {
 	// Query via GraphQL
 	result := graphql.Do(graphql.Params{
 		Schema:        schema,
-		RequestString: `query { categories { id text } }`,
+		RequestString: `query { categories { edges { node { id text } } } }`,
 		Context:       ctx,
 	})
 
@@ -362,13 +390,18 @@ func TestQueryCategories(t *testing.T) {
 		t.Fatal("result.Data is not a map")
 	}
 
-	categories, ok := data["categories"].([]interface{})
+	conn, ok := data["categories"].(map[string]interface{})
 	if !ok {
-		t.Fatal("categories is not a slice")
+		t.Fatal("categories is not a connection map")
 	}
 
-	if len(categories) != 2 {
-		t.Fatalf("expected 2 categories, got %d", len(categories))
+	edges, ok := conn["edges"].([]interface{})
+	if !ok {
+		t.Fatal("categories.edges is not a slice")
+	}
+
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(edges))
 	}
 }
 
@@ -396,7 +429,7 @@ func TestQueryTodoFields(t *testing.T) {
 	// Query via GraphQL
 	result := graphql.Do(graphql.Params{
 		Schema:        schema,
-		RequestString: `query { todos { id text status priority createdAt } }`,
+		RequestString: `query { todos { edges { node { id text status priority createdAt } } } }`,
 		Context:       ctx,
 	})
 
@@ -405,12 +438,13 @@ func TestQueryTodoFields(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo, got %d", len(todos))
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(edges))
 	}
 
-	todoItem := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 
 	// Verify each field
 	if todoItem["id"] != fmt.Sprintf("%d", created.ID) {
@@ -486,9 +520,13 @@ func TestFilterByStatus(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {status: COMPLETED}) {
-				id
-				text
-				status
+				edges {
+					node {
+						id
+						text
+						status
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -499,13 +537,14 @@ func TestFilterByStatus(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo with COMPLETED status, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo with COMPLETED status, got %d", len(edges))
 	}
 
-	todoItem := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 	if todoItem["status"] != "COMPLETED" {
 		t.Errorf("expected status COMPLETED, got %v", todoItem["status"])
 	}
@@ -558,8 +597,12 @@ func TestFilterByText(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {textContains: "test"}) {
-				id
-				text
+				edges {
+					node {
+						id
+						text
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -570,15 +613,16 @@ func TestFilterByText(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 2 {
-		t.Fatalf("expected 2 todos containing 'test', got %d", len(todos))
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 todos containing 'test', got %d", len(edges))
 	}
 
 	// Verify both todos contain "test"
-	for _, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for _, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		text := todoItem["text"].(string)
 		if text != "Write test code" && text != "Review test results" {
 			t.Errorf("unexpected todo text: %s", text)
@@ -630,10 +674,14 @@ func TestFilterAnd(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {and: [{status: COMPLETED}, {priorityGT: 5}]}) {
-				id
-				text
-				status
-				priority
+				edges {
+					node {
+						id
+						text
+						status
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -644,13 +692,14 @@ func TestFilterAnd(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo matching AND condition, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo matching AND condition, got %d", len(edges))
 	}
 
-	todoItem := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 	if todoItem["text"] != "High priority completed" {
 		t.Errorf("expected 'High priority completed', got %v", todoItem["text"])
 	}
@@ -700,9 +749,13 @@ func TestFilterOr(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {or: [{status: COMPLETED}, {status: IN_PROGRESS}]}) {
-				id
-				text
-				status
+				edges {
+					node {
+						id
+						text
+						status
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -713,16 +766,17 @@ func TestFilterOr(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 2 {
-		t.Fatalf("expected 2 todos matching OR condition, got %d", len(todos))
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 todos matching OR condition, got %d", len(edges))
 	}
 
 	// Verify we got COMPLETED and IN_PROGRESS, but not PENDING
 	statuses := make(map[string]bool)
-	for _, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for _, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		statuses[todoItem["status"].(string)] = true
 	}
 
@@ -781,9 +835,13 @@ func TestFilterNot(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {not: {status: COMPLETED}}) {
-				id
-				text
-				status
+				edges {
+					node {
+						id
+						text
+						status
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -794,15 +852,16 @@ func TestFilterNot(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 2 {
-		t.Fatalf("expected 2 todos NOT COMPLETED, got %d", len(todos))
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 todos NOT COMPLETED, got %d", len(edges))
 	}
 
 	// Verify none have COMPLETED status
-	for _, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for _, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		if todoItem["status"] == "COMPLETED" {
 			t.Error("found COMPLETED status when it should be excluded")
 		}
@@ -854,8 +913,12 @@ func TestFilterByEdge(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {hasCategory: true}) {
-				id
-				text
+				edges {
+					node {
+						id
+						text
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -866,13 +929,14 @@ func TestFilterByEdge(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo with category, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo with category, got %d", len(edges))
 	}
 
-	todoItem := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 	if todoItem["text"] != "Todo with category" {
 		t.Errorf("expected 'Todo with category', got %v", todoItem["text"])
 	}
@@ -882,8 +946,12 @@ func TestFilterByEdge(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {hasCategory: false}) {
-				id
-				text
+				edges {
+					node {
+						id
+						text
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -894,13 +962,14 @@ func TestFilterByEdge(t *testing.T) {
 	}
 
 	data = result.Data.(map[string]interface{})
-	todos = data["todos"].([]interface{})
+	conn = data["todos"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo without category, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo without category, got %d", len(edges))
 	}
 
-	todoItem = todos[0].(map[string]interface{})
+	todoItem = edges[0].(map[string]interface{})["node"].(map[string]interface{})
 	if todoItem["text"] != "Todo without category" {
 		t.Errorf("expected 'Todo without category', got %v", todoItem["text"])
 	}
@@ -952,8 +1021,12 @@ func TestOrderByPriority(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(orderBy: [{field: PRIORITY, direction: ASC}]) {
-				text
-				priority
+				edges {
+					node {
+						text
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -964,21 +1037,22 @@ func TestOrderByPriority(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 
 	// Verify order: Low (1), Medium (5), High (10)
-	if todos[0].(map[string]interface{})["text"] != "Low priority" {
-		t.Errorf("expected first todo to be 'Low priority', got %v", todos[0].(map[string]interface{})["text"])
+	if edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Low priority" {
+		t.Errorf("expected first todo to be 'Low priority', got %v", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[1].(map[string]interface{})["text"] != "Medium priority" {
-		t.Errorf("expected second todo to be 'Medium priority', got %v", todos[1].(map[string]interface{})["text"])
+	if edges[1].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Medium priority" {
+		t.Errorf("expected second todo to be 'Medium priority', got %v", edges[1].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[2].(map[string]interface{})["text"] != "High priority" {
-		t.Errorf("expected third todo to be 'High priority', got %v", todos[2].(map[string]interface{})["text"])
+	if edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"] != "High priority" {
+		t.Errorf("expected third todo to be 'High priority', got %v", edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
 }
 
@@ -1026,7 +1100,11 @@ func TestOrderByCreatedAt(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(orderBy: [{field: CREATED_AT, direction: ASC}]) {
-				text
+				edges {
+					node {
+						text
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -1037,18 +1115,19 @@ func TestOrderByCreatedAt(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 
 	// Verify order based on creation time (ASC = oldest first)
-	if todos[0].(map[string]interface{})["text"] != "First created" {
-		t.Errorf("expected first todo to be 'First created', got %v", todos[0].(map[string]interface{})["text"])
+	if edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"] != "First created" {
+		t.Errorf("expected first todo to be 'First created', got %v", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[2].(map[string]interface{})["text"] != "Third created" {
-		t.Errorf("expected third todo to be 'Third created', got %v", todos[2].(map[string]interface{})["text"])
+	if edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Third created" {
+		t.Errorf("expected third todo to be 'Third created', got %v", edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
 }
 
@@ -1096,8 +1175,12 @@ func TestOrderDesc(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(orderBy: [{field: PRIORITY, direction: DESC}]) {
-				text
-				priority
+				edges {
+					node {
+						text
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -1108,21 +1191,22 @@ func TestOrderDesc(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 
 	// Verify order: High (10), Medium (5), Low (1)
-	if todos[0].(map[string]interface{})["text"] != "High priority" {
-		t.Errorf("expected first todo to be 'High priority', got %v", todos[0].(map[string]interface{})["text"])
+	if edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"] != "High priority" {
+		t.Errorf("expected first todo to be 'High priority', got %v", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[1].(map[string]interface{})["text"] != "Medium priority" {
-		t.Errorf("expected second todo to be 'Medium priority', got %v", todos[1].(map[string]interface{})["text"])
+	if edges[1].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Medium priority" {
+		t.Errorf("expected second todo to be 'Medium priority', got %v", edges[1].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[2].(map[string]interface{})["text"] != "Low priority" {
-		t.Errorf("expected third todo to be 'Low priority', got %v", todos[2].(map[string]interface{})["text"])
+	if edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Low priority" {
+		t.Errorf("expected third todo to be 'Low priority', got %v", edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
 }
 
@@ -1179,9 +1263,13 @@ func TestMultiOrder(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(orderBy: [{field: STATUS, direction: ASC}, {field: PRIORITY, direction: DESC}]) {
-				text
-				status
-				priority
+				edges {
+					node {
+						text
+						status
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -1192,10 +1280,11 @@ func TestMultiOrder(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 4 {
-		t.Fatalf("expected 4 todos, got %d", len(todos))
+	if len(edges) != 4 {
+		t.Fatalf("expected 4 todos, got %d", len(edges))
 	}
 
 	// Verify order: COMPLETED status first (alphabetically), then by priority DESC
@@ -1203,10 +1292,10 @@ func TestMultiOrder(t *testing.T) {
 
 	// Since status sorts alphabetically: COMPLETED < IN_PROGRESS < PENDING
 	// First two should be COMPLETED, last two should be PENDING
-	firstTodo := todos[0].(map[string]interface{})
-	secondTodo := todos[1].(map[string]interface{})
-	thirdTodo := todos[2].(map[string]interface{})
-	fourthTodo := todos[3].(map[string]interface{})
+	firstTodo := edges[0].(map[string]interface{})["node"].(map[string]interface{})
+	secondTodo := edges[1].(map[string]interface{})["node"].(map[string]interface{})
+	thirdTodo := edges[2].(map[string]interface{})["node"].(map[string]interface{})
+	fourthTodo := edges[3].(map[string]interface{})["node"].(map[string]interface{})
 
 	// COMPLETED items first (with high priority first due to DESC)
 	if firstTodo["status"] != "COMPLETED" {
@@ -1283,7 +1372,11 @@ func TestOrderByText(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(orderBy: [{field: TEXT, direction: ASC}]) {
-				text
+				edges {
+					node {
+						text
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -1294,21 +1387,22 @@ func TestOrderByText(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 
 	// Verify alphabetical order: Alpha, Bravo, Charlie
-	if todos[0].(map[string]interface{})["text"] != "Alpha" {
-		t.Errorf("expected first todo to be 'Alpha', got %v", todos[0].(map[string]interface{})["text"])
+	if edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Alpha" {
+		t.Errorf("expected first todo to be 'Alpha', got %v", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[1].(map[string]interface{})["text"] != "Bravo" {
-		t.Errorf("expected second todo to be 'Bravo', got %v", todos[1].(map[string]interface{})["text"])
+	if edges[1].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Bravo" {
+		t.Errorf("expected second todo to be 'Bravo', got %v", edges[1].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
-	if todos[2].(map[string]interface{})["text"] != "Charlie" {
-		t.Errorf("expected third todo to be 'Charlie', got %v", todos[2].(map[string]interface{})["text"])
+	if edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"] != "Charlie" {
+		t.Errorf("expected third todo to be 'Charlie', got %v", edges[2].(map[string]interface{})["node"].(map[string]interface{})["text"])
 	}
 }
 
@@ -1340,8 +1434,12 @@ func TestOrderWithPagination(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(first: 2, orderBy: [{field: PRIORITY, direction: DESC}]) {
-				text
-				priority
+				edges {
+					node {
+						text
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -1352,18 +1450,19 @@ func TestOrderWithPagination(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 2 {
-		t.Fatalf("expected 2 todos, got %d", len(todos))
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 todos, got %d", len(edges))
 	}
 
 	// Should get priority 5 and 4 (highest first)
-	if todos[0].(map[string]interface{})["priority"] != 5 {
-		t.Errorf("expected first todo priority to be 5, got %v", todos[0].(map[string]interface{})["priority"])
+	if edges[0].(map[string]interface{})["node"].(map[string]interface{})["priority"] != 5 {
+		t.Errorf("expected first todo priority to be 5, got %v", edges[0].(map[string]interface{})["node"].(map[string]interface{})["priority"])
 	}
-	if todos[1].(map[string]interface{})["priority"] != 4 {
-		t.Errorf("expected second todo priority to be 4, got %v", todos[1].(map[string]interface{})["priority"])
+	if edges[1].(map[string]interface{})["node"].(map[string]interface{})["priority"] != 4 {
+		t.Errorf("expected second todo priority to be 4, got %v", edges[1].(map[string]interface{})["node"].(map[string]interface{})["priority"])
 	}
 }
 
@@ -2119,11 +2218,15 @@ func TestEagerLoadEdges(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos {
-				id
-				text
-				category {
-					id
-					text
+				edges {
+					node {
+						id
+						text
+						category {
+							id
+							text
+						}
+					}
 				}
 			}
 		}`,
@@ -2135,15 +2238,16 @@ func TestEagerLoadEdges(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 5 {
-		t.Fatalf("expected 5 todos, got %d", len(todos))
+	if len(edges) != 5 {
+		t.Fatalf("expected 5 todos, got %d", len(edges))
 	}
 
 	// Verify all todos have their category loaded
-	for i, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for i, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		cat, ok := todoItem["category"].(map[string]interface{})
 		if !ok {
 			t.Errorf("todo %d: expected category to be loaded, got %v", i, todoItem["category"])
@@ -2190,9 +2294,13 @@ func TestNoEagerLoadWhenNotSelected(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos {
-				id
-				text
-				status
+				edges {
+					node {
+						id
+						text
+						status
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -2203,13 +2311,14 @@ func TestNoEagerLoadWhenNotSelected(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(edges))
 	}
 
-	todoItem := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 
 	// Verify basic fields are present
 	if todoItem["text"] != "Personal task" {
@@ -2274,17 +2383,21 @@ func TestNestedEagerLoad(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(first: 1) {
-				id
-				text
-				children {
-					totalCount
-					edges {
-						node {
-							id
-							text
-							category {
-								id
-								text
+				edges {
+					node {
+						id
+						text
+						children {
+							totalCount
+							edges {
+								node {
+									id
+									text
+									category {
+										id
+										text
+									}
+								}
 							}
 						}
 					}
@@ -2299,16 +2412,17 @@ func TestNestedEagerLoad(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	todoEdges := conn["edges"].([]interface{})
 
-	if len(todos) < 1 {
+	if len(todoEdges) < 1 {
 		t.Fatal("expected at least 1 todo")
 	}
 
 	// Find the parent todo (it has children)
 	var parentTodo map[string]interface{}
-	for _, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for _, item := range todoEdges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		if todoItem["text"] == "Parent Task" {
 			parentTodo = todoItem
 			break
@@ -2426,15 +2540,19 @@ func TestEagerLoadEdgesList(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos {
-				id
-				text
-				parent {
-					id
-					text
-				}
-				category {
-					id
-					text
+				edges {
+					node {
+						id
+						text
+						parent {
+							id
+							text
+						}
+						category {
+							id
+							text
+						}
+					}
 				}
 			}
 		}`,
@@ -2446,16 +2564,17 @@ func TestEagerLoadEdgesList(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 2 {
-		t.Fatalf("expected 2 todos, got %d", len(todos))
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 todos, got %d", len(edges))
 	}
 
 	// Find the child todo (it has a parent)
 	var childTodo map[string]interface{}
-	for _, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for _, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		if todoItem["text"] == "Child Todo" {
 			childTodo = todoItem
 			break
@@ -2539,14 +2658,18 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			categories {
-				id
-				text
-				todos {
-					totalCount
-					edges {
-						node {
-							id
-							text
+				edges {
+					node {
+						id
+						text
+						todos {
+							totalCount
+							edges {
+								node {
+									id
+									text
+								}
+							}
 						}
 					}
 				}
@@ -2560,15 +2683,16 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	categories := data["categories"].([]interface{})
+	conn := data["categories"].(map[string]interface{})
+	catEdges := conn["edges"].([]interface{})
 
-	if len(categories) != 2 {
-		t.Fatalf("expected 2 categories, got %d", len(categories))
+	if len(catEdges) != 2 {
+		t.Fatalf("expected 2 categories, got %d", len(catEdges))
 	}
 
 	// Verify each category has its todos loaded (todos is now a TodoConnection)
-	for _, catItem := range categories {
-		cat := catItem.(map[string]interface{})
+	for _, catItem := range catEdges {
+		cat := catItem.(map[string]interface{})["node"].(map[string]interface{})
 		todosConn, ok := cat["todos"].(map[string]interface{})
 		if !ok {
 			t.Errorf("category %v: expected todos to be a connection map", cat["text"])
@@ -2614,9 +2738,13 @@ func TestNullsDirection(t *testing.T) {
 	result := graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `query {
-			todos(orderBy: {field: PRIORITY, direction: ASC, nulls: FIRST}) {
-				id
-				priority
+			todos(orderBy: [{field: PRIORITY, direction: ASC, nulls: FIRST}]) {
+				edges {
+					node {
+						id
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -2627,15 +2755,16 @@ func TestNullsDirection(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 
 	// Verify ascending order (since all have values, no nulls to sort)
-	for i, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for i, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		priority := todoItem["priority"].(int)
 		expectedPriority := i + 1
 		if priority != expectedPriority {
@@ -2647,9 +2776,13 @@ func TestNullsDirection(t *testing.T) {
 	result = graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `query {
-			todos(orderBy: {field: PRIORITY, direction: DESC, nulls: LAST}) {
-				id
-				priority
+			todos(orderBy: [{field: PRIORITY, direction: DESC, nulls: LAST}]) {
+				edges {
+					node {
+						id
+						priority
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -2660,12 +2793,13 @@ func TestNullsDirection(t *testing.T) {
 	}
 
 	data = result.Data.(map[string]interface{})
-	todos = data["todos"].([]interface{})
+	conn = data["todos"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
 
 	// Verify descending order
 	expectedOrder := []int{3, 2, 1}
-	for i, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for i, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		priority := todoItem["priority"].(int)
 		if priority != expectedOrder[i] {
 			t.Errorf("expected priority %d at index %d, got %d", expectedOrder[i], i, priority)
@@ -2697,7 +2831,7 @@ func TestCustomScalarDateTime(t *testing.T) {
 	// Query the todo and verify createdAt is returned as RFC3339 string
 	result := graphql.Do(graphql.Params{
 		Schema:        schema,
-		RequestString: `query { todos { createdAt } }`,
+		RequestString: `query { todos { edges { node { createdAt } } } }`,
 		Context:       ctx,
 	})
 
@@ -2706,13 +2840,14 @@ func TestCustomScalarDateTime(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(edges))
 	}
 
-	todoItem := todos[0].(map[string]interface{})
+	todoItem := edges[0].(map[string]interface{})["node"].(map[string]interface{})
 	createdAtStr, ok := todoItem["createdAt"].(string)
 	if !ok {
 		t.Fatalf("createdAt should be a string, got %T", todoItem["createdAt"])
@@ -2757,7 +2892,7 @@ func TestEnumValues(t *testing.T) {
 	// Query and verify enum values
 	result := graphql.Do(graphql.Params{
 		Schema:        schema,
-		RequestString: `query { todos { status } }`,
+		RequestString: `query { todos { edges { node { status } } } }`,
 		Context:       ctx,
 	})
 
@@ -2766,10 +2901,11 @@ func TestEnumValues(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 3 {
-		t.Fatalf("expected 3 todos, got %d", len(todos))
+	if len(edges) != 3 {
+		t.Fatalf("expected 3 todos, got %d", len(edges))
 	}
 
 	// Verify the enum values are correct strings
@@ -2779,8 +2915,8 @@ func TestEnumValues(t *testing.T) {
 		"PENDING":     true,
 	}
 
-	for _, item := range todos {
-		todoItem := item.(map[string]interface{})
+	for _, item := range edges {
+		todoItem := item.(map[string]interface{})["node"].(map[string]interface{})
 		status, ok := todoItem["status"].(string)
 		if !ok {
 			t.Errorf("status should be a string, got %T", todoItem["status"])
@@ -2858,7 +2994,11 @@ func TestSkipWhereInputVerifyGenerated(t *testing.T) {
 		Schema: schema,
 		RequestString: `query {
 			todos(where: {textContains: "Test"}) {
-				text
+				edges {
+					node {
+						text
+					}
+				}
 			}
 		}`,
 		Context: ctx,
@@ -2869,10 +3009,11 @@ func TestSkipWhereInputVerifyGenerated(t *testing.T) {
 	}
 
 	data := result.Data.(map[string]interface{})
-	todos := data["todos"].([]interface{})
+	conn := data["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
 
-	if len(todos) != 1 {
-		t.Fatalf("expected 1 todo, got %d", len(todos))
+	if len(edges) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(edges))
 	}
 }
 
@@ -3193,6 +3334,102 @@ func TestEdgeConnectionPagination(t *testing.T) {
 			t.Errorf("backward edge[1]: expected 'Task 5', got %v", e1["text"])
 		}
 	}
+}
+
+// TestRootConnectionQuery verifies Relay-style cursor pagination on root queries
+// (entgql parity: todos(after, first, before, last, orderBy, where): TodoConnection!).
+func TestRootConnectionQuery(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+	ctx := context.Background()
+
+	for i := 1; i <= 5; i++ {
+		client.Todo.Create().
+			SetText(fmt.Sprintf("Todo %d", i)).
+			SetStatus(todo.StatusInProgress).
+			SetPriority(i).
+			SaveX(ctx)
+	}
+
+	schema, err := gqlgo.NewSchema(client)
+	require.NoError(t, err)
+
+	// Page 1: first 2.
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(first: 2) {
+				totalCount
+				edges {
+					node { id text }
+					cursor
+				}
+				pageInfo {
+					hasNextPage
+					hasPreviousPage
+					endCursor
+				}
+			}
+		}`,
+		Context: ctx,
+	})
+	require.Empty(t, result.Errors)
+
+	data := result.Data.(map[string]interface{})
+	conn := data["todos"].(map[string]interface{})
+	require.Equal(t, 5, conn["totalCount"])
+
+	edges := conn["edges"].([]interface{})
+	require.Len(t, edges, 2)
+	require.Equal(t, "Todo 1", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
+
+	pageInfo := conn["pageInfo"].(map[string]interface{})
+	require.True(t, pageInfo["hasNextPage"].(bool))
+	require.False(t, pageInfo["hasPreviousPage"].(bool))
+	endCursor := pageInfo["endCursor"].(string)
+	require.NotEmpty(t, endCursor)
+
+	// Page 2: first 2 after endCursor.
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`query {
+			todos(first: 2, after: %q) {
+				edges { node { text } }
+				pageInfo { hasNextPage hasPreviousPage }
+			}
+		}`, endCursor),
+		Context: ctx,
+	})
+	require.Empty(t, result.Errors)
+
+	data = result.Data.(map[string]interface{})
+	conn = data["todos"].(map[string]interface{})
+	edges = conn["edges"].([]interface{})
+	require.Len(t, edges, 2)
+	require.Equal(t, "Todo 3", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
+
+	pageInfo = conn["pageInfo"].(map[string]interface{})
+	require.True(t, pageInfo["hasNextPage"].(bool))
+	require.True(t, pageInfo["hasPreviousPage"].(bool))
+
+	// where + orderBy still work on connections.
+	result = graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			todos(where: {priorityGT: 2}, orderBy: [{field: PRIORITY, direction: DESC}]) {
+				totalCount
+				edges { node { text } }
+			}
+		}`,
+		Context: ctx,
+	})
+	require.Empty(t, result.Errors)
+
+	data = result.Data.(map[string]interface{})
+	conn = data["todos"].(map[string]interface{})
+	require.Equal(t, 3, conn["totalCount"])
+	edges = conn["edges"].([]interface{})
+	require.Equal(t, "Todo 5", edges[0].(map[string]interface{})["node"].(map[string]interface{})["text"])
 }
 
 // Helper function for int pointers
