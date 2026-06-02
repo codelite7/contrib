@@ -40,6 +40,11 @@ import (
 // GraphQL type definitions for ent types.
 // These are generated to work with github.com/graphql-go/graphql.
 
+// CustomInterfaces maps interface names referenced by entgqlgo.Implements
+// annotations to their graphql.Interface definitions. Populate this map before
+// building the schema (it is read lazily when graphql.NewSchema is called).
+var CustomInterfaces = map[string]*graphql.Interface{}
+
 var (
 	{{- range $n := $gqlNodes }}
 	// {{ $n.Name }}Type is the GraphQL type for {{ $n.Name }}.
@@ -49,11 +54,18 @@ var (
 
 func init() {
 	{{- range $n := $gqlNodes }}
+	{{- $implements := gqlgoImplements $n }}
 	{{ $n.Name }}Type = graphql.NewObject(graphql.ObjectConfig{
 		Name: "{{ $n.Name }}",
-		Interfaces: []*graphql.Interface{
-			NodeInterface,
-		},
+		Interfaces: graphql.InterfacesThunk(func() []*graphql.Interface {
+			ifaces := []*graphql.Interface{NodeInterface}
+			{{- range $iface := $implements }}
+			if iface, ok := CustomInterfaces["{{ $iface }}"]; ok {
+				ifaces = append(ifaces, iface)
+			}
+			{{- end }}
+			return ifaces
+		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				{{- $fields := gqlgoFilterFields $n.Fields (gqlgoSkipMode "type") }}

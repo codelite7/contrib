@@ -51,6 +51,10 @@ type (
 		// is something that is not a valid graphql enum. The value will be added to the description of the
 		// resulting enum in the graphql schema.
 		UseEnumNames bool `json:"UseEnumNames,omitempty"`
+		// Implements defines a list of additional GraphQL interfaces (besides Node)
+		// implemented by the type. Interface definitions must be registered in the
+		// generated package's CustomInterfaces map before building the schema.
+		Implements []string `json:"Implements,omitempty"`
 	}
 
 	// SkipMode is a bit flag for the Skip annotation.
@@ -215,6 +219,12 @@ func UseEnumNames() Annotation {
 	return Annotation{UseEnumNames: true}
 }
 
+// Implements returns an annotation stating the type implements the given
+// custom GraphQL interfaces, in addition to the Node interface.
+func Implements(interfaces ...string) Annotation {
+	return Annotation{Implements: interfaces}
+}
+
 // Merge implements the schema.Merger interface.
 func (a Annotation) Merge(other schema.Annotation) schema.Annotation {
 	var ant Annotation
@@ -266,6 +276,9 @@ func (a Annotation) Merge(other schema.Annotation) schema.Annotation {
 	}
 	if ant.UseEnumNames {
 		a.UseEnumNames = true
+	}
+	if len(ant.Implements) > 0 {
+		a.Implements = append(a.Implements, ant.Implements...)
 	}
 	return a
 }

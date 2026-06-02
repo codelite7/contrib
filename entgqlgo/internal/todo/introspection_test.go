@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/enttest"
-	"entgo.io/contrib/entgqlgo/internal/todo/ent/gqlgo"
 
 	"github.com/graphql-go/handler"
 	_ "github.com/mattn/go-sqlite3"
@@ -141,7 +140,7 @@ func TestSchemaIntrospection(t *testing.T) {
 	defer client.Close()
 
 	// Build GraphQL schema
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	require.NoError(t, err, "failed to create GraphQL schema")
 
 	// Create HTTP test server
@@ -332,7 +331,7 @@ func TestNoSingularByIDQueries(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	require.NoError(t, err, "failed to create GraphQL schema")
 
 	queryType := schema.QueryType()

@@ -60,5 +60,6 @@ func (Category) Annotations() []schema.Annotation {
 		entgqlgo.RelayConnection(),
 		entgqlgo.QueryField(),
 		entgqlgo.Mutations(entgqlgo.MutationCreate(), entgqlgo.MutationUpdate()),
+		entgqlgo.Implements("NamedNode"),
 	}
 }

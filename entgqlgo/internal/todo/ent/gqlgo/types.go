@@ -26,6 +26,11 @@ import (
 // GraphQL type definitions for ent types.
 // These are generated to work with github.com/graphql-go/graphql.
 
+// CustomInterfaces maps interface names referenced by entgqlgo.Implements
+// annotations to their graphql.Interface definitions. Populate this map before
+// building the schema (it is read lazily when graphql.NewSchema is called).
+var CustomInterfaces = map[string]*graphql.Interface{}
+
 var (
 	// BillProductType is the GraphQL type for BillProduct.
 	BillProductType *graphql.Object
@@ -38,9 +43,10 @@ var (
 func init() {
 	BillProductType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "BillProduct",
-		Interfaces: []*graphql.Interface{
-			NodeInterface,
-		},
+		Interfaces: graphql.InterfacesThunk(func() []*graphql.Interface {
+			ifaces := []*graphql.Interface{NodeInterface}
+			return ifaces
+		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"name": &graphql.Field{
@@ -61,9 +67,13 @@ func init() {
 	})
 	CategoryType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "Category",
-		Interfaces: []*graphql.Interface{
-			NodeInterface,
-		},
+		Interfaces: graphql.InterfacesThunk(func() []*graphql.Interface {
+			ifaces := []*graphql.Interface{NodeInterface}
+			if iface, ok := CustomInterfaces["NamedNode"]; ok {
+				ifaces = append(ifaces, iface)
+			}
+			return ifaces
+		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"text": &graphql.Field{
@@ -111,9 +121,10 @@ func init() {
 	})
 	TodoType = graphql.NewObject(graphql.ObjectConfig{
 		Name: "Todo",
-		Interfaces: []*graphql.Interface{
-			NodeInterface,
-		},
+		Interfaces: graphql.InterfacesThunk(func() []*graphql.Interface {
+			ifaces := []*graphql.Interface{NodeInterface}
+			return ifaces
+		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
 			return graphql.Fields{
 				"createdAt": &graphql.Field{

@@ -203,3 +203,21 @@ func TestAnnotationDecode(t *testing.T) {
 	assert.True(t, a.RelayConnection)
 	assert.Equal(t, "CustomType", a.Type)
 }
+
+func TestImplementsAnnotation(t *testing.T) {
+	t.Parallel()
+
+	a := Implements("NamedNode", "Entity")
+	require.Equal(t, []string{"NamedNode", "Entity"}, a.Implements)
+
+	// Merge accumulates.
+	merged := Implements("NamedNode").Merge(Implements("Entity")).(Annotation)
+	require.Equal(t, []string{"NamedNode", "Entity"}, merged.Implements)
+
+	// JSON round-trip uses the same key as entgql for annotation compatibility.
+	decoded := Annotation{}
+	require.NoError(t, decoded.Decode(map[string]interface{}{
+		"Implements": []interface{}{"NamedNode"},
+	}))
+	require.Equal(t, []string{"NamedNode"}, decoded.Implements)
+}

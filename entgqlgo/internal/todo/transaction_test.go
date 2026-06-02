@@ -102,7 +102,7 @@ func TestGeneratedMutationsInTx(t *testing.T) {
 	defer client.Close()
 	ctx := context.Background()
 
-	schema, err := gqlgo.NewSchema(client, gqlgo.WithTransactions())
+	schema, err := newTestSchema(client, gqlgo.WithTransactions())
 	require.NoError(t, err)
 
 	// A successful generated mutation commits.

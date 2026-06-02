@@ -45,7 +45,7 @@ func (s *TodoTestSuite) SetupTest() {
 	s.client = enttest.Open(s.T(), "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 
 	var err error
-	s.schema, err = gqlgo.NewSchema(s.client)
+	s.schema, err = newTestSchema(s.client)
 	s.Require().NoError(err, "failed to create GraphQL schema")
 }
 
@@ -300,7 +300,7 @@ func TestQueryTodos(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestQueryCategories(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -411,7 +411,7 @@ func TestQueryTodoFields(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestFilterByStatus(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -559,7 +559,7 @@ func TestFilterByText(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -636,7 +636,7 @@ func TestFilterAnd(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -711,7 +711,7 @@ func TestFilterOr(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -797,7 +797,7 @@ func TestFilterNot(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -874,7 +874,7 @@ func TestFilterByEdge(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -983,7 +983,7 @@ func TestOrderByPriority(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1062,7 +1062,7 @@ func TestOrderByCreatedAt(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1137,7 +1137,7 @@ func TestOrderDesc(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1216,7 +1216,7 @@ func TestMultiOrder(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1334,7 +1334,7 @@ func TestOrderByText(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1412,7 +1412,7 @@ func TestOrderWithPagination(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1474,7 +1474,7 @@ func TestCreateTodo(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1533,7 +1533,7 @@ func TestCreateCategory(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1584,7 +1584,7 @@ func TestUpdateTodo(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1653,7 +1653,7 @@ func TestUpdateWithClear(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1726,7 +1726,7 @@ func TestCreateWithEdge(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1800,7 +1800,7 @@ func TestNodeQuery(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1851,7 +1851,7 @@ func TestNodeQueryWithGlobalID(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1899,7 +1899,7 @@ func TestNodesQuery(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -1991,7 +1991,7 @@ func TestNodeTypename(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2073,7 +2073,7 @@ func TestNodeNotFound(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2119,7 +2119,7 @@ func TestNodesWithMixedResults(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2186,7 +2186,7 @@ func TestEagerLoadEdges(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2265,7 +2265,7 @@ func TestNoEagerLoadWhenNotSelected(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2340,7 +2340,7 @@ func TestNestedEagerLoad(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2499,7 +2499,7 @@ func TestEagerLoadEdgesList(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2610,7 +2610,7 @@ func TestEagerLoadCategoryTodos(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2717,7 +2717,7 @@ func TestNullsDirection(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2813,7 +2813,7 @@ func TestCustomScalarDateTime(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2871,7 +2871,7 @@ func TestEnumValues(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -2985,7 +2985,7 @@ func TestSkipWhereInputVerifyGenerated(t *testing.T) {
 	}
 
 	// Verify filtering works on non-skipped fields
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -3135,7 +3135,7 @@ func TestEdgeConnectionPagination(t *testing.T) {
 	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
 	defer client.Close()
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
@@ -3351,7 +3351,7 @@ func TestRootConnectionQuery(t *testing.T) {
 			SaveX(ctx)
 	}
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	require.NoError(t, err)
 
 	// Page 1: first 2.
@@ -3452,7 +3452,7 @@ func TestPlainListQueryField(t *testing.T) {
 			SaveX(ctx)
 	}
 
-	schema, err := gqlgo.NewSchema(client)
+	schema, err := newTestSchema(client)
 	require.NoError(t, err)
 
 	result := graphql.Do(graphql.Params{

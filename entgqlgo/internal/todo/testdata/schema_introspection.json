@@ -306,6 +306,11 @@
           "interfaces": [
             {
               "kind": "INTERFACE",
+              "name": "NamedNode",
+              "ofType": null
+            },
+            {
+              "kind": "INTERFACE",
               "name": "Node",
               "ofType": null
             }
@@ -1258,6 +1263,39 @@
           "kind": "OBJECT",
           "name": "Mutation",
           "possibleTypes": null
+        },
+        {
+          "description": "An object with a text name.",
+          "enumValues": null,
+          "fields": [
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "",
+              "isDeprecated": false,
+              "name": "text",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "ofType": null
+                }
+              }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": null,
+          "kind": "INTERFACE",
+          "name": "NamedNode",
+          "possibleTypes": [
+            {
+              "kind": "OBJECT",
+              "name": "Category",
+              "ofType": null
+            }
+          ]
         },
         {
           "description": "An object with a globally unique ID.",

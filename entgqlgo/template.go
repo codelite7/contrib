@@ -107,6 +107,7 @@ var (
 		"gqlgoType":                gqlgoType,
 		"gqlgoScalar":              gqlgoScalar,
 		"gqlgoHasFieldNamed":       hasFieldNamed,
+		"gqlgoImplements":          gqlgoImplements,
 	}
 
 	//go:embed template/*
@@ -734,6 +735,17 @@ func gqlgoType(f *gen.Field) string {
 	default:
 		return "graphql.String"
 	}
+}
+
+// gqlgoImplements returns the list of custom GraphQL interface names declared via
+// the Implements annotation on the given node. Returns nil (empty slice) if the
+// node has no annotation or no Implements entries, so range loops are safe.
+func gqlgoImplements(n *gen.Type) ([]string, error) {
+	ant, err := annotation(n.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	return ant.Implements, nil
 }
 
 // sliceElementGraphQLType checks if a Go type string represents a slice and returns
