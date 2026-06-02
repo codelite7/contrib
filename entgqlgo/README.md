@@ -415,7 +415,7 @@ query {
 |---|---|---|
 | Schema definition | SDL files (`.graphql`) + gqlgen codegen | Go code, `graphql.Schema` built at runtime |
 | Mutation root | hand-written in `.graphql` files | generated (create / update / delete) |
-| Delete mutations | not generated | generated for any type with `Mutations()` |
+| Delete mutations | not generated | generated for types with `MutationUpdate()` |
 | Schema extension | extra `.graphql` files | `SchemaConfig()` + `AddFieldConfig` |
 | Custom directives (`@hasPermissions`) | supported via SDL | not supported — graphql-go fields cannot carry applied directives; wrap resolvers instead |
 | Query complexity limits | gqlgen runtime feature | not available |
