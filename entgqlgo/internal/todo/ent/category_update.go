@@ -70,6 +70,20 @@ func (cu *CategoryUpdate) SetNillableStatus(c *category.Status) *CategoryUpdate 
 	return cu
 }
 
+// SetKind sets the "kind" field.
+func (cu *CategoryUpdate) SetKind(c category.Kind) *CategoryUpdate {
+	cu.mutation.SetKind(c)
+	return cu
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (cu *CategoryUpdate) SetNillableKind(c *category.Kind) *CategoryUpdate {
+	if c != nil {
+		cu.SetKind(*c)
+	}
+	return cu
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (cu *CategoryUpdate) AddTodoIDs(ids ...int) *CategoryUpdate {
 	cu.mutation.AddTodoIDs(ids...)
@@ -150,6 +164,11 @@ func (cu *CategoryUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
 		}
 	}
+	if v, ok := cu.mutation.Kind(); ok {
+		if err := category.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Category.kind": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -170,6 +189,9 @@ func (cu *CategoryUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := cu.mutation.Status(); ok {
 		_spec.SetField(category.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := cu.mutation.Kind(); ok {
+		_spec.SetField(category.FieldKind, field.TypeEnum, value)
 	}
 	if cu.mutation.TodosCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -260,6 +282,20 @@ func (cuo *CategoryUpdateOne) SetStatus(c category.Status) *CategoryUpdateOne {
 func (cuo *CategoryUpdateOne) SetNillableStatus(c *category.Status) *CategoryUpdateOne {
 	if c != nil {
 		cuo.SetStatus(*c)
+	}
+	return cuo
+}
+
+// SetKind sets the "kind" field.
+func (cuo *CategoryUpdateOne) SetKind(c category.Kind) *CategoryUpdateOne {
+	cuo.mutation.SetKind(c)
+	return cuo
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (cuo *CategoryUpdateOne) SetNillableKind(c *category.Kind) *CategoryUpdateOne {
+	if c != nil {
+		cuo.SetKind(*c)
 	}
 	return cuo
 }
@@ -357,6 +393,11 @@ func (cuo *CategoryUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
 		}
 	}
+	if v, ok := cuo.mutation.Kind(); ok {
+		if err := category.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Category.kind": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -394,6 +435,9 @@ func (cuo *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err
 	}
 	if value, ok := cuo.mutation.Status(); ok {
 		_spec.SetField(category.FieldStatus, field.TypeEnum, value)
+	}
+	if value, ok := cuo.mutation.Kind(); ok {
+		_spec.SetField(category.FieldKind, field.TypeEnum, value)
 	}
 	if cuo.mutation.TodosCleared() {
 		edge := &sqlgraph.EdgeSpec{

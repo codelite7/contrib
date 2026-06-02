@@ -197,6 +197,22 @@
               "deprecationReason": null,
               "description": "",
               "isDeprecated": false,
+              "name": "kind",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "String",
+                  "ofType": null
+                }
+              }
+            },
+            {
+              "args": [],
+              "deprecationReason": null,
+              "description": "",
+              "isDeprecated": false,
               "name": "status",
               "type": {
                 "kind": "NON_NULL",
@@ -415,6 +431,29 @@
           "interfaces": [],
           "kind": "OBJECT",
           "name": "CategoryEdge",
+          "possibleTypes": null
+        },
+        {
+          "description": "CategoryKind is enum for the field kind",
+          "enumValues": [
+            {
+              "deprecationReason": null,
+              "description": "Database value: PRIMARY",
+              "isDeprecated": false,
+              "name": "Primary"
+            },
+            {
+              "deprecationReason": "No longer supported",
+              "description": "Database value: SECONDARY",
+              "isDeprecated": true,
+              "name": "Secondary"
+            }
+          ],
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "kind": "ENUM",
+          "name": "CategoryKind",
           "possibleTypes": null
         },
         {
@@ -644,6 +683,62 @@
                   "ofType": {
                     "kind": "SCALAR",
                     "name": "ID",
+                    "ofType": null
+                  }
+                }
+              }
+            },
+            {
+              "defaultValue": null,
+              "description": "",
+              "name": "kind",
+              "type": {
+                "kind": "ENUM",
+                "name": "CategoryKind",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "description": "",
+              "name": "kindIn",
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": {
+                  "kind": "NON_NULL",
+                  "name": null,
+                  "ofType": {
+                    "kind": "ENUM",
+                    "name": "CategoryKind",
+                    "ofType": null
+                  }
+                }
+              }
+            },
+            {
+              "defaultValue": null,
+              "description": "",
+              "name": "kindNEQ",
+              "type": {
+                "kind": "ENUM",
+                "name": "CategoryKind",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "description": "",
+              "name": "kindNotIn",
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": {
+                  "kind": "NON_NULL",
+                  "name": null,
+                  "ofType": {
+                    "kind": "ENUM",
+                    "name": "CategoryKind",
                     "ofType": null
                   }
                 }
@@ -890,6 +985,20 @@
           "enumValues": null,
           "fields": null,
           "inputFields": [
+            {
+              "defaultValue": null,
+              "description": "",
+              "name": "kind",
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "ENUM",
+                  "name": "CategoryKind",
+                  "ofType": null
+                }
+              }
+            },
             {
               "defaultValue": null,
               "description": "",
@@ -2806,6 +2915,16 @@
               "type": {
                 "kind": "SCALAR",
                 "name": "Boolean",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
+              "description": "",
+              "name": "kind",
+              "type": {
+                "kind": "ENUM",
+                "name": "CategoryKind",
                 "ofType": null
               }
             },

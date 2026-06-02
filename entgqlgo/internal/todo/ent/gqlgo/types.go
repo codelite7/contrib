@@ -82,6 +82,9 @@ func init() {
 				"status": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.String),
 				},
+				"kind": &graphql.Field{
+					Type: graphql.NewNonNull(graphql.String),
+				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Category.",

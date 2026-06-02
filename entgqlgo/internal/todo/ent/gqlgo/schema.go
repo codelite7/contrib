@@ -485,6 +485,9 @@ var (
 			"status": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(CategoryStatusEnum),
 			},
+			"kind": &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(CategoryKindEnum),
+			},
 			"todoIDs": &graphql.InputObjectFieldConfig{
 				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs of the todos edges.",
@@ -500,6 +503,9 @@ var (
 			},
 			"status": &graphql.InputObjectFieldConfig{
 				Type: CategoryStatusEnum,
+			},
+			"kind": &graphql.InputObjectFieldConfig{
+				Type: CategoryKindEnum,
 			},
 			"addTodoIDs": &graphql.InputObjectFieldConfig{
 				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
@@ -601,6 +607,12 @@ func ParseCreateCategoryInput(input map[string]interface{}) (*ent.CreateCategory
 			result.Status = &val
 		}
 	}
+	if v, ok := input["kind"]; ok && v != nil {
+		if str, ok := v.(string); ok {
+			val := category.Kind(str)
+			result.Kind = &val
+		}
+	}
 	if v, ok := input["todoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
 			for _, idVal := range ids {
@@ -628,6 +640,12 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*ent.UpdateCategory
 		if str, ok := v.(string); ok {
 			val := category.Status(str)
 			result.Status = &val
+		}
+	}
+	if v, ok := input["kind"]; ok && v != nil {
+		if str, ok := v.(string); ok {
+			val := category.Kind(str)
+			result.Kind = &val
 		}
 	}
 	if v, ok := input["addTodoIDs"]; ok && v != nil {

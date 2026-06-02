@@ -25,6 +25,7 @@ import (
 type CreateCategoryInput struct {
 	Text    string
 	Status  *category.Status
+	Kind    *category.Kind
 	TodoIDs []int
 }
 
@@ -33,6 +34,9 @@ func (i *CreateCategoryInput) Mutate(m *CategoryMutation) {
 	m.SetText(i.Text)
 	if v := i.Status; v != nil {
 		m.SetStatus(*v)
+	}
+	if v := i.Kind; v != nil {
+		m.SetKind(*v)
 	}
 	if v := i.TodoIDs; len(v) > 0 {
 		m.AddTodoIDs(v...)
@@ -49,6 +53,7 @@ func (c *CategoryCreate) SetInput(i CreateCategoryInput) *CategoryCreate {
 type UpdateCategoryInput struct {
 	Text          *string
 	Status        *category.Status
+	Kind          *category.Kind
 	ClearTodos    bool
 	AddTodoIDs    []int
 	RemoveTodoIDs []int
@@ -61,6 +66,9 @@ func (i *UpdateCategoryInput) Mutate(m *CategoryMutation) {
 	}
 	if v := i.Status; v != nil {
 		m.SetStatus(*v)
+	}
+	if v := i.Kind; v != nil {
+		m.SetKind(*v)
 	}
 	if i.ClearTodos {
 		m.ClearTodos()

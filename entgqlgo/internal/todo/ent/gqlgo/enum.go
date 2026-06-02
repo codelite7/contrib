@@ -38,6 +38,23 @@ var CategoryStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 	},
 })
 
+// CategoryKindEnum is the GraphQL enum for Category.kind.
+var CategoryKindEnum = graphql.NewEnum(graphql.EnumConfig{
+	Name:        "CategoryKind",
+	Description: "CategoryKind is enum for the field kind",
+	Values: graphql.EnumValueConfigMap{
+		"Primary": &graphql.EnumValueConfig{
+			Value:       "PRIMARY",
+			Description: "Database value: PRIMARY",
+		},
+		"Secondary": &graphql.EnumValueConfig{
+			Value:             "SECONDARY",
+			Description:       "Database value: SECONDARY",
+			DeprecationReason: "No longer supported",
+		},
+	},
+})
+
 // TodoStatusEnum is the GraphQL enum for Todo.status.
 var TodoStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 	Name:        "TodoStatus",

@@ -54,6 +54,20 @@ func (cc *CategoryCreate) SetNillableStatus(c *category.Status) *CategoryCreate 
 	return cc
 }
 
+// SetKind sets the "kind" field.
+func (cc *CategoryCreate) SetKind(c category.Kind) *CategoryCreate {
+	cc.mutation.SetKind(c)
+	return cc
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (cc *CategoryCreate) SetNillableKind(c *category.Kind) *CategoryCreate {
+	if c != nil {
+		cc.SetKind(*c)
+	}
+	return cc
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (cc *CategoryCreate) AddTodoIDs(ids ...int) *CategoryCreate {
 	cc.mutation.AddTodoIDs(ids...)
@@ -108,6 +122,10 @@ func (cc *CategoryCreate) defaults() {
 		v := category.DefaultStatus
 		cc.mutation.SetStatus(v)
 	}
+	if _, ok := cc.mutation.Kind(); !ok {
+		v := category.DefaultKind
+		cc.mutation.SetKind(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -126,6 +144,14 @@ func (cc *CategoryCreate) check() error {
 	if v, ok := cc.mutation.Status(); ok {
 		if err := category.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
+		}
+	}
+	if _, ok := cc.mutation.Kind(); !ok {
+		return &ValidationError{Name: "kind", err: errors.New(`ent: missing required field "Category.kind"`)}
+	}
+	if v, ok := cc.mutation.Kind(); ok {
+		if err := category.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Category.kind": %w`, err)}
 		}
 	}
 	return nil
@@ -161,6 +187,10 @@ func (cc *CategoryCreate) createSpec() (*Category, *sqlgraph.CreateSpec) {
 	if value, ok := cc.mutation.Status(); ok {
 		_spec.SetField(category.FieldStatus, field.TypeEnum, value)
 		_node.Status = value
+	}
+	if value, ok := cc.mutation.Kind(); ok {
+		_spec.SetField(category.FieldKind, field.TypeEnum, value)
+		_node.Kind = value
 	}
 	if nodes := cc.mutation.TodosIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

@@ -32,6 +32,8 @@ const (
 	FieldText = "text"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldKind holds the string denoting the kind field in the database.
+	FieldKind = "kind"
 	// EdgeTodos holds the string denoting the todos edge name in mutations.
 	EdgeTodos = "todos"
 	// Table holds the table name of the category in the database.
@@ -50,6 +52,7 @@ var Columns = []string{
 	FieldID,
 	FieldText,
 	FieldStatus,
+	FieldKind,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -93,6 +96,32 @@ func StatusValidator(s Status) error {
 	}
 }
 
+// Kind defines the type for the "kind" enum field.
+type Kind string
+
+// KindPrimary is the default value of the Kind enum.
+const DefaultKind = KindPrimary
+
+// Kind values.
+const (
+	KindPrimary   Kind = "PRIMARY"
+	KindSecondary Kind = "SECONDARY"
+)
+
+func (k Kind) String() string {
+	return string(k)
+}
+
+// KindValidator is a validator for the "kind" field enum values. It is called by the builders before save.
+func KindValidator(k Kind) error {
+	switch k {
+	case KindPrimary, KindSecondary:
+		return nil
+	default:
+		return fmt.Errorf("category: invalid enum value for kind field: %q", k)
+	}
+}
+
 // OrderOption defines the ordering options for the Category queries.
 type OrderOption func(*sql.Selector)
 
@@ -109,6 +138,11 @@ func ByText(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByKind orders the results by the kind field.
+func ByKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKind, opts...).ToFunc()
 }
 
 // ByTodosCount orders the results by todos count.

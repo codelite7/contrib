@@ -157,6 +157,26 @@ func StatusNotIn(vs ...Status) predicate.Category {
 	return predicate.Category(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// KindEQ applies the EQ predicate on the "kind" field.
+func KindEQ(v Kind) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldKind, v))
+}
+
+// KindNEQ applies the NEQ predicate on the "kind" field.
+func KindNEQ(v Kind) predicate.Category {
+	return predicate.Category(sql.FieldNEQ(FieldKind, v))
+}
+
+// KindIn applies the In predicate on the "kind" field.
+func KindIn(vs ...Kind) predicate.Category {
+	return predicate.Category(sql.FieldIn(FieldKind, vs...))
+}
+
+// KindNotIn applies the NotIn predicate on the "kind" field.
+func KindNotIn(vs ...Kind) predicate.Category {
+	return predicate.Category(sql.FieldNotIn(FieldKind, vs...))
+}
+
 // HasTodos applies the HasEdge predicate on the "todos" edge.
 func HasTodos() predicate.Category {
 	return predicate.Category(func(s *sql.Selector) {

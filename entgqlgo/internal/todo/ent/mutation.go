@@ -523,6 +523,7 @@ type CategoryMutation struct {
 	id            *int
 	text          *string
 	status        *category.Status
+	kind          *category.Kind
 	clearedFields map[string]struct{}
 	todos         map[int]struct{}
 	removedtodos  map[int]struct{}
@@ -702,6 +703,42 @@ func (m *CategoryMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetKind sets the "kind" field.
+func (m *CategoryMutation) SetKind(c category.Kind) {
+	m.kind = &c
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *CategoryMutation) Kind() (r category.Kind, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldKind(ctx context.Context) (v category.Kind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *CategoryMutation) ResetKind() {
+	m.kind = nil
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by ids.
 func (m *CategoryMutation) AddTodoIDs(ids ...int) {
 	if m.todos == nil {
@@ -790,12 +827,15 @@ func (m *CategoryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CategoryMutation) Fields() []string {
-	fields := make([]string, 0, 2)
+	fields := make([]string, 0, 3)
 	if m.text != nil {
 		fields = append(fields, category.FieldText)
 	}
 	if m.status != nil {
 		fields = append(fields, category.FieldStatus)
+	}
+	if m.kind != nil {
+		fields = append(fields, category.FieldKind)
 	}
 	return fields
 }
@@ -809,6 +849,8 @@ func (m *CategoryMutation) Field(name string) (ent.Value, bool) {
 		return m.Text()
 	case category.FieldStatus:
 		return m.Status()
+	case category.FieldKind:
+		return m.Kind()
 	}
 	return nil, false
 }
@@ -822,6 +864,8 @@ func (m *CategoryMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldText(ctx)
 	case category.FieldStatus:
 		return m.OldStatus(ctx)
+	case category.FieldKind:
+		return m.OldKind(ctx)
 	}
 	return nil, fmt.Errorf("unknown Category field %s", name)
 }
@@ -844,6 +888,13 @@ func (m *CategoryMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case category.FieldKind:
+		v, ok := value.(category.Kind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)
@@ -899,6 +950,9 @@ func (m *CategoryMutation) ResetField(name string) error {
 		return nil
 	case category.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case category.FieldKind:
+		m.ResetKind()
 		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)

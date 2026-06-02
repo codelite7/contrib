@@ -44,6 +44,16 @@ func (Category) Fields() []ent.Field {
 			Annotations(
 				entgqlgo.DeprecatedEnumValues("DISABLED"),
 			),
+		field.Enum("kind").
+			NamedValues(
+				"Primary", "PRIMARY",
+				"Secondary", "SECONDARY",
+			).
+			Default("PRIMARY").
+			Annotations(
+				entgqlgo.UseEnumNames(),
+				entgqlgo.DeprecatedEnumValues("Secondary"),
+			),
 	}
 }
 

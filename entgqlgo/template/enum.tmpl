@@ -40,7 +40,7 @@ var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
 		"{{ gqlgoTrimPrefix $e.Name (pascal $f.Name) }}": &graphql.EnumValueConfig{
 			Value: "{{ $e.Value }}",
 			Description: "Database value: {{ $e.Value }}",
-			{{- if gqlgoIsDeprecatedEnumValue $f $e.Value }}
+			{{- if gqlgoIsDeprecatedEnumValue $f (gqlgoTrimPrefix $e.Name (pascal $f.Name)) }}
 			DeprecationReason: "No longer supported",
 			{{- end }}
 		},

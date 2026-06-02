@@ -284,6 +284,18 @@ func init() {
 				"statusNotIn": &graphql.InputObjectFieldConfig{
 					Type: graphql.NewList(graphql.NewNonNull(CategoryStatusEnum)),
 				},
+				"kind": &graphql.InputObjectFieldConfig{
+					Type: CategoryKindEnum,
+				},
+				"kindNEQ": &graphql.InputObjectFieldConfig{
+					Type: CategoryKindEnum,
+				},
+				"kindIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryKindEnum)),
+				},
+				"kindNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryKindEnum)),
+				},
 				"hasTodos": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
 					Description: "Check if todos edge exists.",
@@ -1114,6 +1126,12 @@ type CategoryWhereInput struct {
 	StatusIn    []category.Status `json:"statusIn,omitempty"`
 	StatusNotIn []category.Status `json:"statusNotIn,omitempty"`
 
+	// "kind" field predicates.
+	Kind      *category.Kind  `json:"kind,omitempty"`
+	KindNEQ   *category.Kind  `json:"kindNEQ,omitempty"`
+	KindIn    []category.Kind `json:"kindIn,omitempty"`
+	KindNotIn []category.Kind `json:"kindNotIn,omitempty"`
+
 	// "todos" edge predicates.
 	HasTodos     *bool             `json:"hasTodos,omitempty"`
 	HasTodosWith []*TodoWhereInput `json:"hasTodosWith,omitempty"`
@@ -1264,6 +1282,18 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 	}
 	if len(i.StatusNotIn) > 0 {
 		predicates = append(predicates, category.StatusNotIn(i.StatusNotIn...))
+	}
+	if i.Kind != nil {
+		predicates = append(predicates, category.KindEQ(*i.Kind))
+	}
+	if i.KindNEQ != nil {
+		predicates = append(predicates, category.KindNEQ(*i.KindNEQ))
+	}
+	if len(i.KindIn) > 0 {
+		predicates = append(predicates, category.KindIn(i.KindIn...))
+	}
+	if len(i.KindNotIn) > 0 {
+		predicates = append(predicates, category.KindNotIn(i.KindNotIn...))
 	}
 
 	if i.HasTodos != nil {
@@ -1517,6 +1547,40 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 			for _, item := range slice {
 				if s, ok := item.(string); ok {
 					input.StatusNotIn = append(input.StatusNotIn, category.Status(s))
+				}
+			}
+		}
+	}
+	// Parse kind
+	if v, ok := m["kind"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			val := category.Kind(s)
+			input.Kind = &val
+		}
+	}
+	// Parse kindNEQ
+	if v, ok := m["kindNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			val := category.Kind(s)
+			input.KindNEQ = &val
+		}
+	}
+	// Parse kindIn
+	if v, ok := m["kindIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.KindIn = append(input.KindIn, category.Kind(s))
+				}
+			}
+		}
+	}
+	// Parse kindNotIn
+	if v, ok := m["kindNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.KindNotIn = append(input.KindNotIn, category.Kind(s))
 				}
 			}
 		}

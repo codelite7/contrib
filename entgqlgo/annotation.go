@@ -55,8 +55,11 @@ type (
 		// implemented by the type. Interface definitions must be registered in the
 		// generated package's CustomInterfaces map before building the schema.
 		Implements []string `json:"Implements,omitempty"`
-		// DeprecatedEnumValues is a list of enum VALUES that should be marked
-		// as deprecated in the GraphQL schema.
+		// DeprecatedEnumValues is a list of GraphQL enum value names that should be
+		// marked as deprecated in the GraphQL schema. Entries are matched against
+		// the GraphQL enum value name as it appears in the schema: the database value
+		// by default (e.g. "DISABLED"), or the trimmed Go name when UseEnumNames is
+		// set (e.g. "Disabled"). This matches entgql's behavior.
 		DeprecatedEnumValues []string `json:"DeprecatedEnumValues,omitempty"`
 	}
 
@@ -228,8 +231,11 @@ func Implements(interfaces ...string) Annotation {
 	return Annotation{Implements: interfaces}
 }
 
-// DeprecatedEnumValues returns an annotation marking the given enum values as
-// deprecated in the GraphQL schema.
+// DeprecatedEnumValues returns an annotation marking the given GraphQL enum
+// value names as deprecated in the schema. Values are matched against the
+// GraphQL name as it appears in the schema: the database value by default
+// (e.g. "DISABLED"), or the trimmed Go name when UseEnumNames is set
+// (e.g. "Disabled"). This matches entgql's behavior.
 func DeprecatedEnumValues(values ...string) Annotation {
 	return Annotation{DeprecatedEnumValues: values}
 }

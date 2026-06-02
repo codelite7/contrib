@@ -34,6 +34,8 @@ type Category struct {
 	Text string `json:"text,omitempty"`
 	// Status holds the value of the "status" field.
 	Status category.Status `json:"status,omitempty"`
+	// Kind holds the value of the "kind" field.
+	Kind category.Kind `json:"kind,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CategoryQuery when eager-loading is set.
 	Edges        CategoryEdges `json:"edges"`
@@ -66,7 +68,7 @@ func (*Category) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case category.FieldID:
 			values[i] = new(sql.NullInt64)
-		case category.FieldText, category.FieldStatus:
+		case category.FieldText, category.FieldStatus, category.FieldKind:
 			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -100,6 +102,12 @@ func (c *Category) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				c.Status = category.Status(value.String)
+			}
+		case category.FieldKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field kind", values[i])
+			} else if value.Valid {
+				c.Kind = category.Kind(value.String)
 			}
 		default:
 			c.selectValues.Set(columns[i], values[i])
@@ -147,6 +155,9 @@ func (c *Category) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", c.Status))
+	builder.WriteString(", ")
+	builder.WriteString("kind=")
+	builder.WriteString(fmt.Sprintf("%v", c.Kind))
 	builder.WriteByte(')')
 	return builder.String()
 }

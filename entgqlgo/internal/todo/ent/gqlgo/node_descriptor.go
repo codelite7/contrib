@@ -90,7 +90,7 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	node := &Node{
 		ID:     n.ID,
 		Type:   "Category",
-		Fields: make([]*Field, 2),
+		Fields: make([]*Field, 3),
 		Edges:  make([]*Edge, 1),
 	}
 	var buf []byte
@@ -109,6 +109,14 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	node.Fields[1] = &Field{
 		Type:  "category.Status",
 		Name:  "status",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Kind); err != nil {
+		return nil, err
+	}
+	node.Fields[2] = &Field{
+		Type:  "category.Kind",
+		Name:  "kind",
 		Value: string(buf),
 	}
 	node.Edges[0] = &Edge{

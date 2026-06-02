@@ -40,6 +40,7 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "text", Type: field.TypeString},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ENABLED", "DISABLED"}, Default: "ENABLED"},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"PRIMARY", "SECONDARY"}, Default: "PRIMARY"},
 	}
 	// CategoriesTable holds the schema information for the "categories" table.
 	CategoriesTable = &schema.Table{

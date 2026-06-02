@@ -1545,6 +1545,7 @@ func TestCreateCategory(t *testing.T) {
 			createCategory(input: {
 				text: "Work"
 				status: ENABLED
+				kind: Primary
 			}) {
 				id
 				text
@@ -3122,8 +3123,8 @@ func TestNodeDescriptorClient(t *testing.T) {
 	}
 
 	// Verify fields
-	if len(node.Fields) != 2 {
-		t.Errorf("expected 2 fields, got %d", len(node.Fields))
+	if len(node.Fields) != 3 {
+		t.Errorf("expected 3 fields, got %d", len(node.Fields))
 	}
 }
 
@@ -3517,4 +3518,43 @@ func TestDeprecatedEnumValue(t *testing.T) {
 	require.False(t, byName["ENABLED"]["isDeprecated"].(bool))
 	require.True(t, byName["DISABLED"]["isDeprecated"].(bool))
 	require.Equal(t, "No longer supported", byName["DISABLED"]["deprecationReason"])
+}
+
+// TestDeprecatedEnumValueUseEnumNames verifies DeprecatedEnumValues matches
+// against GraphQL enum names (trimmed Go names) when UseEnumNames is set,
+// matching entgql's behavior.
+func TestDeprecatedEnumValueUseEnumNames(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := newTestSchema(client)
+	require.NoError(t, err)
+
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			__type(name: "CategoryKind") {
+				enumValues(includeDeprecated: true) {
+					name
+					isDeprecated
+					deprecationReason
+				}
+			}
+		}`,
+		Context: context.Background(),
+	})
+	require.Empty(t, result.Errors)
+
+	values := result.Data.(map[string]interface{})["__type"].(map[string]interface{})["enumValues"].([]interface{})
+	byName := map[string]map[string]interface{}{}
+	for _, v := range values {
+		vm := v.(map[string]interface{})
+		byName[vm["name"].(string)] = vm
+	}
+	// UseEnumNames: GraphQL names are the Go names, not DB values.
+	require.Contains(t, byName, "Primary")
+	require.Contains(t, byName, "Secondary")
+	require.False(t, byName["Primary"]["isDeprecated"].(bool))
+	require.True(t, byName["Secondary"]["isDeprecated"].(bool))
+	require.Equal(t, "No longer supported", byName["Secondary"]["deprecationReason"])
 }
