@@ -286,8 +286,8 @@ func (c *BillProductClient) Update() *BillProductUpdate {
 }
 
 // UpdateOne returns an update builder for the given entity.
-func (c *BillProductClient) UpdateOne(bp *BillProduct) *BillProductUpdateOne {
-	mutation := newBillProductMutation(c.config, OpUpdateOne, withBillProduct(bp))
+func (c *BillProductClient) UpdateOne(_m *BillProduct) *BillProductUpdateOne {
+	mutation := newBillProductMutation(c.config, OpUpdateOne, withBillProduct(_m))
 	return &BillProductUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -304,8 +304,8 @@ func (c *BillProductClient) Delete() *BillProductDelete {
 }
 
 // DeleteOne returns a builder for deleting the given entity.
-func (c *BillProductClient) DeleteOne(bp *BillProduct) *BillProductDeleteOne {
-	return c.DeleteOneID(bp.ID)
+func (c *BillProductClient) DeleteOne(_m *BillProduct) *BillProductDeleteOne {
+	return c.DeleteOneID(_m.ID)
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
@@ -419,8 +419,8 @@ func (c *CategoryClient) Update() *CategoryUpdate {
 }
 
 // UpdateOne returns an update builder for the given entity.
-func (c *CategoryClient) UpdateOne(ca *Category) *CategoryUpdateOne {
-	mutation := newCategoryMutation(c.config, OpUpdateOne, withCategory(ca))
+func (c *CategoryClient) UpdateOne(_m *Category) *CategoryUpdateOne {
+	mutation := newCategoryMutation(c.config, OpUpdateOne, withCategory(_m))
 	return &CategoryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -437,8 +437,8 @@ func (c *CategoryClient) Delete() *CategoryDelete {
 }
 
 // DeleteOne returns a builder for deleting the given entity.
-func (c *CategoryClient) DeleteOne(ca *Category) *CategoryDeleteOne {
-	return c.DeleteOneID(ca.ID)
+func (c *CategoryClient) DeleteOne(_m *Category) *CategoryDeleteOne {
+	return c.DeleteOneID(_m.ID)
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
@@ -473,16 +473,16 @@ func (c *CategoryClient) GetX(ctx context.Context, id int) *Category {
 }
 
 // QueryTodos queries the todos edge of a Category.
-func (c *CategoryClient) QueryTodos(ca *Category) *TodoQuery {
+func (c *CategoryClient) QueryTodos(_m *Category) *TodoQuery {
 	query := (&TodoClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := ca.ID
+		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(category.Table, category.FieldID, id),
 			sqlgraph.To(todo.Table, todo.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, category.TodosTable, category.TodosColumn),
 		)
-		fromV = sqlgraph.Neighbors(ca.driver.Dialect(), step)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
 	}
 	return query
@@ -568,8 +568,8 @@ func (c *TodoClient) Update() *TodoUpdate {
 }
 
 // UpdateOne returns an update builder for the given entity.
-func (c *TodoClient) UpdateOne(t *Todo) *TodoUpdateOne {
-	mutation := newTodoMutation(c.config, OpUpdateOne, withTodo(t))
+func (c *TodoClient) UpdateOne(_m *Todo) *TodoUpdateOne {
+	mutation := newTodoMutation(c.config, OpUpdateOne, withTodo(_m))
 	return &TodoUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
@@ -586,8 +586,8 @@ func (c *TodoClient) Delete() *TodoDelete {
 }
 
 // DeleteOne returns a builder for deleting the given entity.
-func (c *TodoClient) DeleteOne(t *Todo) *TodoDeleteOne {
-	return c.DeleteOneID(t.ID)
+func (c *TodoClient) DeleteOne(_m *Todo) *TodoDeleteOne {
+	return c.DeleteOneID(_m.ID)
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
@@ -622,48 +622,48 @@ func (c *TodoClient) GetX(ctx context.Context, id int) *Todo {
 }
 
 // QueryParent queries the parent edge of a Todo.
-func (c *TodoClient) QueryParent(t *Todo) *TodoQuery {
+func (c *TodoClient) QueryParent(_m *Todo) *TodoQuery {
 	query := (&TodoClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := t.ID
+		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(todo.Table, todo.FieldID, id),
 			sqlgraph.To(todo.Table, todo.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, todo.ParentTable, todo.ParentColumn),
 		)
-		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
 	}
 	return query
 }
 
 // QueryChildren queries the children edge of a Todo.
-func (c *TodoClient) QueryChildren(t *Todo) *TodoQuery {
+func (c *TodoClient) QueryChildren(_m *Todo) *TodoQuery {
 	query := (&TodoClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := t.ID
+		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(todo.Table, todo.FieldID, id),
 			sqlgraph.To(todo.Table, todo.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, todo.ChildrenTable, todo.ChildrenColumn),
 		)
-		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
 	}
 	return query
 }
 
 // QueryCategory queries the category edge of a Todo.
-func (c *TodoClient) QueryCategory(t *Todo) *CategoryQuery {
+func (c *TodoClient) QueryCategory(_m *Todo) *CategoryQuery {
 	query := (&CategoryClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
-		id := t.ID
+		id := _m.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(todo.Table, todo.FieldID, id),
 			sqlgraph.To(category.Table, category.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, todo.CategoryTable, todo.CategoryColumn),
 		)
-		fromV = sqlgraph.Neighbors(t.driver.Dialect(), step)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
 	}
 	return query

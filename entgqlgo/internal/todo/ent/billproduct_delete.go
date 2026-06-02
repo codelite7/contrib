@@ -18,11 +18,13 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
 )
 
@@ -34,56 +36,73 @@ type BillProductDelete struct {
 }
 
 // Where appends a list predicates to the BillProductDelete builder.
-func (bpd *BillProductDelete) Where(ps ...predicate.BillProduct) *BillProductDelete {
-	bpd.mutation.Where(ps...)
-	return bpd
+func (_d *BillProductDelete) Where(ps ...predicate.BillProduct) *BillProductDelete {
+	_d.mutation.Where(ps...)
+	return _d
 }
 
 // Exec executes the deletion query and returns how many vertices were deleted.
-func (bpd *BillProductDelete) Exec(ctx context.Context) (int, error) {
-	return withHooks(ctx, bpd.sqlExec, bpd.mutation, bpd.hooks)
+func (_d *BillProductDelete) Exec(ctx context.Context) (int, error) {
+	return withHooks(ctx, _d.sqlExec, _d.mutation, _d.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (bpd *BillProductDelete) ExecX(ctx context.Context) int {
-	n, err := bpd.Exec(ctx)
+func (_d *BillProductDelete) ExecX(ctx context.Context) int {
+	n, err := _d.Exec(ctx)
 	if err != nil {
 		panic(err)
 	}
 	return n
 }
 
-func (bpd *BillProductDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(billproduct.Table, sqlgraph.NewFieldSpec(billproduct.FieldID, field.TypeInt))
-	if ps := bpd.mutation.predicates; len(ps) > 0 {
-		_spec.Predicate = func(selector *sql.Selector) {
-			for i := range ps {
-				ps[i](selector)
+var billproductDeleteDescriptor = entbuilder.DeleteDescriptor[config, *BillProductMutation]{
+	Table: billproduct.Table,
+	ID: &entbuilder.DeleteIDDescriptor[*BillProductMutation]{
+		Column: billproduct.FieldID,
+		Type:   field.TypeInt,
+		Value: func(m *BillProductMutation) (driver.Value, bool, error) {
+			if id, ok := m.ID(); ok {
+				return id, true, nil
 			}
+			return nil, false, nil
+		},
+	},
+	Predicates: func(m *BillProductMutation) []func(*sql.Selector) {
+		predicates := make([]func(*sql.Selector), len(m.predicates))
+		for i := range m.predicates {
+			predicates[i] = m.predicates[i]
 		}
+		return predicates
+	},
+}
+
+func (_d *BillProductDelete) sqlExec(ctx context.Context) (int, error) {
+	_spec, err := entbuilder.BuildDeleteSpec(_d.config, _d.mutation, &billproductDeleteDescriptor)
+	if err != nil {
+		return 0, err
 	}
-	affected, err := sqlgraph.DeleteNodes(ctx, bpd.driver, _spec)
+	affected, err := sqlgraph.DeleteNodes(ctx, _d.driver, _spec)
 	if err != nil && sqlgraph.IsConstraintError(err) {
 		err = &ConstraintError{msg: err.Error(), wrap: err}
 	}
-	bpd.mutation.done = true
+	_d.mutation.done = true
 	return affected, err
 }
 
 // BillProductDeleteOne is the builder for deleting a single BillProduct entity.
 type BillProductDeleteOne struct {
-	bpd *BillProductDelete
+	_d *BillProductDelete
 }
 
 // Where appends a list predicates to the BillProductDelete builder.
-func (bpdo *BillProductDeleteOne) Where(ps ...predicate.BillProduct) *BillProductDeleteOne {
-	bpdo.bpd.mutation.Where(ps...)
-	return bpdo
+func (_d *BillProductDeleteOne) Where(ps ...predicate.BillProduct) *BillProductDeleteOne {
+	_d._d.mutation.Where(ps...)
+	return _d
 }
 
 // Exec executes the deletion query.
-func (bpdo *BillProductDeleteOne) Exec(ctx context.Context) error {
-	n, err := bpdo.bpd.Exec(ctx)
+func (_d *BillProductDeleteOne) Exec(ctx context.Context) error {
+	n, err := _d._d.Exec(ctx)
 	switch {
 	case err != nil:
 		return err
@@ -95,8 +114,8 @@ func (bpdo *BillProductDeleteOne) Exec(ctx context.Context) error {
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (bpdo *BillProductDeleteOne) ExecX(ctx context.Context) {
-	if err := bpdo.Exec(ctx); err != nil {
+func (_d *BillProductDeleteOne) ExecX(ctx context.Context) {
+	if err := _d.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

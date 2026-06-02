@@ -18,6 +18,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 
@@ -26,6 +27,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
 )
 
@@ -37,159 +39,159 @@ type TodoUpdate struct {
 }
 
 // Where appends a list predicates to the TodoUpdate builder.
-func (tu *TodoUpdate) Where(ps ...predicate.Todo) *TodoUpdate {
-	tu.mutation.Where(ps...)
-	return tu
+func (_u *TodoUpdate) Where(ps ...predicate.Todo) *TodoUpdate {
+	_u.mutation.Where(ps...)
+	return _u
 }
 
 // SetStatus sets the "status" field.
-func (tu *TodoUpdate) SetStatus(t todo.Status) *TodoUpdate {
-	tu.mutation.SetStatus(t)
-	return tu
+func (_u *TodoUpdate) SetStatus(v todo.Status) *TodoUpdate {
+	_u.mutation.SetStatus(v)
+	return _u
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (tu *TodoUpdate) SetNillableStatus(t *todo.Status) *TodoUpdate {
-	if t != nil {
-		tu.SetStatus(*t)
+func (_u *TodoUpdate) SetNillableStatus(v *todo.Status) *TodoUpdate {
+	if v != nil {
+		_u.SetStatus(*v)
 	}
-	return tu
+	return _u
 }
 
 // SetPriority sets the "priority" field.
-func (tu *TodoUpdate) SetPriority(i int) *TodoUpdate {
-	tu.mutation.ResetPriority()
-	tu.mutation.SetPriority(i)
-	return tu
+func (_u *TodoUpdate) SetPriority(v int) *TodoUpdate {
+	_u.mutation.ResetPriority()
+	_u.mutation.SetPriority(v)
+	return _u
 }
 
 // SetNillablePriority sets the "priority" field if the given value is not nil.
-func (tu *TodoUpdate) SetNillablePriority(i *int) *TodoUpdate {
-	if i != nil {
-		tu.SetPriority(*i)
+func (_u *TodoUpdate) SetNillablePriority(v *int) *TodoUpdate {
+	if v != nil {
+		_u.SetPriority(*v)
 	}
-	return tu
+	return _u
 }
 
-// AddPriority adds i to the "priority" field.
-func (tu *TodoUpdate) AddPriority(i int) *TodoUpdate {
-	tu.mutation.AddPriority(i)
-	return tu
+// AddPriority adds value to the "priority" field.
+func (_u *TodoUpdate) AddPriority(v int) *TodoUpdate {
+	_u.mutation.AddPriority(v)
+	return _u
 }
 
 // SetText sets the "text" field.
-func (tu *TodoUpdate) SetText(s string) *TodoUpdate {
-	tu.mutation.SetText(s)
-	return tu
+func (_u *TodoUpdate) SetText(v string) *TodoUpdate {
+	_u.mutation.SetText(v)
+	return _u
 }
 
 // SetNillableText sets the "text" field if the given value is not nil.
-func (tu *TodoUpdate) SetNillableText(s *string) *TodoUpdate {
-	if s != nil {
-		tu.SetText(*s)
+func (_u *TodoUpdate) SetNillableText(v *string) *TodoUpdate {
+	if v != nil {
+		_u.SetText(*v)
 	}
-	return tu
+	return _u
 }
 
 // SetParentID sets the "parent" edge to the Todo entity by ID.
-func (tu *TodoUpdate) SetParentID(id int) *TodoUpdate {
-	tu.mutation.SetParentID(id)
-	return tu
+func (_u *TodoUpdate) SetParentID(id int) *TodoUpdate {
+	_u.mutation.SetParentID(id)
+	return _u
 }
 
 // SetNillableParentID sets the "parent" edge to the Todo entity by ID if the given value is not nil.
-func (tu *TodoUpdate) SetNillableParentID(id *int) *TodoUpdate {
+func (_u *TodoUpdate) SetNillableParentID(id *int) *TodoUpdate {
 	if id != nil {
-		tu = tu.SetParentID(*id)
+		_u = _u.SetParentID(*id)
 	}
-	return tu
+	return _u
 }
 
 // SetParent sets the "parent" edge to the Todo entity.
-func (tu *TodoUpdate) SetParent(t *Todo) *TodoUpdate {
-	return tu.SetParentID(t.ID)
+func (_u *TodoUpdate) SetParent(v *Todo) *TodoUpdate {
+	return _u.SetParentID(v.ID)
 }
 
 // AddChildIDs adds the "children" edge to the Todo entity by IDs.
-func (tu *TodoUpdate) AddChildIDs(ids ...int) *TodoUpdate {
-	tu.mutation.AddChildIDs(ids...)
-	return tu
+func (_u *TodoUpdate) AddChildIDs(ids ...int) *TodoUpdate {
+	_u.mutation.AddChildIDs(ids...)
+	return _u
 }
 
 // AddChildren adds the "children" edges to the Todo entity.
-func (tu *TodoUpdate) AddChildren(t ...*Todo) *TodoUpdate {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *TodoUpdate) AddChildren(v ...*Todo) *TodoUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return tu.AddChildIDs(ids...)
+	return _u.AddChildIDs(ids...)
 }
 
 // SetCategoryID sets the "category" edge to the Category entity by ID.
-func (tu *TodoUpdate) SetCategoryID(id int) *TodoUpdate {
-	tu.mutation.SetCategoryID(id)
-	return tu
+func (_u *TodoUpdate) SetCategoryID(id int) *TodoUpdate {
+	_u.mutation.SetCategoryID(id)
+	return _u
 }
 
 // SetNillableCategoryID sets the "category" edge to the Category entity by ID if the given value is not nil.
-func (tu *TodoUpdate) SetNillableCategoryID(id *int) *TodoUpdate {
+func (_u *TodoUpdate) SetNillableCategoryID(id *int) *TodoUpdate {
 	if id != nil {
-		tu = tu.SetCategoryID(*id)
+		_u = _u.SetCategoryID(*id)
 	}
-	return tu
+	return _u
 }
 
 // SetCategory sets the "category" edge to the Category entity.
-func (tu *TodoUpdate) SetCategory(c *Category) *TodoUpdate {
-	return tu.SetCategoryID(c.ID)
+func (_u *TodoUpdate) SetCategory(v *Category) *TodoUpdate {
+	return _u.SetCategoryID(v.ID)
 }
 
 // Mutation returns the TodoMutation object of the builder.
-func (tu *TodoUpdate) Mutation() *TodoMutation {
-	return tu.mutation
+func (_u *TodoUpdate) Mutation() *TodoMutation {
+	return _u.mutation
 }
 
 // ClearParent clears the "parent" edge to the Todo entity.
-func (tu *TodoUpdate) ClearParent() *TodoUpdate {
-	tu.mutation.ClearParent()
-	return tu
+func (_u *TodoUpdate) ClearParent() *TodoUpdate {
+	_u.mutation.ClearParent()
+	return _u
 }
 
 // ClearChildren clears all "children" edges to the Todo entity.
-func (tu *TodoUpdate) ClearChildren() *TodoUpdate {
-	tu.mutation.ClearChildren()
-	return tu
+func (_u *TodoUpdate) ClearChildren() *TodoUpdate {
+	_u.mutation.ClearChildren()
+	return _u
 }
 
 // RemoveChildIDs removes the "children" edge to Todo entities by IDs.
-func (tu *TodoUpdate) RemoveChildIDs(ids ...int) *TodoUpdate {
-	tu.mutation.RemoveChildIDs(ids...)
-	return tu
+func (_u *TodoUpdate) RemoveChildIDs(ids ...int) *TodoUpdate {
+	_u.mutation.RemoveChildIDs(ids...)
+	return _u
 }
 
 // RemoveChildren removes "children" edges to Todo entities.
-func (tu *TodoUpdate) RemoveChildren(t ...*Todo) *TodoUpdate {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *TodoUpdate) RemoveChildren(v ...*Todo) *TodoUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return tu.RemoveChildIDs(ids...)
+	return _u.RemoveChildIDs(ids...)
 }
 
 // ClearCategory clears the "category" edge to the Category entity.
-func (tu *TodoUpdate) ClearCategory() *TodoUpdate {
-	tu.mutation.ClearCategory()
-	return tu
+func (_u *TodoUpdate) ClearCategory() *TodoUpdate {
+	_u.mutation.ClearCategory()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
-func (tu *TodoUpdate) Save(ctx context.Context) (int, error) {
-	return withHooks(ctx, tu.sqlSave, tu.mutation, tu.hooks)
+func (_u *TodoUpdate) Save(ctx context.Context) (int, error) {
+	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (tu *TodoUpdate) SaveX(ctx context.Context) int {
-	affected, err := tu.Save(ctx)
+func (_u *TodoUpdate) SaveX(ctx context.Context) int {
+	affected, err := _u.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -197,26 +199,26 @@ func (tu *TodoUpdate) SaveX(ctx context.Context) int {
 }
 
 // Exec executes the query.
-func (tu *TodoUpdate) Exec(ctx context.Context) error {
-	_, err := tu.Save(ctx)
+func (_u *TodoUpdate) Exec(ctx context.Context) error {
+	_, err := _u.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (tu *TodoUpdate) ExecX(ctx context.Context) {
-	if err := tu.Exec(ctx); err != nil {
+func (_u *TodoUpdate) ExecX(ctx context.Context) {
+	if err := _u.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (tu *TodoUpdate) check() error {
-	if v, ok := tu.mutation.Status(); ok {
+func (_u *TodoUpdate) check() error {
+	if v, ok := _u.mutation.Status(); ok {
 		if err := todo.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Todo.status": %w`, err)}
 		}
 	}
-	if v, ok := tu.mutation.Text(); ok {
+	if v, ok := _u.mutation.Text(); ok {
 		if err := todo.TextValidator(v); err != nil {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Todo.text": %w`, err)}
 		}
@@ -224,134 +226,196 @@ func (tu *TodoUpdate) check() error {
 	return nil
 }
 
-func (tu *TodoUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	if err := tu.check(); err != nil {
-		return n, err
+var todoUpdateDescriptor = entbuilder.UpdateDescriptor[config, *TodoMutation]{
+	Fields: []entbuilder.UpdateFieldDescriptor[*TodoMutation]{
+		{
+			Column: todo.FieldStatus,
+			Type:   field.TypeEnum,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Status(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+
+		{
+			Column: todo.FieldPriority,
+			Type:   field.TypeInt,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Priority(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.AddedPriority(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+
+		{
+			Column: todo.FieldText,
+			Type:   field.TypeString,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Text(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+	},
+	Edges: []entbuilder.UpdateEdgeDescriptor[config, *TodoMutation]{
+		{
+			Clear: func(cfg config, m *TodoMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.ParentCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.M2O,
+						Inverse:      true,
+						Table:        todo.ParentTable,
+						Columns:      todo.ParentColumn,
+						Bidi:         false,
+						TargetColumn: todo.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(cfg config, m *TodoMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.ParentIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.M2O,
+					Inverse:      true,
+					Table:        todo.ParentTable,
+					Columns:      todo.ParentColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
+
+		{
+			Clear: func(cfg config, m *TodoMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.ChildrenCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.O2M,
+						Inverse:      false,
+						Table:        todo.ChildrenTable,
+						Columns:      todo.ChildrenColumn,
+						Bidi:         false,
+						TargetColumn: todo.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Remove: func(cfg config, m *TodoMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.RemovedChildrenIDs()
+				if len(nodes) == 0 || m.ChildrenCleared() {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.O2M,
+					Inverse:      false,
+					Table:        todo.ChildrenTable,
+					Columns:      todo.ChildrenColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+			Add: func(cfg config, m *TodoMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.ChildrenIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.O2M,
+					Inverse:      false,
+					Table:        todo.ChildrenTable,
+					Columns:      todo.ChildrenColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
+
+		{
+			Clear: func(cfg config, m *TodoMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.CategoryCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.M2O,
+						Inverse:      true,
+						Table:        todo.CategoryTable,
+						Columns:      todo.CategoryColumn,
+						Bidi:         false,
+						TargetColumn: category.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(cfg config, m *TodoMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.CategoryIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.M2O,
+					Inverse:      true,
+					Table:        todo.CategoryTable,
+					Columns:      todo.CategoryColumn,
+					Bidi:         false,
+					TargetColumn: category.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
+	},
+}
+
+func (_u *TodoUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
 	}
 	_spec := sqlgraph.NewUpdateSpec(todo.Table, todo.Columns, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt))
-	if ps := tu.mutation.predicates; len(ps) > 0 {
+	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
 	}
-	if value, ok := tu.mutation.Status(); ok {
-		_spec.SetField(todo.FieldStatus, field.TypeEnum, value)
+	if err := entbuilder.ApplyUpdate(_u.config, _u.mutation, &todoUpdateDescriptor, _spec); err != nil {
+		return 0, err
 	}
-	if value, ok := tu.mutation.Priority(); ok {
-		_spec.SetField(todo.FieldPriority, field.TypeInt, value)
-	}
-	if value, ok := tu.mutation.AddedPriority(); ok {
-		_spec.AddField(todo.FieldPriority, field.TypeInt, value)
-	}
-	if value, ok := tu.mutation.Text(); ok {
-		_spec.SetField(todo.FieldText, field.TypeString, value)
-	}
-	if tu.mutation.ParentCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.ParentTable,
-			Columns: []string{todo.ParentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tu.mutation.ParentIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.ParentTable,
-			Columns: []string{todo.ParentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if tu.mutation.ChildrenCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   todo.ChildrenTable,
-			Columns: []string{todo.ChildrenColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tu.mutation.RemovedChildrenIDs(); len(nodes) > 0 && !tu.mutation.ChildrenCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   todo.ChildrenTable,
-			Columns: []string{todo.ChildrenColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tu.mutation.ChildrenIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   todo.ChildrenTable,
-			Columns: []string{todo.ChildrenColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if tu.mutation.CategoryCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.CategoryTable,
-			Columns: []string{todo.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tu.mutation.CategoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.CategoryTable,
-			Columns: []string{todo.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if n, err = sqlgraph.UpdateNodes(ctx, tu.driver, _spec); err != nil {
+	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{todo.Label}
 		} else if sqlgraph.IsConstraintError(err) {
@@ -359,8 +423,8 @@ func (tu *TodoUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		return 0, err
 	}
-	tu.mutation.done = true
-	return n, nil
+	_u.mutation.done = true
+	return _node, nil
 }
 
 // TodoUpdateOne is the builder for updating a single Todo entity.
@@ -372,166 +436,166 @@ type TodoUpdateOne struct {
 }
 
 // SetStatus sets the "status" field.
-func (tuo *TodoUpdateOne) SetStatus(t todo.Status) *TodoUpdateOne {
-	tuo.mutation.SetStatus(t)
-	return tuo
+func (_u *TodoUpdateOne) SetStatus(v todo.Status) *TodoUpdateOne {
+	_u.mutation.SetStatus(v)
+	return _u
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (tuo *TodoUpdateOne) SetNillableStatus(t *todo.Status) *TodoUpdateOne {
-	if t != nil {
-		tuo.SetStatus(*t)
+func (_u *TodoUpdateOne) SetNillableStatus(v *todo.Status) *TodoUpdateOne {
+	if v != nil {
+		_u.SetStatus(*v)
 	}
-	return tuo
+	return _u
 }
 
 // SetPriority sets the "priority" field.
-func (tuo *TodoUpdateOne) SetPriority(i int) *TodoUpdateOne {
-	tuo.mutation.ResetPriority()
-	tuo.mutation.SetPriority(i)
-	return tuo
+func (_u *TodoUpdateOne) SetPriority(v int) *TodoUpdateOne {
+	_u.mutation.ResetPriority()
+	_u.mutation.SetPriority(v)
+	return _u
 }
 
 // SetNillablePriority sets the "priority" field if the given value is not nil.
-func (tuo *TodoUpdateOne) SetNillablePriority(i *int) *TodoUpdateOne {
-	if i != nil {
-		tuo.SetPriority(*i)
+func (_u *TodoUpdateOne) SetNillablePriority(v *int) *TodoUpdateOne {
+	if v != nil {
+		_u.SetPriority(*v)
 	}
-	return tuo
+	return _u
 }
 
-// AddPriority adds i to the "priority" field.
-func (tuo *TodoUpdateOne) AddPriority(i int) *TodoUpdateOne {
-	tuo.mutation.AddPriority(i)
-	return tuo
+// AddPriority adds value to the "priority" field.
+func (_u *TodoUpdateOne) AddPriority(v int) *TodoUpdateOne {
+	_u.mutation.AddPriority(v)
+	return _u
 }
 
 // SetText sets the "text" field.
-func (tuo *TodoUpdateOne) SetText(s string) *TodoUpdateOne {
-	tuo.mutation.SetText(s)
-	return tuo
+func (_u *TodoUpdateOne) SetText(v string) *TodoUpdateOne {
+	_u.mutation.SetText(v)
+	return _u
 }
 
 // SetNillableText sets the "text" field if the given value is not nil.
-func (tuo *TodoUpdateOne) SetNillableText(s *string) *TodoUpdateOne {
-	if s != nil {
-		tuo.SetText(*s)
+func (_u *TodoUpdateOne) SetNillableText(v *string) *TodoUpdateOne {
+	if v != nil {
+		_u.SetText(*v)
 	}
-	return tuo
+	return _u
 }
 
 // SetParentID sets the "parent" edge to the Todo entity by ID.
-func (tuo *TodoUpdateOne) SetParentID(id int) *TodoUpdateOne {
-	tuo.mutation.SetParentID(id)
-	return tuo
+func (_u *TodoUpdateOne) SetParentID(id int) *TodoUpdateOne {
+	_u.mutation.SetParentID(id)
+	return _u
 }
 
 // SetNillableParentID sets the "parent" edge to the Todo entity by ID if the given value is not nil.
-func (tuo *TodoUpdateOne) SetNillableParentID(id *int) *TodoUpdateOne {
+func (_u *TodoUpdateOne) SetNillableParentID(id *int) *TodoUpdateOne {
 	if id != nil {
-		tuo = tuo.SetParentID(*id)
+		_u = _u.SetParentID(*id)
 	}
-	return tuo
+	return _u
 }
 
 // SetParent sets the "parent" edge to the Todo entity.
-func (tuo *TodoUpdateOne) SetParent(t *Todo) *TodoUpdateOne {
-	return tuo.SetParentID(t.ID)
+func (_u *TodoUpdateOne) SetParent(v *Todo) *TodoUpdateOne {
+	return _u.SetParentID(v.ID)
 }
 
 // AddChildIDs adds the "children" edge to the Todo entity by IDs.
-func (tuo *TodoUpdateOne) AddChildIDs(ids ...int) *TodoUpdateOne {
-	tuo.mutation.AddChildIDs(ids...)
-	return tuo
+func (_u *TodoUpdateOne) AddChildIDs(ids ...int) *TodoUpdateOne {
+	_u.mutation.AddChildIDs(ids...)
+	return _u
 }
 
 // AddChildren adds the "children" edges to the Todo entity.
-func (tuo *TodoUpdateOne) AddChildren(t ...*Todo) *TodoUpdateOne {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *TodoUpdateOne) AddChildren(v ...*Todo) *TodoUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return tuo.AddChildIDs(ids...)
+	return _u.AddChildIDs(ids...)
 }
 
 // SetCategoryID sets the "category" edge to the Category entity by ID.
-func (tuo *TodoUpdateOne) SetCategoryID(id int) *TodoUpdateOne {
-	tuo.mutation.SetCategoryID(id)
-	return tuo
+func (_u *TodoUpdateOne) SetCategoryID(id int) *TodoUpdateOne {
+	_u.mutation.SetCategoryID(id)
+	return _u
 }
 
 // SetNillableCategoryID sets the "category" edge to the Category entity by ID if the given value is not nil.
-func (tuo *TodoUpdateOne) SetNillableCategoryID(id *int) *TodoUpdateOne {
+func (_u *TodoUpdateOne) SetNillableCategoryID(id *int) *TodoUpdateOne {
 	if id != nil {
-		tuo = tuo.SetCategoryID(*id)
+		_u = _u.SetCategoryID(*id)
 	}
-	return tuo
+	return _u
 }
 
 // SetCategory sets the "category" edge to the Category entity.
-func (tuo *TodoUpdateOne) SetCategory(c *Category) *TodoUpdateOne {
-	return tuo.SetCategoryID(c.ID)
+func (_u *TodoUpdateOne) SetCategory(v *Category) *TodoUpdateOne {
+	return _u.SetCategoryID(v.ID)
 }
 
 // Mutation returns the TodoMutation object of the builder.
-func (tuo *TodoUpdateOne) Mutation() *TodoMutation {
-	return tuo.mutation
+func (_u *TodoUpdateOne) Mutation() *TodoMutation {
+	return _u.mutation
 }
 
 // ClearParent clears the "parent" edge to the Todo entity.
-func (tuo *TodoUpdateOne) ClearParent() *TodoUpdateOne {
-	tuo.mutation.ClearParent()
-	return tuo
+func (_u *TodoUpdateOne) ClearParent() *TodoUpdateOne {
+	_u.mutation.ClearParent()
+	return _u
 }
 
 // ClearChildren clears all "children" edges to the Todo entity.
-func (tuo *TodoUpdateOne) ClearChildren() *TodoUpdateOne {
-	tuo.mutation.ClearChildren()
-	return tuo
+func (_u *TodoUpdateOne) ClearChildren() *TodoUpdateOne {
+	_u.mutation.ClearChildren()
+	return _u
 }
 
 // RemoveChildIDs removes the "children" edge to Todo entities by IDs.
-func (tuo *TodoUpdateOne) RemoveChildIDs(ids ...int) *TodoUpdateOne {
-	tuo.mutation.RemoveChildIDs(ids...)
-	return tuo
+func (_u *TodoUpdateOne) RemoveChildIDs(ids ...int) *TodoUpdateOne {
+	_u.mutation.RemoveChildIDs(ids...)
+	return _u
 }
 
 // RemoveChildren removes "children" edges to Todo entities.
-func (tuo *TodoUpdateOne) RemoveChildren(t ...*Todo) *TodoUpdateOne {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *TodoUpdateOne) RemoveChildren(v ...*Todo) *TodoUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return tuo.RemoveChildIDs(ids...)
+	return _u.RemoveChildIDs(ids...)
 }
 
 // ClearCategory clears the "category" edge to the Category entity.
-func (tuo *TodoUpdateOne) ClearCategory() *TodoUpdateOne {
-	tuo.mutation.ClearCategory()
-	return tuo
+func (_u *TodoUpdateOne) ClearCategory() *TodoUpdateOne {
+	_u.mutation.ClearCategory()
+	return _u
 }
 
 // Where appends a list predicates to the TodoUpdate builder.
-func (tuo *TodoUpdateOne) Where(ps ...predicate.Todo) *TodoUpdateOne {
-	tuo.mutation.Where(ps...)
-	return tuo
+func (_u *TodoUpdateOne) Where(ps ...predicate.Todo) *TodoUpdateOne {
+	_u.mutation.Where(ps...)
+	return _u
 }
 
 // Select allows selecting one or more fields (columns) of the returned entity.
 // The default is selecting all fields defined in the entity schema.
-func (tuo *TodoUpdateOne) Select(field string, fields ...string) *TodoUpdateOne {
-	tuo.fields = append([]string{field}, fields...)
-	return tuo
+func (_u *TodoUpdateOne) Select(field string, fields ...string) *TodoUpdateOne {
+	_u.fields = append([]string{field}, fields...)
+	return _u
 }
 
 // Save executes the query and returns the updated Todo entity.
-func (tuo *TodoUpdateOne) Save(ctx context.Context) (*Todo, error) {
-	return withHooks(ctx, tuo.sqlSave, tuo.mutation, tuo.hooks)
+func (_u *TodoUpdateOne) Save(ctx context.Context) (*Todo, error) {
+	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (tuo *TodoUpdateOne) SaveX(ctx context.Context) *Todo {
-	node, err := tuo.Save(ctx)
+func (_u *TodoUpdateOne) SaveX(ctx context.Context) *Todo {
+	node, err := _u.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -539,26 +603,26 @@ func (tuo *TodoUpdateOne) SaveX(ctx context.Context) *Todo {
 }
 
 // Exec executes the query on the entity.
-func (tuo *TodoUpdateOne) Exec(ctx context.Context) error {
-	_, err := tuo.Save(ctx)
+func (_u *TodoUpdateOne) Exec(ctx context.Context) error {
+	_, err := _u.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (tuo *TodoUpdateOne) ExecX(ctx context.Context) {
-	if err := tuo.Exec(ctx); err != nil {
+func (_u *TodoUpdateOne) ExecX(ctx context.Context) {
+	if err := _u.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (tuo *TodoUpdateOne) check() error {
-	if v, ok := tuo.mutation.Status(); ok {
+func (_u *TodoUpdateOne) check() error {
+	if v, ok := _u.mutation.Status(); ok {
 		if err := todo.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Todo.status": %w`, err)}
 		}
 	}
-	if v, ok := tuo.mutation.Text(); ok {
+	if v, ok := _u.mutation.Text(); ok {
 		if err := todo.TextValidator(v); err != nil {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Todo.text": %w`, err)}
 		}
@@ -566,17 +630,17 @@ func (tuo *TodoUpdateOne) check() error {
 	return nil
 }
 
-func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) {
-	if err := tuo.check(); err != nil {
+func (_u *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) {
+	if err := _u.check(); err != nil {
 		return _node, err
 	}
 	_spec := sqlgraph.NewUpdateSpec(todo.Table, todo.Columns, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt))
-	id, ok := tuo.mutation.ID()
+	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Todo.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
-	if fields := tuo.fields; len(fields) > 0 {
+	if fields := _u.fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
 		_spec.Node.Columns = append(_spec.Node.Columns, todo.FieldID)
 		for _, f := range fields {
@@ -588,132 +652,20 @@ func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) 
 			}
 		}
 	}
-	if ps := tuo.mutation.predicates; len(ps) > 0 {
+	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
 	}
-	if value, ok := tuo.mutation.Status(); ok {
-		_spec.SetField(todo.FieldStatus, field.TypeEnum, value)
+	if err := entbuilder.ApplyUpdate(_u.config, _u.mutation, &todoUpdateDescriptor, _spec); err != nil {
+		return nil, err
 	}
-	if value, ok := tuo.mutation.Priority(); ok {
-		_spec.SetField(todo.FieldPriority, field.TypeInt, value)
-	}
-	if value, ok := tuo.mutation.AddedPriority(); ok {
-		_spec.AddField(todo.FieldPriority, field.TypeInt, value)
-	}
-	if value, ok := tuo.mutation.Text(); ok {
-		_spec.SetField(todo.FieldText, field.TypeString, value)
-	}
-	if tuo.mutation.ParentCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.ParentTable,
-			Columns: []string{todo.ParentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tuo.mutation.ParentIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.ParentTable,
-			Columns: []string{todo.ParentColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if tuo.mutation.ChildrenCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   todo.ChildrenTable,
-			Columns: []string{todo.ChildrenColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tuo.mutation.RemovedChildrenIDs(); len(nodes) > 0 && !tuo.mutation.ChildrenCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   todo.ChildrenTable,
-			Columns: []string{todo.ChildrenColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tuo.mutation.ChildrenIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   todo.ChildrenTable,
-			Columns: []string{todo.ChildrenColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if tuo.mutation.CategoryCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.CategoryTable,
-			Columns: []string{todo.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := tuo.mutation.CategoryIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   todo.CategoryTable,
-			Columns: []string{todo.CategoryColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	_node = &Todo{config: tuo.config}
+	_node = &Todo{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues
-	if err = sqlgraph.UpdateNode(ctx, tuo.driver, _spec); err != nil {
+	if err = sqlgraph.UpdateNode(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{todo.Label}
 		} else if sqlgraph.IsConstraintError(err) {
@@ -721,6 +673,6 @@ func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) 
 		}
 		return nil, err
 	}
-	tuo.mutation.done = true
+	_u.mutation.done = true
 	return _node, nil
 }

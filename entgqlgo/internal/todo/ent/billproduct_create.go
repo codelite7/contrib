@@ -18,11 +18,14 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/runtime/entbuilder"
+	"entgo.io/ent/runtime/entgen"
 	"entgo.io/ent/schema/field"
 )
 
@@ -34,45 +37,47 @@ type BillProductCreate struct {
 }
 
 // SetName sets the "name" field.
-func (bpc *BillProductCreate) SetName(s string) *BillProductCreate {
-	bpc.mutation.SetName(s)
-	return bpc
+func (_c *BillProductCreate) SetName(v string) *BillProductCreate {
+	_c.mutation.SetName(v)
+	return _c
 }
 
 // SetSku sets the "sku" field.
-func (bpc *BillProductCreate) SetSku(s string) *BillProductCreate {
-	bpc.mutation.SetSku(s)
-	return bpc
+func (_c *BillProductCreate) SetSku(v string) *BillProductCreate {
+	_c.mutation.SetSku(v)
+	return _c
 }
 
 // SetQuantity sets the "quantity" field.
-func (bpc *BillProductCreate) SetQuantity(i int) *BillProductCreate {
-	bpc.mutation.SetQuantity(i)
-	return bpc
+func (_c *BillProductCreate) SetQuantity(v int) *BillProductCreate {
+	_c.mutation.SetQuantity(v)
+	return _c
 }
 
 // SetNillableQuantity sets the "quantity" field if the given value is not nil.
-func (bpc *BillProductCreate) SetNillableQuantity(i *int) *BillProductCreate {
-	if i != nil {
-		bpc.SetQuantity(*i)
+func (_c *BillProductCreate) SetNillableQuantity(v *int) *BillProductCreate {
+	if v != nil {
+		_c.SetQuantity(*v)
 	}
-	return bpc
+	return _c
 }
 
 // Mutation returns the BillProductMutation object of the builder.
-func (bpc *BillProductCreate) Mutation() *BillProductMutation {
-	return bpc.mutation
+func (_c *BillProductCreate) Mutation() *BillProductMutation {
+	return _c.mutation
 }
 
 // Save creates the BillProduct in the database.
-func (bpc *BillProductCreate) Save(ctx context.Context) (*BillProduct, error) {
-	bpc.defaults()
-	return withHooks(ctx, bpc.sqlSave, bpc.mutation, bpc.hooks)
+func (_c *BillProductCreate) Save(ctx context.Context) (*BillProduct, error) {
+	if err := entgen.ApplyDefaults(_c.mutation, billproductCreateSpec.Fields); err != nil {
+		return nil, err
+	}
+	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
-func (bpc *BillProductCreate) SaveX(ctx context.Context) *BillProduct {
-	v, err := bpc.Save(ctx)
+func (_c *BillProductCreate) SaveX(ctx context.Context) *BillProduct {
+	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -80,86 +85,177 @@ func (bpc *BillProductCreate) SaveX(ctx context.Context) *BillProduct {
 }
 
 // Exec executes the query.
-func (bpc *BillProductCreate) Exec(ctx context.Context) error {
-	_, err := bpc.Save(ctx)
+func (_c *BillProductCreate) Exec(ctx context.Context) error {
+	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (bpc *BillProductCreate) ExecX(ctx context.Context) {
-	if err := bpc.Exec(ctx); err != nil {
+func (_c *BillProductCreate) ExecX(ctx context.Context) {
+	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (bpc *BillProductCreate) defaults() {
-	if _, ok := bpc.mutation.Quantity(); !ok {
-		v := billproduct.DefaultQuantity
-		bpc.mutation.SetQuantity(v)
-	}
+var billproductCreateSpec = entgen.CreateSpec[*BillProductMutation]{
+	Fields: []entgen.FieldSpec[*BillProductMutation]{
+		{
+			Name: "name",
+			Requirement: entgen.FieldRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "BillProduct.name"`)}
+				},
+			},
+			IsSet: func(m *BillProductMutation) bool {
+				_, ok := m.Name()
+				return ok
+			},
+			Validators: []func(*BillProductMutation) error{
+				func(m *BillProductMutation) error {
+					if v, ok := m.Name(); ok {
+						if err := billproduct.NameValidator(v); err != nil {
+							return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "BillProduct.name": %w`, err)}
+						}
+					}
+					return nil
+				},
+			},
+		},
+		{
+			Name: "sku",
+			Requirement: entgen.FieldRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "sku", err: errors.New(`ent: missing required field "BillProduct.sku"`)}
+				},
+			},
+			IsSet: func(m *BillProductMutation) bool {
+				_, ok := m.Sku()
+				return ok
+			},
+			Validators: []func(*BillProductMutation) error{
+				func(m *BillProductMutation) error {
+					if v, ok := m.Sku(); ok {
+						if err := billproduct.SkuValidator(v); err != nil {
+							return &ValidationError{Name: "sku", err: fmt.Errorf(`ent: validator failed for field "BillProduct.sku": %w`, err)}
+						}
+					}
+					return nil
+				},
+			},
+		},
+		{
+			Name: "quantity",
+			Requirement: entgen.FieldRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "quantity", err: errors.New(`ent: missing required field "BillProduct.quantity"`)}
+				},
+			},
+			IsSet: func(m *BillProductMutation) bool {
+				_, ok := m.Quantity()
+				return ok
+			},
+			Default: func(m *BillProductMutation) error {
+				if _, ok := m.Quantity(); !ok {
+					v := billproduct.DefaultQuantity
+					m.SetQuantity(v)
+				}
+				return nil
+			},
+		},
+	},
+	Edges: []entgen.EdgeSpec[*BillProductMutation]{},
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (bpc *BillProductCreate) check() error {
-	if _, ok := bpc.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "BillProduct.name"`)}
-	}
-	if v, ok := bpc.mutation.Name(); ok {
-		if err := billproduct.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "BillProduct.name": %w`, err)}
-		}
-	}
-	if _, ok := bpc.mutation.Sku(); !ok {
-		return &ValidationError{Name: "sku", err: errors.New(`ent: missing required field "BillProduct.sku"`)}
-	}
-	if v, ok := bpc.mutation.Sku(); ok {
-		if err := billproduct.SkuValidator(v); err != nil {
-			return &ValidationError{Name: "sku", err: fmt.Errorf(`ent: validator failed for field "BillProduct.sku": %w`, err)}
-		}
-	}
-	if _, ok := bpc.mutation.Quantity(); !ok {
-		return &ValidationError{Name: "quantity", err: errors.New(`ent: missing required field "BillProduct.quantity"`)}
-	}
-	return nil
+var billproductCreateDescriptor = entbuilder.CreateDescriptor[config, BillProduct, *BillProductMutation]{
+	Table: billproduct.Table,
+	NewNode: func(cfg config) *BillProduct {
+		return &BillProduct{config: cfg}
+	},
+	ID: &entbuilder.IDDescriptor[config, BillProduct, *BillProductMutation]{
+		Column:      billproduct.FieldID,
+		Type:        field.TypeInt,
+		UserDefined: false,
+		AssignGenerated: func(node *BillProduct, value driver.Value) error {
+			switch v := value.(type) {
+			case int:
+				node.ID = int(v)
+			case int8:
+				node.ID = int(v)
+			case int16:
+				node.ID = int(v)
+			case int32:
+				node.ID = int(v)
+			case int64:
+				node.ID = int(v)
+			case uint:
+				node.ID = int(v)
+			case uint8:
+				node.ID = int(v)
+			case uint16:
+				node.ID = int(v)
+			case uint32:
+				node.ID = int(v)
+			case uint64:
+				node.ID = int(v)
+			default:
+				if v, ok := value.(int); ok {
+					node.ID = v
+					return nil
+				}
+				return fmt.Errorf("unexpected BillProduct.ID type: %T", value)
+			}
+			return nil
+		},
+	},
+
+	Fields: []entbuilder.FieldDescriptor[config, BillProduct, *BillProductMutation]{
+
+		entbuilder.SimpleField[config, BillProduct, *BillProductMutation, string](
+			billproduct.FieldName,
+			field.TypeString,
+			(*BillProductMutation).Name,
+			func(n *BillProduct, v string) { n.Name = v },
+		),
+
+		entbuilder.SimpleField[config, BillProduct, *BillProductMutation, string](
+			billproduct.FieldSku,
+			field.TypeString,
+			(*BillProductMutation).Sku,
+			func(n *BillProduct, v string) { n.Sku = v },
+		),
+
+		entbuilder.SimpleField[config, BillProduct, *BillProductMutation, int](
+			billproduct.FieldQuantity,
+			field.TypeInt,
+			(*BillProductMutation).Quantity,
+			func(n *BillProduct, v int) { n.Quantity = v },
+		),
+	},
 }
 
-func (bpc *BillProductCreate) sqlSave(ctx context.Context) (*BillProduct, error) {
-	if err := bpc.check(); err != nil {
+func (_c *BillProductCreate) sqlSave(ctx context.Context) (*BillProduct, error) {
+	if err := entgen.CheckCreate(_c.driver.Dialect(), _c.mutation, billproductCreateSpec); err != nil {
 		return nil, err
 	}
-	_node, _spec := bpc.createSpec()
-	if err := sqlgraph.CreateNode(ctx, bpc.driver, _spec); err != nil {
+	_node, _spec, err := entbuilder.BuildCreateSpec(_c.config, _c.mutation, &billproductCreateDescriptor)
+	if err != nil {
+		return nil, err
+	}
+	if err := sqlgraph.CreateNode(ctx, _c.driver, _spec); err != nil {
 		if sqlgraph.IsConstraintError(err) {
 			err = &ConstraintError{msg: err.Error(), wrap: err}
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
-	bpc.mutation.id = &_node.ID
-	bpc.mutation.done = true
+	if err := entbuilder.ApplyGeneratedID(_c.mutation, _spec, _node, &billproductCreateDescriptor); err != nil {
+		return nil, err
+	}
+	_c.mutation.id = &_node.ID
+	_c.mutation.done = true
 	return _node, nil
-}
-
-func (bpc *BillProductCreate) createSpec() (*BillProduct, *sqlgraph.CreateSpec) {
-	var (
-		_node = &BillProduct{config: bpc.config}
-		_spec = sqlgraph.NewCreateSpec(billproduct.Table, sqlgraph.NewFieldSpec(billproduct.FieldID, field.TypeInt))
-	)
-	if value, ok := bpc.mutation.Name(); ok {
-		_spec.SetField(billproduct.FieldName, field.TypeString, value)
-		_node.Name = value
-	}
-	if value, ok := bpc.mutation.Sku(); ok {
-		_spec.SetField(billproduct.FieldSku, field.TypeString, value)
-		_node.Sku = value
-	}
-	if value, ok := bpc.mutation.Quantity(); ok {
-		_spec.SetField(billproduct.FieldQuantity, field.TypeInt, value)
-		_node.Quantity = value
-	}
-	return _node, _spec
 }
 
 // BillProductCreateBulk is the builder for creating many BillProduct entities in bulk.
@@ -170,58 +266,68 @@ type BillProductCreateBulk struct {
 }
 
 // Save creates the BillProduct entities in the database.
-func (bpcb *BillProductCreateBulk) Save(ctx context.Context) ([]*BillProduct, error) {
-	if bpcb.err != nil {
-		return nil, bpcb.err
+func (_c *BillProductCreateBulk) Save(ctx context.Context) ([]*BillProduct, error) {
+	if _c.err != nil {
+		return nil, _c.err
 	}
-	specs := make([]*sqlgraph.CreateSpec, len(bpcb.builders))
-	nodes := make([]*BillProduct, len(bpcb.builders))
-	mutators := make([]Mutator, len(bpcb.builders))
-	for i := range bpcb.builders {
+	specs := make([]*sqlgraph.CreateSpec, len(_c.builders))
+	nodes := make([]*BillProduct, len(_c.builders))
+	mutators := make([]Mutator, len(_c.builders))
+	for i := range _c.builders {
+		if err := entgen.ApplyDefaults(_c.builders[i].mutation, billproductCreateSpec.Fields); err != nil {
+			return nil, err
+		}
+	}
+	for i := range _c.builders {
 		func(i int, root context.Context) {
-			builder := bpcb.builders[i]
-			builder.defaults()
+			curr := _c.builders[i]
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*BillProductMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
 				}
-				if err := builder.check(); err != nil {
+				if err := entgen.CheckCreate(curr.driver.Dialect(), mutation, billproductCreateSpec); err != nil {
 					return nil, err
 				}
-				builder.mutation = mutation
+				curr.mutation = mutation
 				var err error
-				nodes[i], specs[i] = builder.createSpec()
+				nodes[i], specs[i], err = entbuilder.BuildCreateSpec(curr.config, mutation, &billproductCreateDescriptor)
+				if err != nil {
+					return nil, err
+				}
 				if i < len(mutators)-1 {
-					_, err = mutators[i+1].Mutate(root, bpcb.builders[i+1].mutation)
+					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
 					// Invoke the actual operation on the latest mutation in the chain.
-					if err = sqlgraph.BatchCreate(ctx, bpcb.driver, spec); err != nil {
+					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
 							err = &ConstraintError{msg: err.Error(), wrap: err}
+						}
+					}
+					if err == nil {
+						for j := range specs {
+							if err = entbuilder.ApplyGeneratedID(_c.builders[j].mutation, specs[j], nodes[j], &billproductCreateDescriptor); err != nil {
+								break
+							}
+							_c.builders[j].mutation.id = &nodes[j].ID
+							_c.builders[j].mutation.done = true
 						}
 					}
 				}
 				if err != nil {
 					return nil, err
 				}
-				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
-				mutation.done = true
 				return nodes[i], nil
 			})
-			for i := len(builder.hooks) - 1; i >= 0; i-- {
-				mut = builder.hooks[i](mut)
+			for i := len(curr.hooks) - 1; i >= 0; i-- {
+				mut = curr.hooks[i](mut)
 			}
 			mutators[i] = mut
 		}(i, ctx)
 	}
 	if len(mutators) > 0 {
-		if _, err := mutators[0].Mutate(ctx, bpcb.builders[0].mutation); err != nil {
+		if _, err := mutators[0].Mutate(ctx, _c.builders[0].mutation); err != nil {
 			return nil, err
 		}
 	}
@@ -229,8 +335,8 @@ func (bpcb *BillProductCreateBulk) Save(ctx context.Context) ([]*BillProduct, er
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (bpcb *BillProductCreateBulk) SaveX(ctx context.Context) []*BillProduct {
-	v, err := bpcb.Save(ctx)
+func (_c *BillProductCreateBulk) SaveX(ctx context.Context) []*BillProduct {
+	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -238,14 +344,14 @@ func (bpcb *BillProductCreateBulk) SaveX(ctx context.Context) []*BillProduct {
 }
 
 // Exec executes the query.
-func (bpcb *BillProductCreateBulk) Exec(ctx context.Context) error {
-	_, err := bpcb.Save(ctx)
+func (_c *BillProductCreateBulk) Exec(ctx context.Context) error {
+	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (bpcb *BillProductCreateBulk) ExecX(ctx context.Context) {
-	if err := bpcb.Exec(ctx); err != nil {
+func (_c *BillProductCreateBulk) ExecX(ctx context.Context) {
+	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

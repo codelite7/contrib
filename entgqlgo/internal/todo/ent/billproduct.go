@@ -57,7 +57,7 @@ func (*BillProduct) scanValues(columns []string) ([]any, error) {
 
 // assignValues assigns the values that were returned from sql.Rows (after scanning)
 // to the BillProduct fields.
-func (bp *BillProduct) assignValues(columns []string, values []any) error {
+func (_m *BillProduct) assignValues(columns []string, values []any) error {
 	if m, n := len(values), len(columns); m < n {
 		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
@@ -68,27 +68,27 @@ func (bp *BillProduct) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			bp.ID = int(value.Int64)
+			_m.ID = int(value.Int64)
 		case billproduct.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
-				bp.Name = value.String
+				_m.Name = value.String
 			}
 		case billproduct.FieldSku:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field sku", values[i])
 			} else if value.Valid {
-				bp.Sku = value.String
+				_m.Sku = value.String
 			}
 		case billproduct.FieldQuantity:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field quantity", values[i])
 			} else if value.Valid {
-				bp.Quantity = int(value.Int64)
+				_m.Quantity = int(value.Int64)
 			}
 		default:
-			bp.selectValues.Set(columns[i], values[i])
+			_m.selectValues.Set(columns[i], values[i])
 		}
 	}
 	return nil
@@ -96,41 +96,41 @@ func (bp *BillProduct) assignValues(columns []string, values []any) error {
 
 // Value returns the ent.Value that was dynamically selected and assigned to the BillProduct.
 // This includes values selected through modifiers, order, etc.
-func (bp *BillProduct) Value(name string) (ent.Value, error) {
-	return bp.selectValues.Get(name)
+func (_m *BillProduct) Value(name string) (ent.Value, error) {
+	return _m.selectValues.Get(name)
 }
 
 // Update returns a builder for updating this BillProduct.
 // Note that you need to call BillProduct.Unwrap() before calling this method if this BillProduct
 // was returned from a transaction, and the transaction was committed or rolled back.
-func (bp *BillProduct) Update() *BillProductUpdateOne {
-	return NewBillProductClient(bp.config).UpdateOne(bp)
+func (_m *BillProduct) Update() *BillProductUpdateOne {
+	return NewBillProductClient(_m.config).UpdateOne(_m)
 }
 
 // Unwrap unwraps the BillProduct entity that was returned from a transaction after it was closed,
 // so that all future queries will be executed through the driver which created the transaction.
-func (bp *BillProduct) Unwrap() *BillProduct {
-	_tx, ok := bp.config.driver.(*txDriver)
+func (_m *BillProduct) Unwrap() *BillProduct {
+	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
 		panic("ent: BillProduct is not a transactional entity")
 	}
-	bp.config.driver = _tx.drv
-	return bp
+	_m.config.driver = _tx.drv
+	return _m
 }
 
 // String implements the fmt.Stringer.
-func (bp *BillProduct) String() string {
+func (_m *BillProduct) String() string {
 	var builder strings.Builder
 	builder.WriteString("BillProduct(")
-	builder.WriteString(fmt.Sprintf("id=%v, ", bp.ID))
+	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("name=")
-	builder.WriteString(bp.Name)
+	builder.WriteString(_m.Name)
 	builder.WriteString(", ")
 	builder.WriteString("sku=")
-	builder.WriteString(bp.Sku)
+	builder.WriteString(_m.Sku)
 	builder.WriteString(", ")
 	builder.WriteString("quantity=")
-	builder.WriteString(fmt.Sprintf("%v", bp.Quantity))
+	builder.WriteString(fmt.Sprintf("%v", _m.Quantity))
 	builder.WriteByte(')')
 	return builder.String()
 }

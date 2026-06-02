@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 
@@ -12,6 +13,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/parity/ent/todo"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
 )
 
@@ -23,88 +25,88 @@ type CategoryUpdate struct {
 }
 
 // Where appends a list predicates to the CategoryUpdate builder.
-func (cu *CategoryUpdate) Where(ps ...predicate.Category) *CategoryUpdate {
-	cu.mutation.Where(ps...)
-	return cu
+func (_u *CategoryUpdate) Where(ps ...predicate.Category) *CategoryUpdate {
+	_u.mutation.Where(ps...)
+	return _u
 }
 
 // SetText sets the "text" field.
-func (cu *CategoryUpdate) SetText(s string) *CategoryUpdate {
-	cu.mutation.SetText(s)
-	return cu
+func (_u *CategoryUpdate) SetText(v string) *CategoryUpdate {
+	_u.mutation.SetText(v)
+	return _u
 }
 
 // SetNillableText sets the "text" field if the given value is not nil.
-func (cu *CategoryUpdate) SetNillableText(s *string) *CategoryUpdate {
-	if s != nil {
-		cu.SetText(*s)
+func (_u *CategoryUpdate) SetNillableText(v *string) *CategoryUpdate {
+	if v != nil {
+		_u.SetText(*v)
 	}
-	return cu
+	return _u
 }
 
 // SetStatus sets the "status" field.
-func (cu *CategoryUpdate) SetStatus(c category.Status) *CategoryUpdate {
-	cu.mutation.SetStatus(c)
-	return cu
+func (_u *CategoryUpdate) SetStatus(v category.Status) *CategoryUpdate {
+	_u.mutation.SetStatus(v)
+	return _u
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (cu *CategoryUpdate) SetNillableStatus(c *category.Status) *CategoryUpdate {
-	if c != nil {
-		cu.SetStatus(*c)
+func (_u *CategoryUpdate) SetNillableStatus(v *category.Status) *CategoryUpdate {
+	if v != nil {
+		_u.SetStatus(*v)
 	}
-	return cu
+	return _u
 }
 
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
-func (cu *CategoryUpdate) AddTodoIDs(ids ...int) *CategoryUpdate {
-	cu.mutation.AddTodoIDs(ids...)
-	return cu
+func (_u *CategoryUpdate) AddTodoIDs(ids ...int) *CategoryUpdate {
+	_u.mutation.AddTodoIDs(ids...)
+	return _u
 }
 
 // AddTodos adds the "todos" edges to the Todo entity.
-func (cu *CategoryUpdate) AddTodos(t ...*Todo) *CategoryUpdate {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *CategoryUpdate) AddTodos(v ...*Todo) *CategoryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return cu.AddTodoIDs(ids...)
+	return _u.AddTodoIDs(ids...)
 }
 
 // Mutation returns the CategoryMutation object of the builder.
-func (cu *CategoryUpdate) Mutation() *CategoryMutation {
-	return cu.mutation
+func (_u *CategoryUpdate) Mutation() *CategoryMutation {
+	return _u.mutation
 }
 
 // ClearTodos clears all "todos" edges to the Todo entity.
-func (cu *CategoryUpdate) ClearTodos() *CategoryUpdate {
-	cu.mutation.ClearTodos()
-	return cu
+func (_u *CategoryUpdate) ClearTodos() *CategoryUpdate {
+	_u.mutation.ClearTodos()
+	return _u
 }
 
 // RemoveTodoIDs removes the "todos" edge to Todo entities by IDs.
-func (cu *CategoryUpdate) RemoveTodoIDs(ids ...int) *CategoryUpdate {
-	cu.mutation.RemoveTodoIDs(ids...)
-	return cu
+func (_u *CategoryUpdate) RemoveTodoIDs(ids ...int) *CategoryUpdate {
+	_u.mutation.RemoveTodoIDs(ids...)
+	return _u
 }
 
 // RemoveTodos removes "todos" edges to Todo entities.
-func (cu *CategoryUpdate) RemoveTodos(t ...*Todo) *CategoryUpdate {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *CategoryUpdate) RemoveTodos(v ...*Todo) *CategoryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return cu.RemoveTodoIDs(ids...)
+	return _u.RemoveTodoIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
-func (cu *CategoryUpdate) Save(ctx context.Context) (int, error) {
-	return withHooks(ctx, cu.sqlSave, cu.mutation, cu.hooks)
+func (_u *CategoryUpdate) Save(ctx context.Context) (int, error) {
+	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (cu *CategoryUpdate) SaveX(ctx context.Context) int {
-	affected, err := cu.Save(ctx)
+func (_u *CategoryUpdate) SaveX(ctx context.Context) int {
+	affected, err := _u.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -112,26 +114,26 @@ func (cu *CategoryUpdate) SaveX(ctx context.Context) int {
 }
 
 // Exec executes the query.
-func (cu *CategoryUpdate) Exec(ctx context.Context) error {
-	_, err := cu.Save(ctx)
+func (_u *CategoryUpdate) Exec(ctx context.Context) error {
+	_, err := _u.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (cu *CategoryUpdate) ExecX(ctx context.Context) {
-	if err := cu.Exec(ctx); err != nil {
+func (_u *CategoryUpdate) ExecX(ctx context.Context) {
+	if err := _u.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (cu *CategoryUpdate) check() error {
-	if v, ok := cu.mutation.Text(); ok {
+func (_u *CategoryUpdate) check() error {
+	if v, ok := _u.mutation.Text(); ok {
 		if err := category.TextValidator(v); err != nil {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Category.text": %w`, err)}
 		}
 	}
-	if v, ok := cu.mutation.Status(); ok {
+	if v, ok := _u.mutation.Status(); ok {
 		if err := category.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
 		}
@@ -139,70 +141,105 @@ func (cu *CategoryUpdate) check() error {
 	return nil
 }
 
-func (cu *CategoryUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	if err := cu.check(); err != nil {
-		return n, err
+var categoryUpdateDescriptor = entbuilder.UpdateDescriptor[config, *CategoryMutation]{
+	Fields: []entbuilder.UpdateFieldDescriptor[*CategoryMutation]{
+		{
+			Column: category.FieldText,
+			Type:   field.TypeString,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Text(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+
+		{
+			Column: category.FieldStatus,
+			Type:   field.TypeEnum,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Status(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+	},
+	Edges: []entbuilder.UpdateEdgeDescriptor[config, *CategoryMutation]{
+		{
+			Clear: func(cfg config, m *CategoryMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.TodosCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.O2M,
+						Inverse:      false,
+						Table:        category.TodosTable,
+						Columns:      category.TodosColumn,
+						Bidi:         false,
+						TargetColumn: todo.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Remove: func(cfg config, m *CategoryMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.RemovedTodosIDs()
+				if len(nodes) == 0 || m.TodosCleared() {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.O2M,
+					Inverse:      false,
+					Table:        category.TodosTable,
+					Columns:      category.TodosColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+			Add: func(cfg config, m *CategoryMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.TodosIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.O2M,
+					Inverse:      false,
+					Table:        category.TodosTable,
+					Columns:      category.TodosColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
+	},
+}
+
+func (_u *CategoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
 	}
 	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
-	if ps := cu.mutation.predicates; len(ps) > 0 {
+	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
 	}
-	if value, ok := cu.mutation.Text(); ok {
-		_spec.SetField(category.FieldText, field.TypeString, value)
+	if err := entbuilder.ApplyUpdate(_u.config, _u.mutation, &categoryUpdateDescriptor, _spec); err != nil {
+		return 0, err
 	}
-	if value, ok := cu.mutation.Status(); ok {
-		_spec.SetField(category.FieldStatus, field.TypeEnum, value)
-	}
-	if cu.mutation.TodosCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := cu.mutation.RemovedTodosIDs(); len(nodes) > 0 && !cu.mutation.TodosCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := cu.mutation.TodosIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if n, err = sqlgraph.UpdateNodes(ctx, cu.driver, _spec); err != nil {
+	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{category.Label}
 		} else if sqlgraph.IsConstraintError(err) {
@@ -210,8 +247,8 @@ func (cu *CategoryUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		return 0, err
 	}
-	cu.mutation.done = true
-	return n, nil
+	_u.mutation.done = true
+	return _node, nil
 }
 
 // CategoryUpdateOne is the builder for updating a single Category entity.
@@ -223,95 +260,95 @@ type CategoryUpdateOne struct {
 }
 
 // SetText sets the "text" field.
-func (cuo *CategoryUpdateOne) SetText(s string) *CategoryUpdateOne {
-	cuo.mutation.SetText(s)
-	return cuo
+func (_u *CategoryUpdateOne) SetText(v string) *CategoryUpdateOne {
+	_u.mutation.SetText(v)
+	return _u
 }
 
 // SetNillableText sets the "text" field if the given value is not nil.
-func (cuo *CategoryUpdateOne) SetNillableText(s *string) *CategoryUpdateOne {
-	if s != nil {
-		cuo.SetText(*s)
+func (_u *CategoryUpdateOne) SetNillableText(v *string) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetText(*v)
 	}
-	return cuo
+	return _u
 }
 
 // SetStatus sets the "status" field.
-func (cuo *CategoryUpdateOne) SetStatus(c category.Status) *CategoryUpdateOne {
-	cuo.mutation.SetStatus(c)
-	return cuo
+func (_u *CategoryUpdateOne) SetStatus(v category.Status) *CategoryUpdateOne {
+	_u.mutation.SetStatus(v)
+	return _u
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (cuo *CategoryUpdateOne) SetNillableStatus(c *category.Status) *CategoryUpdateOne {
-	if c != nil {
-		cuo.SetStatus(*c)
+func (_u *CategoryUpdateOne) SetNillableStatus(v *category.Status) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetStatus(*v)
 	}
-	return cuo
+	return _u
 }
 
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
-func (cuo *CategoryUpdateOne) AddTodoIDs(ids ...int) *CategoryUpdateOne {
-	cuo.mutation.AddTodoIDs(ids...)
-	return cuo
+func (_u *CategoryUpdateOne) AddTodoIDs(ids ...int) *CategoryUpdateOne {
+	_u.mutation.AddTodoIDs(ids...)
+	return _u
 }
 
 // AddTodos adds the "todos" edges to the Todo entity.
-func (cuo *CategoryUpdateOne) AddTodos(t ...*Todo) *CategoryUpdateOne {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *CategoryUpdateOne) AddTodos(v ...*Todo) *CategoryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return cuo.AddTodoIDs(ids...)
+	return _u.AddTodoIDs(ids...)
 }
 
 // Mutation returns the CategoryMutation object of the builder.
-func (cuo *CategoryUpdateOne) Mutation() *CategoryMutation {
-	return cuo.mutation
+func (_u *CategoryUpdateOne) Mutation() *CategoryMutation {
+	return _u.mutation
 }
 
 // ClearTodos clears all "todos" edges to the Todo entity.
-func (cuo *CategoryUpdateOne) ClearTodos() *CategoryUpdateOne {
-	cuo.mutation.ClearTodos()
-	return cuo
+func (_u *CategoryUpdateOne) ClearTodos() *CategoryUpdateOne {
+	_u.mutation.ClearTodos()
+	return _u
 }
 
 // RemoveTodoIDs removes the "todos" edge to Todo entities by IDs.
-func (cuo *CategoryUpdateOne) RemoveTodoIDs(ids ...int) *CategoryUpdateOne {
-	cuo.mutation.RemoveTodoIDs(ids...)
-	return cuo
+func (_u *CategoryUpdateOne) RemoveTodoIDs(ids ...int) *CategoryUpdateOne {
+	_u.mutation.RemoveTodoIDs(ids...)
+	return _u
 }
 
 // RemoveTodos removes "todos" edges to Todo entities.
-func (cuo *CategoryUpdateOne) RemoveTodos(t ...*Todo) *CategoryUpdateOne {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_u *CategoryUpdateOne) RemoveTodos(v ...*Todo) *CategoryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return cuo.RemoveTodoIDs(ids...)
+	return _u.RemoveTodoIDs(ids...)
 }
 
 // Where appends a list predicates to the CategoryUpdate builder.
-func (cuo *CategoryUpdateOne) Where(ps ...predicate.Category) *CategoryUpdateOne {
-	cuo.mutation.Where(ps...)
-	return cuo
+func (_u *CategoryUpdateOne) Where(ps ...predicate.Category) *CategoryUpdateOne {
+	_u.mutation.Where(ps...)
+	return _u
 }
 
 // Select allows selecting one or more fields (columns) of the returned entity.
 // The default is selecting all fields defined in the entity schema.
-func (cuo *CategoryUpdateOne) Select(field string, fields ...string) *CategoryUpdateOne {
-	cuo.fields = append([]string{field}, fields...)
-	return cuo
+func (_u *CategoryUpdateOne) Select(field string, fields ...string) *CategoryUpdateOne {
+	_u.fields = append([]string{field}, fields...)
+	return _u
 }
 
 // Save executes the query and returns the updated Category entity.
-func (cuo *CategoryUpdateOne) Save(ctx context.Context) (*Category, error) {
-	return withHooks(ctx, cuo.sqlSave, cuo.mutation, cuo.hooks)
+func (_u *CategoryUpdateOne) Save(ctx context.Context) (*Category, error) {
+	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (cuo *CategoryUpdateOne) SaveX(ctx context.Context) *Category {
-	node, err := cuo.Save(ctx)
+func (_u *CategoryUpdateOne) SaveX(ctx context.Context) *Category {
+	node, err := _u.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -319,26 +356,26 @@ func (cuo *CategoryUpdateOne) SaveX(ctx context.Context) *Category {
 }
 
 // Exec executes the query on the entity.
-func (cuo *CategoryUpdateOne) Exec(ctx context.Context) error {
-	_, err := cuo.Save(ctx)
+func (_u *CategoryUpdateOne) Exec(ctx context.Context) error {
+	_, err := _u.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (cuo *CategoryUpdateOne) ExecX(ctx context.Context) {
-	if err := cuo.Exec(ctx); err != nil {
+func (_u *CategoryUpdateOne) ExecX(ctx context.Context) {
+	if err := _u.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (cuo *CategoryUpdateOne) check() error {
-	if v, ok := cuo.mutation.Text(); ok {
+func (_u *CategoryUpdateOne) check() error {
+	if v, ok := _u.mutation.Text(); ok {
 		if err := category.TextValidator(v); err != nil {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Category.text": %w`, err)}
 		}
 	}
-	if v, ok := cuo.mutation.Status(); ok {
+	if v, ok := _u.mutation.Status(); ok {
 		if err := category.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
 		}
@@ -346,17 +383,17 @@ func (cuo *CategoryUpdateOne) check() error {
 	return nil
 }
 
-func (cuo *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err error) {
-	if err := cuo.check(); err != nil {
+func (_u *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err error) {
+	if err := _u.check(); err != nil {
 		return _node, err
 	}
 	_spec := sqlgraph.NewUpdateSpec(category.Table, category.Columns, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
-	id, ok := cuo.mutation.ID()
+	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Category.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
-	if fields := cuo.fields; len(fields) > 0 {
+	if fields := _u.fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
 		_spec.Node.Columns = append(_spec.Node.Columns, category.FieldID)
 		for _, f := range fields {
@@ -368,68 +405,20 @@ func (cuo *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err
 			}
 		}
 	}
-	if ps := cuo.mutation.predicates; len(ps) > 0 {
+	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
 	}
-	if value, ok := cuo.mutation.Text(); ok {
-		_spec.SetField(category.FieldText, field.TypeString, value)
+	if err := entbuilder.ApplyUpdate(_u.config, _u.mutation, &categoryUpdateDescriptor, _spec); err != nil {
+		return nil, err
 	}
-	if value, ok := cuo.mutation.Status(); ok {
-		_spec.SetField(category.FieldStatus, field.TypeEnum, value)
-	}
-	if cuo.mutation.TodosCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := cuo.mutation.RemovedTodosIDs(); len(nodes) > 0 && !cuo.mutation.TodosCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := cuo.mutation.TodosIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	_node = &Category{config: cuo.config}
+	_node = &Category{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues
-	if err = sqlgraph.UpdateNode(ctx, cuo.driver, _spec); err != nil {
+	if err = sqlgraph.UpdateNode(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{category.Label}
 		} else if sqlgraph.IsConstraintError(err) {
@@ -437,6 +426,6 @@ func (cuo *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err
 		}
 		return nil, err
 	}
-	cuo.mutation.done = true
+	_u.mutation.done = true
 	return _node, nil
 }

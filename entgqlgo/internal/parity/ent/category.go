@@ -63,7 +63,7 @@ func (*Category) scanValues(columns []string) ([]any, error) {
 
 // assignValues assigns the values that were returned from sql.Rows (after scanning)
 // to the Category fields.
-func (c *Category) assignValues(columns []string, values []any) error {
+func (_m *Category) assignValues(columns []string, values []any) error {
 	if m, n := len(values), len(columns); m < n {
 		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
@@ -74,21 +74,21 @@ func (c *Category) assignValues(columns []string, values []any) error {
 			if !ok {
 				return fmt.Errorf("unexpected type %T for field id", value)
 			}
-			c.ID = int(value.Int64)
+			_m.ID = int(value.Int64)
 		case category.FieldText:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field text", values[i])
 			} else if value.Valid {
-				c.Text = value.String
+				_m.Text = value.String
 			}
 		case category.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
-				c.Status = category.Status(value.String)
+				_m.Status = category.Status(value.String)
 			}
 		default:
-			c.selectValues.Set(columns[i], values[i])
+			_m.selectValues.Set(columns[i], values[i])
 		}
 	}
 	return nil
@@ -96,68 +96,68 @@ func (c *Category) assignValues(columns []string, values []any) error {
 
 // Value returns the ent.Value that was dynamically selected and assigned to the Category.
 // This includes values selected through modifiers, order, etc.
-func (c *Category) Value(name string) (ent.Value, error) {
-	return c.selectValues.Get(name)
+func (_m *Category) Value(name string) (ent.Value, error) {
+	return _m.selectValues.Get(name)
 }
 
 // QueryTodos queries the "todos" edge of the Category entity.
-func (c *Category) QueryTodos() *TodoQuery {
-	return NewCategoryClient(c.config).QueryTodos(c)
+func (_m *Category) QueryTodos() *TodoQuery {
+	return NewCategoryClient(_m.config).QueryTodos(_m)
 }
 
 // Update returns a builder for updating this Category.
 // Note that you need to call Category.Unwrap() before calling this method if this Category
 // was returned from a transaction, and the transaction was committed or rolled back.
-func (c *Category) Update() *CategoryUpdateOne {
-	return NewCategoryClient(c.config).UpdateOne(c)
+func (_m *Category) Update() *CategoryUpdateOne {
+	return NewCategoryClient(_m.config).UpdateOne(_m)
 }
 
 // Unwrap unwraps the Category entity that was returned from a transaction after it was closed,
 // so that all future queries will be executed through the driver which created the transaction.
-func (c *Category) Unwrap() *Category {
-	_tx, ok := c.config.driver.(*txDriver)
+func (_m *Category) Unwrap() *Category {
+	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
 		panic("ent: Category is not a transactional entity")
 	}
-	c.config.driver = _tx.drv
-	return c
+	_m.config.driver = _tx.drv
+	return _m
 }
 
 // String implements the fmt.Stringer.
-func (c *Category) String() string {
+func (_m *Category) String() string {
 	var builder strings.Builder
 	builder.WriteString("Category(")
-	builder.WriteString(fmt.Sprintf("id=%v, ", c.ID))
+	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("text=")
-	builder.WriteString(c.Text)
+	builder.WriteString(_m.Text)
 	builder.WriteString(", ")
 	builder.WriteString("status=")
-	builder.WriteString(fmt.Sprintf("%v", c.Status))
+	builder.WriteString(fmt.Sprintf("%v", _m.Status))
 	builder.WriteByte(')')
 	return builder.String()
 }
 
 // NamedTodos returns the Todos named value or an error if the edge was not
 // loaded in eager-loading with this name.
-func (c *Category) NamedTodos(name string) ([]*Todo, error) {
-	if c.Edges.namedTodos == nil {
+func (_m *Category) NamedTodos(name string) ([]*Todo, error) {
+	if _m.Edges.namedTodos == nil {
 		return nil, &NotLoadedError{edge: name}
 	}
-	nodes, ok := c.Edges.namedTodos[name]
+	nodes, ok := _m.Edges.namedTodos[name]
 	if !ok {
 		return nil, &NotLoadedError{edge: name}
 	}
 	return nodes, nil
 }
 
-func (c *Category) appendNamedTodos(name string, edges ...*Todo) {
-	if c.Edges.namedTodos == nil {
-		c.Edges.namedTodos = make(map[string][]*Todo)
+func (_m *Category) appendNamedTodos(name string, edges ...*Todo) {
+	if _m.Edges.namedTodos == nil {
+		_m.Edges.namedTodos = make(map[string][]*Todo)
 	}
 	if len(edges) == 0 {
-		c.Edges.namedTodos[name] = []*Todo{}
+		_m.Edges.namedTodos[name] = []*Todo{}
 	} else {
-		c.Edges.namedTodos[name] = append(c.Edges.namedTodos[name], edges...)
+		_m.Edges.namedTodos[name] = append(_m.Edges.namedTodos[name], edges...)
 	}
 }
 

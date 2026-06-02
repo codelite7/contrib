@@ -4,12 +4,15 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 
 	"entgo.io/contrib/entgqlgo/internal/parity/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/parity/ent/todo"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/runtime/entbuilder"
+	"entgo.io/ent/runtime/entgen"
 	"entgo.io/ent/schema/field"
 )
 
@@ -21,54 +24,56 @@ type CategoryCreate struct {
 }
 
 // SetText sets the "text" field.
-func (cc *CategoryCreate) SetText(s string) *CategoryCreate {
-	cc.mutation.SetText(s)
-	return cc
+func (_c *CategoryCreate) SetText(v string) *CategoryCreate {
+	_c.mutation.SetText(v)
+	return _c
 }
 
 // SetStatus sets the "status" field.
-func (cc *CategoryCreate) SetStatus(c category.Status) *CategoryCreate {
-	cc.mutation.SetStatus(c)
-	return cc
+func (_c *CategoryCreate) SetStatus(v category.Status) *CategoryCreate {
+	_c.mutation.SetStatus(v)
+	return _c
 }
 
 // SetNillableStatus sets the "status" field if the given value is not nil.
-func (cc *CategoryCreate) SetNillableStatus(c *category.Status) *CategoryCreate {
-	if c != nil {
-		cc.SetStatus(*c)
+func (_c *CategoryCreate) SetNillableStatus(v *category.Status) *CategoryCreate {
+	if v != nil {
+		_c.SetStatus(*v)
 	}
-	return cc
+	return _c
 }
 
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
-func (cc *CategoryCreate) AddTodoIDs(ids ...int) *CategoryCreate {
-	cc.mutation.AddTodoIDs(ids...)
-	return cc
+func (_c *CategoryCreate) AddTodoIDs(ids ...int) *CategoryCreate {
+	_c.mutation.AddTodoIDs(ids...)
+	return _c
 }
 
 // AddTodos adds the "todos" edges to the Todo entity.
-func (cc *CategoryCreate) AddTodos(t ...*Todo) *CategoryCreate {
-	ids := make([]int, len(t))
-	for i := range t {
-		ids[i] = t[i].ID
+func (_c *CategoryCreate) AddTodos(v ...*Todo) *CategoryCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
 	}
-	return cc.AddTodoIDs(ids...)
+	return _c.AddTodoIDs(ids...)
 }
 
 // Mutation returns the CategoryMutation object of the builder.
-func (cc *CategoryCreate) Mutation() *CategoryMutation {
-	return cc.mutation
+func (_c *CategoryCreate) Mutation() *CategoryMutation {
+	return _c.mutation
 }
 
 // Save creates the Category in the database.
-func (cc *CategoryCreate) Save(ctx context.Context) (*Category, error) {
-	cc.defaults()
-	return withHooks(ctx, cc.sqlSave, cc.mutation, cc.hooks)
+func (_c *CategoryCreate) Save(ctx context.Context) (*Category, error) {
+	if err := entgen.ApplyDefaults(_c.mutation, categoryCreateSpec.Fields); err != nil {
+		return nil, err
+	}
+	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
-func (cc *CategoryCreate) SaveX(ctx context.Context) *Category {
-	v, err := cc.Save(ctx)
+func (_c *CategoryCreate) SaveX(ctx context.Context) *Category {
+	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -76,95 +81,181 @@ func (cc *CategoryCreate) SaveX(ctx context.Context) *Category {
 }
 
 // Exec executes the query.
-func (cc *CategoryCreate) Exec(ctx context.Context) error {
-	_, err := cc.Save(ctx)
+func (_c *CategoryCreate) Exec(ctx context.Context) error {
+	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (cc *CategoryCreate) ExecX(ctx context.Context) {
-	if err := cc.Exec(ctx); err != nil {
+func (_c *CategoryCreate) ExecX(ctx context.Context) {
+	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
-// defaults sets the default values of the builder before save.
-func (cc *CategoryCreate) defaults() {
-	if _, ok := cc.mutation.Status(); !ok {
-		v := category.DefaultStatus
-		cc.mutation.SetStatus(v)
-	}
+var categoryCreateSpec = entgen.CreateSpec[*CategoryMutation]{
+	Fields: []entgen.FieldSpec[*CategoryMutation]{
+		{
+			Name: "text",
+			Requirement: entgen.FieldRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "text", err: errors.New(`ent: missing required field "Category.text"`)}
+				},
+			},
+			IsSet: func(m *CategoryMutation) bool {
+				_, ok := m.Text()
+				return ok
+			},
+			Validators: []func(*CategoryMutation) error{
+				func(m *CategoryMutation) error {
+					if v, ok := m.Text(); ok {
+						if err := category.TextValidator(v); err != nil {
+							return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Category.text": %w`, err)}
+						}
+					}
+					return nil
+				},
+			},
+		},
+		{
+			Name: "status",
+			Requirement: entgen.FieldRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Category.status"`)}
+				},
+			},
+			IsSet: func(m *CategoryMutation) bool {
+				_, ok := m.Status()
+				return ok
+			},
+			Default: func(m *CategoryMutation) error {
+				if _, ok := m.Status(); !ok {
+					v := category.DefaultStatus
+					m.SetStatus(v)
+				}
+				return nil
+			},
+			Validators: []func(*CategoryMutation) error{
+				func(m *CategoryMutation) error {
+					if v, ok := m.Status(); ok {
+						if err := category.StatusValidator(v); err != nil {
+							return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
+						}
+					}
+					return nil
+				},
+			},
+		},
+	},
+	Edges: []entgen.EdgeSpec[*CategoryMutation]{},
 }
 
-// check runs all checks and user-defined validators on the builder.
-func (cc *CategoryCreate) check() error {
-	if _, ok := cc.mutation.Text(); !ok {
-		return &ValidationError{Name: "text", err: errors.New(`ent: missing required field "Category.text"`)}
-	}
-	if v, ok := cc.mutation.Text(); ok {
-		if err := category.TextValidator(v); err != nil {
-			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Category.text": %w`, err)}
-		}
-	}
-	if _, ok := cc.mutation.Status(); !ok {
-		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Category.status"`)}
-	}
-	if v, ok := cc.mutation.Status(); ok {
-		if err := category.StatusValidator(v); err != nil {
-			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
-		}
-	}
-	return nil
+var categoryCreateDescriptor = entbuilder.CreateDescriptor[config, Category, *CategoryMutation]{
+	Table: category.Table,
+	NewNode: func(cfg config) *Category {
+		return &Category{config: cfg}
+	},
+	ID: &entbuilder.IDDescriptor[config, Category, *CategoryMutation]{
+		Column:      category.FieldID,
+		Type:        field.TypeInt,
+		UserDefined: false,
+		AssignGenerated: func(node *Category, value driver.Value) error {
+			switch v := value.(type) {
+			case int:
+				node.ID = int(v)
+			case int8:
+				node.ID = int(v)
+			case int16:
+				node.ID = int(v)
+			case int32:
+				node.ID = int(v)
+			case int64:
+				node.ID = int(v)
+			case uint:
+				node.ID = int(v)
+			case uint8:
+				node.ID = int(v)
+			case uint16:
+				node.ID = int(v)
+			case uint32:
+				node.ID = int(v)
+			case uint64:
+				node.ID = int(v)
+			default:
+				if v, ok := value.(int); ok {
+					node.ID = v
+					return nil
+				}
+				return fmt.Errorf("unexpected Category.ID type: %T", value)
+			}
+			return nil
+		},
+	},
+
+	Fields: []entbuilder.FieldDescriptor[config, Category, *CategoryMutation]{
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, string](
+			category.FieldText,
+			field.TypeString,
+			(*CategoryMutation).Text,
+			func(n *Category, v string) { n.Text = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, category.Status](
+			category.FieldStatus,
+			field.TypeEnum,
+			(*CategoryMutation).Status,
+			func(n *Category, v category.Status) { n.Status = v },
+		),
+	},
+	Edges: []entbuilder.EdgeDescriptor[config, Category, *CategoryMutation]{
+		{
+			Value: func(cfg config, m *CategoryMutation) (entbuilder.EdgeValue, bool, error) {
+				nodes := m.TodosIDs()
+				if len(nodes) == 0 {
+					return entbuilder.EdgeValue{}, false, nil
+				}
+				edge := &sqlgraph.EdgeSpec{
+					Rel:     sqlgraph.O2M,
+					Inverse: false,
+					Table:   category.TodosTable,
+					Columns: []string{category.TodosColumn},
+					Bidi:    false,
+					Target: &sqlgraph.EdgeTarget{
+						IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
+					},
+				}
+				for _, k := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, k)
+				}
+				return entbuilder.EdgeValue{Spec: edge, Nodes: nodes}, true, nil
+			},
+		},
+	},
 }
 
-func (cc *CategoryCreate) sqlSave(ctx context.Context) (*Category, error) {
-	if err := cc.check(); err != nil {
+func (_c *CategoryCreate) sqlSave(ctx context.Context) (*Category, error) {
+	if err := entgen.CheckCreate(_c.driver.Dialect(), _c.mutation, categoryCreateSpec); err != nil {
 		return nil, err
 	}
-	_node, _spec := cc.createSpec()
-	if err := sqlgraph.CreateNode(ctx, cc.driver, _spec); err != nil {
+	_node, _spec, err := entbuilder.BuildCreateSpec(_c.config, _c.mutation, &categoryCreateDescriptor)
+	if err != nil {
+		return nil, err
+	}
+	if err := sqlgraph.CreateNode(ctx, _c.driver, _spec); err != nil {
 		if sqlgraph.IsConstraintError(err) {
 			err = &ConstraintError{msg: err.Error(), wrap: err}
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
-	cc.mutation.id = &_node.ID
-	cc.mutation.done = true
+	if err := entbuilder.ApplyGeneratedID(_c.mutation, _spec, _node, &categoryCreateDescriptor); err != nil {
+		return nil, err
+	}
+	_c.mutation.id = &_node.ID
+	_c.mutation.done = true
 	return _node, nil
-}
-
-func (cc *CategoryCreate) createSpec() (*Category, *sqlgraph.CreateSpec) {
-	var (
-		_node = &Category{config: cc.config}
-		_spec = sqlgraph.NewCreateSpec(category.Table, sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt))
-	)
-	if value, ok := cc.mutation.Text(); ok {
-		_spec.SetField(category.FieldText, field.TypeString, value)
-		_node.Text = value
-	}
-	if value, ok := cc.mutation.Status(); ok {
-		_spec.SetField(category.FieldStatus, field.TypeEnum, value)
-		_node.Status = value
-	}
-	if nodes := cc.mutation.TodosIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
-			Inverse: false,
-			Table:   category.TodosTable,
-			Columns: []string{category.TodosColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	return _node, _spec
 }
 
 // CategoryCreateBulk is the builder for creating many Category entities in bulk.
@@ -175,58 +266,68 @@ type CategoryCreateBulk struct {
 }
 
 // Save creates the Category entities in the database.
-func (ccb *CategoryCreateBulk) Save(ctx context.Context) ([]*Category, error) {
-	if ccb.err != nil {
-		return nil, ccb.err
+func (_c *CategoryCreateBulk) Save(ctx context.Context) ([]*Category, error) {
+	if _c.err != nil {
+		return nil, _c.err
 	}
-	specs := make([]*sqlgraph.CreateSpec, len(ccb.builders))
-	nodes := make([]*Category, len(ccb.builders))
-	mutators := make([]Mutator, len(ccb.builders))
-	for i := range ccb.builders {
+	specs := make([]*sqlgraph.CreateSpec, len(_c.builders))
+	nodes := make([]*Category, len(_c.builders))
+	mutators := make([]Mutator, len(_c.builders))
+	for i := range _c.builders {
+		if err := entgen.ApplyDefaults(_c.builders[i].mutation, categoryCreateSpec.Fields); err != nil {
+			return nil, err
+		}
+	}
+	for i := range _c.builders {
 		func(i int, root context.Context) {
-			builder := ccb.builders[i]
-			builder.defaults()
+			curr := _c.builders[i]
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*CategoryMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
 				}
-				if err := builder.check(); err != nil {
+				if err := entgen.CheckCreate(curr.driver.Dialect(), mutation, categoryCreateSpec); err != nil {
 					return nil, err
 				}
-				builder.mutation = mutation
+				curr.mutation = mutation
 				var err error
-				nodes[i], specs[i] = builder.createSpec()
+				nodes[i], specs[i], err = entbuilder.BuildCreateSpec(curr.config, mutation, &categoryCreateDescriptor)
+				if err != nil {
+					return nil, err
+				}
 				if i < len(mutators)-1 {
-					_, err = mutators[i+1].Mutate(root, ccb.builders[i+1].mutation)
+					_, err = mutators[i+1].Mutate(root, _c.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
 					// Invoke the actual operation on the latest mutation in the chain.
-					if err = sqlgraph.BatchCreate(ctx, ccb.driver, spec); err != nil {
+					if err = sqlgraph.BatchCreate(ctx, _c.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
 							err = &ConstraintError{msg: err.Error(), wrap: err}
+						}
+					}
+					if err == nil {
+						for j := range specs {
+							if err = entbuilder.ApplyGeneratedID(_c.builders[j].mutation, specs[j], nodes[j], &categoryCreateDescriptor); err != nil {
+								break
+							}
+							_c.builders[j].mutation.id = &nodes[j].ID
+							_c.builders[j].mutation.done = true
 						}
 					}
 				}
 				if err != nil {
 					return nil, err
 				}
-				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
-				mutation.done = true
 				return nodes[i], nil
 			})
-			for i := len(builder.hooks) - 1; i >= 0; i-- {
-				mut = builder.hooks[i](mut)
+			for i := len(curr.hooks) - 1; i >= 0; i-- {
+				mut = curr.hooks[i](mut)
 			}
 			mutators[i] = mut
 		}(i, ctx)
 	}
 	if len(mutators) > 0 {
-		if _, err := mutators[0].Mutate(ctx, ccb.builders[0].mutation); err != nil {
+		if _, err := mutators[0].Mutate(ctx, _c.builders[0].mutation); err != nil {
 			return nil, err
 		}
 	}
@@ -234,8 +335,8 @@ func (ccb *CategoryCreateBulk) Save(ctx context.Context) ([]*Category, error) {
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (ccb *CategoryCreateBulk) SaveX(ctx context.Context) []*Category {
-	v, err := ccb.Save(ctx)
+func (_c *CategoryCreateBulk) SaveX(ctx context.Context) []*Category {
+	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -243,14 +344,14 @@ func (ccb *CategoryCreateBulk) SaveX(ctx context.Context) []*Category {
 }
 
 // Exec executes the query.
-func (ccb *CategoryCreateBulk) Exec(ctx context.Context) error {
-	_, err := ccb.Save(ctx)
+func (_c *CategoryCreateBulk) Exec(ctx context.Context) error {
+	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (ccb *CategoryCreateBulk) ExecX(ctx context.Context) {
-	if err := ccb.Exec(ctx); err != nil {
+func (_c *CategoryCreateBulk) ExecX(ctx context.Context) {
+	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

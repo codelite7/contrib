@@ -18,6 +18,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 
@@ -25,6 +26,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
 )
 
@@ -36,73 +38,73 @@ type BillProductUpdate struct {
 }
 
 // Where appends a list predicates to the BillProductUpdate builder.
-func (bpu *BillProductUpdate) Where(ps ...predicate.BillProduct) *BillProductUpdate {
-	bpu.mutation.Where(ps...)
-	return bpu
+func (_u *BillProductUpdate) Where(ps ...predicate.BillProduct) *BillProductUpdate {
+	_u.mutation.Where(ps...)
+	return _u
 }
 
 // SetName sets the "name" field.
-func (bpu *BillProductUpdate) SetName(s string) *BillProductUpdate {
-	bpu.mutation.SetName(s)
-	return bpu
+func (_u *BillProductUpdate) SetName(v string) *BillProductUpdate {
+	_u.mutation.SetName(v)
+	return _u
 }
 
 // SetNillableName sets the "name" field if the given value is not nil.
-func (bpu *BillProductUpdate) SetNillableName(s *string) *BillProductUpdate {
-	if s != nil {
-		bpu.SetName(*s)
+func (_u *BillProductUpdate) SetNillableName(v *string) *BillProductUpdate {
+	if v != nil {
+		_u.SetName(*v)
 	}
-	return bpu
+	return _u
 }
 
 // SetSku sets the "sku" field.
-func (bpu *BillProductUpdate) SetSku(s string) *BillProductUpdate {
-	bpu.mutation.SetSku(s)
-	return bpu
+func (_u *BillProductUpdate) SetSku(v string) *BillProductUpdate {
+	_u.mutation.SetSku(v)
+	return _u
 }
 
 // SetNillableSku sets the "sku" field if the given value is not nil.
-func (bpu *BillProductUpdate) SetNillableSku(s *string) *BillProductUpdate {
-	if s != nil {
-		bpu.SetSku(*s)
+func (_u *BillProductUpdate) SetNillableSku(v *string) *BillProductUpdate {
+	if v != nil {
+		_u.SetSku(*v)
 	}
-	return bpu
+	return _u
 }
 
 // SetQuantity sets the "quantity" field.
-func (bpu *BillProductUpdate) SetQuantity(i int) *BillProductUpdate {
-	bpu.mutation.ResetQuantity()
-	bpu.mutation.SetQuantity(i)
-	return bpu
+func (_u *BillProductUpdate) SetQuantity(v int) *BillProductUpdate {
+	_u.mutation.ResetQuantity()
+	_u.mutation.SetQuantity(v)
+	return _u
 }
 
 // SetNillableQuantity sets the "quantity" field if the given value is not nil.
-func (bpu *BillProductUpdate) SetNillableQuantity(i *int) *BillProductUpdate {
-	if i != nil {
-		bpu.SetQuantity(*i)
+func (_u *BillProductUpdate) SetNillableQuantity(v *int) *BillProductUpdate {
+	if v != nil {
+		_u.SetQuantity(*v)
 	}
-	return bpu
+	return _u
 }
 
-// AddQuantity adds i to the "quantity" field.
-func (bpu *BillProductUpdate) AddQuantity(i int) *BillProductUpdate {
-	bpu.mutation.AddQuantity(i)
-	return bpu
+// AddQuantity adds value to the "quantity" field.
+func (_u *BillProductUpdate) AddQuantity(v int) *BillProductUpdate {
+	_u.mutation.AddQuantity(v)
+	return _u
 }
 
 // Mutation returns the BillProductMutation object of the builder.
-func (bpu *BillProductUpdate) Mutation() *BillProductMutation {
-	return bpu.mutation
+func (_u *BillProductUpdate) Mutation() *BillProductMutation {
+	return _u.mutation
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
-func (bpu *BillProductUpdate) Save(ctx context.Context) (int, error) {
-	return withHooks(ctx, bpu.sqlSave, bpu.mutation, bpu.hooks)
+func (_u *BillProductUpdate) Save(ctx context.Context) (int, error) {
+	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (bpu *BillProductUpdate) SaveX(ctx context.Context) int {
-	affected, err := bpu.Save(ctx)
+func (_u *BillProductUpdate) SaveX(ctx context.Context) int {
+	affected, err := _u.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -110,26 +112,26 @@ func (bpu *BillProductUpdate) SaveX(ctx context.Context) int {
 }
 
 // Exec executes the query.
-func (bpu *BillProductUpdate) Exec(ctx context.Context) error {
-	_, err := bpu.Save(ctx)
+func (_u *BillProductUpdate) Exec(ctx context.Context) error {
+	_, err := _u.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (bpu *BillProductUpdate) ExecX(ctx context.Context) {
-	if err := bpu.Exec(ctx); err != nil {
+func (_u *BillProductUpdate) ExecX(ctx context.Context) {
+	if err := _u.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (bpu *BillProductUpdate) check() error {
-	if v, ok := bpu.mutation.Name(); ok {
+func (_u *BillProductUpdate) check() error {
+	if v, ok := _u.mutation.Name(); ok {
 		if err := billproduct.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "BillProduct.name": %w`, err)}
 		}
 	}
-	if v, ok := bpu.mutation.Sku(); ok {
+	if v, ok := _u.mutation.Sku(); ok {
 		if err := billproduct.SkuValidator(v); err != nil {
 			return &ValidationError{Name: "sku", err: fmt.Errorf(`ent: validator failed for field "BillProduct.sku": %w`, err)}
 		}
@@ -137,31 +139,66 @@ func (bpu *BillProductUpdate) check() error {
 	return nil
 }
 
-func (bpu *BillProductUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	if err := bpu.check(); err != nil {
-		return n, err
+var billproductUpdateDescriptor = entbuilder.UpdateDescriptor[config, *BillProductMutation]{
+	Fields: []entbuilder.UpdateFieldDescriptor[*BillProductMutation]{
+		{
+			Column: billproduct.FieldName,
+			Type:   field.TypeString,
+			Set: func(m *BillProductMutation) (driver.Value, bool, error) {
+				if value, ok := m.Name(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+
+		{
+			Column: billproduct.FieldSku,
+			Type:   field.TypeString,
+			Set: func(m *BillProductMutation) (driver.Value, bool, error) {
+				if value, ok := m.Sku(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+
+		{
+			Column: billproduct.FieldQuantity,
+			Type:   field.TypeInt,
+			Set: func(m *BillProductMutation) (driver.Value, bool, error) {
+				if value, ok := m.Quantity(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(m *BillProductMutation) (driver.Value, bool, error) {
+				if value, ok := m.AddedQuantity(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+	},
+	Edges: []entbuilder.UpdateEdgeDescriptor[config, *BillProductMutation]{},
+}
+
+func (_u *BillProductUpdate) sqlSave(ctx context.Context) (_node int, err error) {
+	if err := _u.check(); err != nil {
+		return _node, err
 	}
 	_spec := sqlgraph.NewUpdateSpec(billproduct.Table, billproduct.Columns, sqlgraph.NewFieldSpec(billproduct.FieldID, field.TypeInt))
-	if ps := bpu.mutation.predicates; len(ps) > 0 {
+	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
 	}
-	if value, ok := bpu.mutation.Name(); ok {
-		_spec.SetField(billproduct.FieldName, field.TypeString, value)
+	if err := entbuilder.ApplyUpdate(_u.config, _u.mutation, &billproductUpdateDescriptor, _spec); err != nil {
+		return 0, err
 	}
-	if value, ok := bpu.mutation.Sku(); ok {
-		_spec.SetField(billproduct.FieldSku, field.TypeString, value)
-	}
-	if value, ok := bpu.mutation.Quantity(); ok {
-		_spec.SetField(billproduct.FieldQuantity, field.TypeInt, value)
-	}
-	if value, ok := bpu.mutation.AddedQuantity(); ok {
-		_spec.AddField(billproduct.FieldQuantity, field.TypeInt, value)
-	}
-	if n, err = sqlgraph.UpdateNodes(ctx, bpu.driver, _spec); err != nil {
+	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{billproduct.Label}
 		} else if sqlgraph.IsConstraintError(err) {
@@ -169,8 +206,8 @@ func (bpu *BillProductUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		return 0, err
 	}
-	bpu.mutation.done = true
-	return n, nil
+	_u.mutation.done = true
+	return _node, nil
 }
 
 // BillProductUpdateOne is the builder for updating a single BillProduct entity.
@@ -182,80 +219,80 @@ type BillProductUpdateOne struct {
 }
 
 // SetName sets the "name" field.
-func (bpuo *BillProductUpdateOne) SetName(s string) *BillProductUpdateOne {
-	bpuo.mutation.SetName(s)
-	return bpuo
+func (_u *BillProductUpdateOne) SetName(v string) *BillProductUpdateOne {
+	_u.mutation.SetName(v)
+	return _u
 }
 
 // SetNillableName sets the "name" field if the given value is not nil.
-func (bpuo *BillProductUpdateOne) SetNillableName(s *string) *BillProductUpdateOne {
-	if s != nil {
-		bpuo.SetName(*s)
+func (_u *BillProductUpdateOne) SetNillableName(v *string) *BillProductUpdateOne {
+	if v != nil {
+		_u.SetName(*v)
 	}
-	return bpuo
+	return _u
 }
 
 // SetSku sets the "sku" field.
-func (bpuo *BillProductUpdateOne) SetSku(s string) *BillProductUpdateOne {
-	bpuo.mutation.SetSku(s)
-	return bpuo
+func (_u *BillProductUpdateOne) SetSku(v string) *BillProductUpdateOne {
+	_u.mutation.SetSku(v)
+	return _u
 }
 
 // SetNillableSku sets the "sku" field if the given value is not nil.
-func (bpuo *BillProductUpdateOne) SetNillableSku(s *string) *BillProductUpdateOne {
-	if s != nil {
-		bpuo.SetSku(*s)
+func (_u *BillProductUpdateOne) SetNillableSku(v *string) *BillProductUpdateOne {
+	if v != nil {
+		_u.SetSku(*v)
 	}
-	return bpuo
+	return _u
 }
 
 // SetQuantity sets the "quantity" field.
-func (bpuo *BillProductUpdateOne) SetQuantity(i int) *BillProductUpdateOne {
-	bpuo.mutation.ResetQuantity()
-	bpuo.mutation.SetQuantity(i)
-	return bpuo
+func (_u *BillProductUpdateOne) SetQuantity(v int) *BillProductUpdateOne {
+	_u.mutation.ResetQuantity()
+	_u.mutation.SetQuantity(v)
+	return _u
 }
 
 // SetNillableQuantity sets the "quantity" field if the given value is not nil.
-func (bpuo *BillProductUpdateOne) SetNillableQuantity(i *int) *BillProductUpdateOne {
-	if i != nil {
-		bpuo.SetQuantity(*i)
+func (_u *BillProductUpdateOne) SetNillableQuantity(v *int) *BillProductUpdateOne {
+	if v != nil {
+		_u.SetQuantity(*v)
 	}
-	return bpuo
+	return _u
 }
 
-// AddQuantity adds i to the "quantity" field.
-func (bpuo *BillProductUpdateOne) AddQuantity(i int) *BillProductUpdateOne {
-	bpuo.mutation.AddQuantity(i)
-	return bpuo
+// AddQuantity adds value to the "quantity" field.
+func (_u *BillProductUpdateOne) AddQuantity(v int) *BillProductUpdateOne {
+	_u.mutation.AddQuantity(v)
+	return _u
 }
 
 // Mutation returns the BillProductMutation object of the builder.
-func (bpuo *BillProductUpdateOne) Mutation() *BillProductMutation {
-	return bpuo.mutation
+func (_u *BillProductUpdateOne) Mutation() *BillProductMutation {
+	return _u.mutation
 }
 
 // Where appends a list predicates to the BillProductUpdate builder.
-func (bpuo *BillProductUpdateOne) Where(ps ...predicate.BillProduct) *BillProductUpdateOne {
-	bpuo.mutation.Where(ps...)
-	return bpuo
+func (_u *BillProductUpdateOne) Where(ps ...predicate.BillProduct) *BillProductUpdateOne {
+	_u.mutation.Where(ps...)
+	return _u
 }
 
 // Select allows selecting one or more fields (columns) of the returned entity.
 // The default is selecting all fields defined in the entity schema.
-func (bpuo *BillProductUpdateOne) Select(field string, fields ...string) *BillProductUpdateOne {
-	bpuo.fields = append([]string{field}, fields...)
-	return bpuo
+func (_u *BillProductUpdateOne) Select(field string, fields ...string) *BillProductUpdateOne {
+	_u.fields = append([]string{field}, fields...)
+	return _u
 }
 
 // Save executes the query and returns the updated BillProduct entity.
-func (bpuo *BillProductUpdateOne) Save(ctx context.Context) (*BillProduct, error) {
-	return withHooks(ctx, bpuo.sqlSave, bpuo.mutation, bpuo.hooks)
+func (_u *BillProductUpdateOne) Save(ctx context.Context) (*BillProduct, error) {
+	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (bpuo *BillProductUpdateOne) SaveX(ctx context.Context) *BillProduct {
-	node, err := bpuo.Save(ctx)
+func (_u *BillProductUpdateOne) SaveX(ctx context.Context) *BillProduct {
+	node, err := _u.Save(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -263,26 +300,26 @@ func (bpuo *BillProductUpdateOne) SaveX(ctx context.Context) *BillProduct {
 }
 
 // Exec executes the query on the entity.
-func (bpuo *BillProductUpdateOne) Exec(ctx context.Context) error {
-	_, err := bpuo.Save(ctx)
+func (_u *BillProductUpdateOne) Exec(ctx context.Context) error {
+	_, err := _u.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (bpuo *BillProductUpdateOne) ExecX(ctx context.Context) {
-	if err := bpuo.Exec(ctx); err != nil {
+func (_u *BillProductUpdateOne) ExecX(ctx context.Context) {
+	if err := _u.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (bpuo *BillProductUpdateOne) check() error {
-	if v, ok := bpuo.mutation.Name(); ok {
+func (_u *BillProductUpdateOne) check() error {
+	if v, ok := _u.mutation.Name(); ok {
 		if err := billproduct.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "BillProduct.name": %w`, err)}
 		}
 	}
-	if v, ok := bpuo.mutation.Sku(); ok {
+	if v, ok := _u.mutation.Sku(); ok {
 		if err := billproduct.SkuValidator(v); err != nil {
 			return &ValidationError{Name: "sku", err: fmt.Errorf(`ent: validator failed for field "BillProduct.sku": %w`, err)}
 		}
@@ -290,17 +327,17 @@ func (bpuo *BillProductUpdateOne) check() error {
 	return nil
 }
 
-func (bpuo *BillProductUpdateOne) sqlSave(ctx context.Context) (_node *BillProduct, err error) {
-	if err := bpuo.check(); err != nil {
+func (_u *BillProductUpdateOne) sqlSave(ctx context.Context) (_node *BillProduct, err error) {
+	if err := _u.check(); err != nil {
 		return _node, err
 	}
 	_spec := sqlgraph.NewUpdateSpec(billproduct.Table, billproduct.Columns, sqlgraph.NewFieldSpec(billproduct.FieldID, field.TypeInt))
-	id, ok := bpuo.mutation.ID()
+	id, ok := _u.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "BillProduct.id" for update`)}
 	}
 	_spec.Node.ID.Value = id
-	if fields := bpuo.fields; len(fields) > 0 {
+	if fields := _u.fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
 		_spec.Node.Columns = append(_spec.Node.Columns, billproduct.FieldID)
 		for _, f := range fields {
@@ -312,29 +349,20 @@ func (bpuo *BillProductUpdateOne) sqlSave(ctx context.Context) (_node *BillProdu
 			}
 		}
 	}
-	if ps := bpuo.mutation.predicates; len(ps) > 0 {
+	if ps := _u.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
 	}
-	if value, ok := bpuo.mutation.Name(); ok {
-		_spec.SetField(billproduct.FieldName, field.TypeString, value)
+	if err := entbuilder.ApplyUpdate(_u.config, _u.mutation, &billproductUpdateDescriptor, _spec); err != nil {
+		return nil, err
 	}
-	if value, ok := bpuo.mutation.Sku(); ok {
-		_spec.SetField(billproduct.FieldSku, field.TypeString, value)
-	}
-	if value, ok := bpuo.mutation.Quantity(); ok {
-		_spec.SetField(billproduct.FieldQuantity, field.TypeInt, value)
-	}
-	if value, ok := bpuo.mutation.AddedQuantity(); ok {
-		_spec.AddField(billproduct.FieldQuantity, field.TypeInt, value)
-	}
-	_node = &BillProduct{config: bpuo.config}
+	_node = &BillProduct{config: _u.config}
 	_spec.Assign = _node.assignValues
 	_spec.ScanValues = _node.scanValues
-	if err = sqlgraph.UpdateNode(ctx, bpuo.driver, _spec); err != nil {
+	if err = sqlgraph.UpdateNode(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{billproduct.Label}
 		} else if sqlgraph.IsConstraintError(err) {
@@ -342,6 +370,6 @@ func (bpuo *BillProductUpdateOne) sqlSave(ctx context.Context) (_node *BillProdu
 		}
 		return nil, err
 	}
-	bpuo.mutation.done = true
+	_u.mutation.done = true
 	return _node, nil
 }
