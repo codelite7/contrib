@@ -29,6 +29,8 @@ import (
 // CustomInterfaces maps interface names referenced by entgqlgo.Implements
 // annotations to their graphql.Interface definitions. Populate this map before
 // building the schema (it is read lazily when graphql.NewSchema is called).
+// Interface names referenced by Implements annotations but not present in
+// this map are silently omitted from the type's interface list.
 var CustomInterfaces = map[string]*graphql.Interface{}
 
 var (
@@ -92,29 +94,29 @@ func init() {
 				"todos": &graphql.Field{
 					Type: TodoConnectionType,
 					Args: graphql.FieldConfigArgument{
-						"first": &graphql.ArgumentConfig{
-							Type:        graphql.Int,
-							Description: "Returns the first n elements from the list.",
-						},
-						"last": &graphql.ArgumentConfig{
-							Type:        graphql.Int,
-							Description: "Returns the last n elements from the list.",
-						},
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
-							Description: "Returns the elements that come after the specified cursor.",
+							Description: "Returns the elements in the list that come after the specified cursor.",
+						},
+						"first": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the first _n_ elements from the list.",
 						},
 						"before": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
-							Description: "Returns the elements that come before the specified cursor.",
+							Description: "Returns the elements in the list that come before the specified cursor.",
+						},
+						"last": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the last _n_ elements from the list.",
 						},
 						"where": &graphql.ArgumentConfig{
 							Type:        TodoWhereInputType,
-							Description: "Filter Todo by conditions.",
+							Description: "Filtering options for Todos returned from the connection.",
 						},
 						"orderBy": &graphql.ArgumentConfig{
-							Type:        graphql.NewList(TodoOrderInputType),
-							Description: "Ordering options for Todo. Multiple orders can be specified.",
+							Type:        graphql.NewList(graphql.NewNonNull(TodoOrderInputType)),
+							Description: "Ordering options for Todos returned from the connection.",
 						},
 					},
 					Resolve: resolveCategoryTodos,
@@ -153,29 +155,29 @@ func init() {
 				"children": &graphql.Field{
 					Type: TodoConnectionType,
 					Args: graphql.FieldConfigArgument{
-						"first": &graphql.ArgumentConfig{
-							Type:        graphql.Int,
-							Description: "Returns the first n elements from the list.",
-						},
-						"last": &graphql.ArgumentConfig{
-							Type:        graphql.Int,
-							Description: "Returns the last n elements from the list.",
-						},
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
-							Description: "Returns the elements that come after the specified cursor.",
+							Description: "Returns the elements in the list that come after the specified cursor.",
+						},
+						"first": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the first _n_ elements from the list.",
 						},
 						"before": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
-							Description: "Returns the elements that come before the specified cursor.",
+							Description: "Returns the elements in the list that come before the specified cursor.",
+						},
+						"last": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the last _n_ elements from the list.",
 						},
 						"where": &graphql.ArgumentConfig{
 							Type:        TodoWhereInputType,
-							Description: "Filter Todo by conditions.",
+							Description: "Filtering options for Todos returned from the connection.",
 						},
 						"orderBy": &graphql.ArgumentConfig{
-							Type:        graphql.NewList(TodoOrderInputType),
-							Description: "Ordering options for Todo. Multiple orders can be specified.",
+							Type:        graphql.NewList(graphql.NewNonNull(TodoOrderInputType)),
+							Description: "Ordering options for Todos returned from the connection.",
 						},
 					},
 					Resolve: resolveTodoChildren,

@@ -1538,14 +1538,13 @@ func TestCreateCategory(t *testing.T) {
 		t.Fatalf("failed to create schema: %v", err)
 	}
 
-	// Create a category via mutation
+	// Create a category via mutation (status and kind have defaults, so they are optional)
 	result := graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `mutation {
 			createCategory(input: {
 				text: "Work"
 				status: ENABLED
-				kind: Primary
 			}) {
 				id
 				text

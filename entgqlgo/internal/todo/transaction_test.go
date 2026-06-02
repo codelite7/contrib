@@ -78,7 +78,9 @@ func TestWithTxRollback(t *testing.T) {
 				SetText("will be rolled back").
 				SetStatus(todo.StatusInProgress).
 				Save(p.Context)
-			require.NoError(t, err)
+			if err != nil {
+				return nil, err
+			}
 			// ...then the resolver fails.
 			return nil, errors.New("boom")
 		}),

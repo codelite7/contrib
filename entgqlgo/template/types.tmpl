@@ -43,6 +43,8 @@ import (
 // CustomInterfaces maps interface names referenced by entgqlgo.Implements
 // annotations to their graphql.Interface definitions. Populate this map before
 // building the schema (it is read lazily when graphql.NewSchema is called).
+// Interface names referenced by Implements annotations but not present in
+// this map are silently omitted from the type's interface list.
 var CustomInterfaces = map[string]*graphql.Interface{}
 
 var (
@@ -98,27 +100,27 @@ func init() {
 					{{- $edgeNames := gqlgoNodePaginationNames $e.Type }}
 					Type: {{ $edgeNames.Connection }}Type,
 					Args: graphql.FieldConfigArgument{
-						"first": &graphql.ArgumentConfig{
-							Type:        graphql.Int,
-							Description: "Returns the first n elements from the list.",
-						},
-						"last": &graphql.ArgumentConfig{
-							Type:        graphql.Int,
-							Description: "Returns the last n elements from the list.",
-						},
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
-							Description: "Returns the elements that come after the specified cursor.",
+							Description: "Returns the elements in the list that come after the specified cursor.",
+						},
+						"first": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the first _n_ elements from the list.",
 						},
 						"before": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
-							Description: "Returns the elements that come before the specified cursor.",
+							Description: "Returns the elements in the list that come before the specified cursor.",
+						},
+						"last": &graphql.ArgumentConfig{
+							Type:        graphql.Int,
+							Description: "Returns the last _n_ elements from the list.",
 						},
 						{{- $edgeHasWhere := gqlgoHasWhereInput $e }}
 						{{- if $edgeHasWhere }}
 						"where": &graphql.ArgumentConfig{
 							Type:        {{ $edgeNames.WhereInput }}Type,
-							Description: "Filter {{ $e.Type.Name }} by conditions.",
+							Description: "Filtering options for {{ plural $e.Type.Name }} returned from the connection.",
 						},
 						{{- end }}
 						{{- $edgeOrderFields := gqlgoOrderFields $e.Type }}
@@ -126,11 +128,11 @@ func init() {
 						{{- $edgeMultiOrder := $e.Type.Annotations.EntGQL.MultiOrder }}
 						"orderBy": &graphql.ArgumentConfig{
 							{{- if $edgeMultiOrder }}
-							Type:        graphql.NewList({{ $edgeNames.Order }}InputType),
-							Description: "Ordering options for {{ $e.Type.Name }}. Multiple orders can be specified.",
+							Type:        graphql.NewList(graphql.NewNonNull({{ $edgeNames.Order }}InputType)),
+							Description: "Ordering options for {{ plural $e.Type.Name }} returned from the connection.",
 							{{- else }}
 							Type:        {{ $edgeNames.Order }}InputType,
-							Description: "Ordering options for {{ $e.Type.Name }}.",
+							Description: "Ordering options for {{ plural $e.Type.Name }} returned from the connection.",
 							{{- end }}
 						},
 						{{- end }}

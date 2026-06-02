@@ -244,7 +244,7 @@
               "args": [
                 {
                   "defaultValue": null,
-                  "description": "Returns the elements that come after the specified cursor.",
+                  "description": "Returns the elements in the list that come after the specified cursor.",
                   "name": "after",
                   "type": {
                     "kind": "SCALAR",
@@ -254,7 +254,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Returns the elements that come before the specified cursor.",
+                  "description": "Returns the elements in the list that come before the specified cursor.",
                   "name": "before",
                   "type": {
                     "kind": "SCALAR",
@@ -264,7 +264,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Returns the first n elements from the list.",
+                  "description": "Returns the first _n_ elements from the list.",
                   "name": "first",
                   "type": {
                     "kind": "SCALAR",
@@ -274,7 +274,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Returns the last n elements from the list.",
+                  "description": "Returns the last _n_ elements from the list.",
                   "name": "last",
                   "type": {
                     "kind": "SCALAR",
@@ -284,21 +284,25 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Ordering options for Todo. Multiple orders can be specified.",
+                  "description": "Ordering options for Todos returned from the connection.",
                   "name": "orderBy",
                   "type": {
                     "kind": "LIST",
                     "name": null,
                     "ofType": {
-                      "kind": "INPUT_OBJECT",
-                      "name": "TodoOrder",
-                      "ofType": null
+                      "kind": "NON_NULL",
+                      "name": null,
+                      "ofType": {
+                        "kind": "INPUT_OBJECT",
+                        "name": "TodoOrder",
+                        "ofType": null
+                      }
                     }
                   }
                 },
                 {
                   "defaultValue": null,
-                  "description": "Filter Todo by conditions.",
+                  "description": "Filtering options for Todos returned from the connection.",
                   "name": "where",
                   "type": {
                     "kind": "INPUT_OBJECT",
@@ -990,13 +994,9 @@
               "description": "",
               "name": "kind",
               "type": {
-                "kind": "NON_NULL",
-                "name": null,
-                "ofType": {
-                  "kind": "ENUM",
-                  "name": "CategoryKind",
-                  "ofType": null
-                }
+                "kind": "ENUM",
+                "name": "CategoryKind",
+                "ofType": null
               }
             },
             {
@@ -1004,13 +1004,9 @@
               "description": "",
               "name": "status",
               "type": {
-                "kind": "NON_NULL",
-                "name": null,
-                "ofType": {
-                  "kind": "ENUM",
-                  "name": "CategoryStatus",
-                  "ofType": null
-                }
+                "kind": "ENUM",
+                "name": "CategoryStatus",
+                "ofType": null
               }
             },
             {
@@ -1099,13 +1095,9 @@
               "description": "",
               "name": "priority",
               "type": {
-                "kind": "NON_NULL",
-                "name": null,
-                "ofType": {
-                  "kind": "SCALAR",
-                  "name": "Int",
-                  "ofType": null
-                }
+                "kind": "SCALAR",
+                "name": "Int",
+                "ofType": null
               }
             },
             {
@@ -1869,7 +1861,7 @@
               "args": [
                 {
                   "defaultValue": null,
-                  "description": "Returns the elements that come after the specified cursor.",
+                  "description": "Returns the elements in the list that come after the specified cursor.",
                   "name": "after",
                   "type": {
                     "kind": "SCALAR",
@@ -1879,7 +1871,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Returns the elements that come before the specified cursor.",
+                  "description": "Returns the elements in the list that come before the specified cursor.",
                   "name": "before",
                   "type": {
                     "kind": "SCALAR",
@@ -1889,7 +1881,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Returns the first n elements from the list.",
+                  "description": "Returns the first _n_ elements from the list.",
                   "name": "first",
                   "type": {
                     "kind": "SCALAR",
@@ -1899,7 +1891,7 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Returns the last n elements from the list.",
+                  "description": "Returns the last _n_ elements from the list.",
                   "name": "last",
                   "type": {
                     "kind": "SCALAR",
@@ -1909,21 +1901,25 @@
                 },
                 {
                   "defaultValue": null,
-                  "description": "Ordering options for Todo. Multiple orders can be specified.",
+                  "description": "Ordering options for Todos returned from the connection.",
                   "name": "orderBy",
                   "type": {
                     "kind": "LIST",
                     "name": null,
                     "ofType": {
-                      "kind": "INPUT_OBJECT",
-                      "name": "TodoOrder",
-                      "ofType": null
+                      "kind": "NON_NULL",
+                      "name": null,
+                      "ofType": {
+                        "kind": "INPUT_OBJECT",
+                        "name": "TodoOrder",
+                        "ofType": null
+                      }
                     }
                   }
                 },
                 {
                   "defaultValue": null,
-                  "description": "Filter Todo by conditions.",
+                  "description": "Filtering options for Todos returned from the connection.",
                   "name": "where",
                   "type": {
                     "kind": "INPUT_OBJECT",

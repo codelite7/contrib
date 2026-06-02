@@ -52,7 +52,12 @@ type schemaOptions struct {
 // WithTransactions wraps every generated mutation resolver in a database
 // transaction. The transactional client is propagated via context, so all ent
 // operations inside the resolver participate in the same transaction.
-// Equivalent to entgql's Transactioner middleware.
+//
+// Note: unlike entgql's Transactioner middleware (which wraps the entire
+// GraphQL operation in one transaction), each top-level mutation field runs
+// in its own transaction, because graphql-go has no operation-level
+// middleware. A request with multiple mutation fields runs multiple
+// independent transactions.
 func WithTransactions() SchemaOption {
 	return func(o *schemaOptions) {
 		o.transactions = true
@@ -483,10 +488,10 @@ var (
 				Type: graphql.NewNonNull(graphql.String),
 			},
 			"status": &graphql.InputObjectFieldConfig{
-				Type: graphql.NewNonNull(CategoryStatusEnum),
+				Type: CategoryStatusEnum,
 			},
 			"kind": &graphql.InputObjectFieldConfig{
-				Type: graphql.NewNonNull(CategoryKindEnum),
+				Type: CategoryKindEnum,
 			},
 			"todoIDs": &graphql.InputObjectFieldConfig{
 				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
@@ -529,7 +534,7 @@ var (
 				Type: graphql.NewNonNull(TodoStatusEnum),
 			},
 			"priority": &graphql.InputObjectFieldConfig{
-				Type: graphql.NewNonNull(graphql.Int),
+				Type: graphql.Int,
 			},
 			"text": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewNonNull(graphql.String),
