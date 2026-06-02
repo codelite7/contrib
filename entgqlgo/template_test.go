@@ -105,7 +105,8 @@ func TestGqlgoType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gqlgoType(tt.field)
+			result, err := gqlgoType(tt.field)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -211,7 +212,8 @@ func TestFieldNullabilityLogic(t *testing.T) {
 				tt.field.Name, tt.field.Optional, tt.field.Nillable, tt.wantNonNull)
 
 			// Verify the base type is returned correctly by gqlgoType
-			baseType := gqlgoType(tt.field)
+			baseType, err := gqlgoType(tt.field)
+			assert.NoError(t, err)
 			assert.NotEmpty(t, baseType)
 
 			// Verify the composed output matches what the template would produce:

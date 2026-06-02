@@ -691,58 +691,67 @@ func fieldMapping(f *gen.Field) ([]string, error) {
 
 // gqlgoType maps an ent field type to graphql-go type.
 // For enum fields, templates should use the generated enum type directly.
-func gqlgoType(f *gen.Field) string {
+//
+// It returns an error when a field carries a malformed entgqlgo.Type
+// annotation so that code generation fails loudly rather than emitting a
+// silently-wrong schema. An unknown but well-formed named type (e.g. "Upload")
+// is NOT an error: it resolves via the generated CustomTypes registry.
+func gqlgoType(f *gen.Field) (string, error) {
 	switch t := f.Type.Type; {
 	case f.Name == "id":
-		return "graphql.ID"
+		return "graphql.ID", nil
 	case f.IsEdgeField():
-		return "graphql.ID"
+		return "graphql.ID", nil
 	case t.Float():
-		return "graphql.Float"
+		return "graphql.Float", nil
 	case t.Integer():
-		return "graphql.Int"
+		return "graphql.Int", nil
 	case t == field.TypeString:
-		return "graphql.String"
+		return "graphql.String", nil
 	case t == field.TypeBool:
-		return "graphql.Boolean"
+		return "graphql.Boolean", nil
 	case t == field.TypeTime:
-		return "TimeScalar"
+		return "TimeScalar", nil
 	case t == field.TypeUUID:
-		return "graphql.ID" // UUID maps to ID to match gqlgen convention
+		return "graphql.ID", nil // UUID maps to ID to match gqlgen convention
 	case t == field.TypeBytes:
-		return "graphql.String" // Bytes serialized as base64 string
+		return "graphql.String", nil // Bytes serialized as base64 string
 	case t == field.TypeJSON:
 		// Check for custom type annotation first. The annotation value is a
 		// GraphQL SDL type expression (e.g. "[String!]") that must be translated
 		// into a graphql-go Go expression before being emitted into source.
 		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
-			if expr, err := sdlTypeToGo(ant.Type); err == nil {
-				return expr
+			expr, err := sdlTypeToGo(ant.Type)
+			if err != nil {
+				return "", fmt.Errorf("entgqlgo: field %q has invalid Type annotation %q: %w", f.Name, ant.Type, err)
 			}
+			return expr, nil
 		}
 		// Check if the underlying Go type is a slice (e.g. []string, []int).
 		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
-			return "graphql.NewList(graphql.NewNonNull(" + inner + "))"
+			return "graphql.NewList(graphql.NewNonNull(" + inner + "))", nil
 		}
-		return "graphql.String" // JSON serialized as string; use entgqlgo.Type() annotation for custom scalars
+		return "graphql.String", nil // JSON serialized as string; use entgqlgo.Type() annotation for custom scalars
 	case t == field.TypeEnum:
-		return "graphql.String" // Enums handled separately in templates
+		return "graphql.String", nil // Enums handled separately in templates
 	case t == field.TypeOther:
 		// Check for custom type annotation first. The annotation value is a
 		// GraphQL SDL type expression (e.g. "[String!]") that must be translated
 		// into a graphql-go Go expression before being emitted into source.
 		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
-			if expr, err := sdlTypeToGo(ant.Type); err == nil {
-				return expr
+			expr, err := sdlTypeToGo(ant.Type)
+			if err != nil {
+				return "", fmt.Errorf("entgqlgo: field %q has invalid Type annotation %q: %w", f.Name, ant.Type, err)
 			}
+			return expr, nil
 		}
 		// Check if the underlying Go type is a slice (e.g. []string, []int).
 		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
-			return "graphql.NewList(graphql.NewNonNull(" + inner + "))"
+			return "graphql.NewList(graphql.NewNonNull(" + inner + "))", nil
 		}
-		return "graphql.String" // Other types require entgqlgo.Type() annotation
+		return "graphql.String", nil // Other types require entgqlgo.Type() annotation
 	default:
-		return "graphql.String"
+		return "graphql.String", nil
 	}
 }
 

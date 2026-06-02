@@ -34,6 +34,18 @@ func jsonFieldWithType(sdl string) *gen.Field {
 	}
 }
 
+// otherFieldWithType builds a field.TypeOther field carrying an entgqlgo.Type
+// annotation with the given SDL type expression.
+func otherFieldWithType(sdl string) *gen.Field {
+	return &gen.Field{
+		Name: "custom",
+		Type: &field.TypeInfo{Type: field.TypeOther},
+		Annotations: gen.Annotations{
+			"EntGQL": map[string]interface{}{"Type": sdl},
+		},
+	}
+}
+
 // TestSDLTypeToGo verifies that GraphQL SDL type expressions from entgqlgo.Type
 // annotations are translated into valid graphql-go Go expressions rather than
 // being emitted verbatim (which produces invalid Go source).
@@ -92,11 +104,48 @@ func TestSDLTypeToGoErrors(t *testing.T) {
 // carrying a Type annotation renders a valid Go expression, not raw SDL.
 func TestGqlgoTypeUsesSDLTranslator(t *testing.T) {
 	f := jsonFieldWithType("[String!]")
-	assert.Equal(t, "graphql.NewList(graphql.NewNonNull(graphql.String))", gqlgoType(f))
+	got, err := gqlgoType(f)
+	assert.NoError(t, err)
+	assert.Equal(t, "graphql.NewList(graphql.NewNonNull(graphql.String))", got)
 
 	f = jsonFieldWithType("Upload")
-	assert.Equal(t, `customTypeOr("Upload", graphql.String)`, gqlgoType(f))
+	got, err = gqlgoType(f)
+	assert.NoError(t, err)
+	assert.Equal(t, `customTypeOr("Upload", graphql.String)`, got)
 
 	f = jsonFieldWithType("[AppAuthMethod!]")
-	assert.Equal(t, `graphql.NewList(graphql.NewNonNull(customTypeOr("AppAuthMethod", graphql.String)))`, gqlgoType(f))
+	got, err = gqlgoType(f)
+	assert.NoError(t, err)
+	assert.Equal(t, `graphql.NewList(graphql.NewNonNull(customTypeOr("AppAuthMethod", graphql.String)))`, got)
+
+	// field.TypeOther exercises the parallel code path.
+	f = otherFieldWithType("[String!]")
+	got, err = gqlgoType(f)
+	assert.NoError(t, err)
+	assert.Equal(t, "graphql.NewList(graphql.NewNonNull(graphql.String))", got)
+
+	f = otherFieldWithType("Upload")
+	got, err = gqlgoType(f)
+	assert.NoError(t, err)
+	assert.Equal(t, `customTypeOr("Upload", graphql.String)`, got)
+}
+
+// TestGqlgoTypeMalformedAnnotationErrors verifies that a malformed Type
+// annotation makes gqlgoType fail with an error citing the field name and the
+// annotation as written, so code generation aborts loudly.
+func TestGqlgoTypeMalformedAnnotationErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		f    *gen.Field
+	}{
+		{name: "json", f: jsonFieldWithType("[String!")},
+		{name: "other", f: otherFieldWithType("[String!")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := gqlgoType(tc.f)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "custom")     // field name
+			assert.Contains(t, err.Error(), "[String!")   // annotation as written
+		})
+	}
 }

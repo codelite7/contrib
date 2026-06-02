@@ -79,7 +79,8 @@ func TestGqlgoType_TypeMapping(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := gqlgoType(tt.field)
+			result, err := gqlgoType(tt.field)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -159,7 +160,9 @@ func TestTimeScalarNameIsTime(t *testing.T) {
 
 	// gqlgoType should return "TimeScalar" (our custom scalar),
 	// not "graphql.DateTime" (the graphql-go built-in).
-	assert.Equal(t, "TimeScalar", gqlgoType(timeField),
+	timeType, err := gqlgoType(timeField)
+	assert.NoError(t, err)
+	assert.Equal(t, "TimeScalar", timeType,
 		"gqlgoType should return TimeScalar, not graphql.DateTime")
 
 	// gqlgoScalar should return "Time" to match gqlgen convention.

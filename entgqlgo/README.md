@@ -231,8 +231,29 @@ field.String("blob").
     Annotations(entgqlgo.Type("Upload"))
 ```
 
-Forces the field's GraphQL type to the named scalar instead of the default
-mapping.
+Forces the field's GraphQL type to the named type instead of the default
+mapping. The annotation value is a GraphQL SDL type expression, so list and
+non-null wrappers are supported:
+
+```go
+field.JSON("tags", []string{}).
+    Annotations(entgqlgo.Type("[String!]!"))   // also [X!], [X!]!, X!, etc.
+```
+
+Built-in scalars (`String`, `Int`, `Float`, `Boolean`, `ID`, `Time`) are
+mapped automatically. Any other named type (e.g. `Upload`, `AppAuthMethod`) is
+treated as a custom type and resolved at runtime through the generated
+`CustomTypes` registry, falling back to `graphql.String` if it is not
+registered. Register your type before calling `NewSchema` or
+`graphql.NewSchema`:
+
+```go
+gqlgo.CustomTypes["Upload"] = uploadScalar // *graphql.Scalar, *graphql.Enum, etc.
+```
+
+A malformed SDL expression (e.g. `entgqlgo.Type("[String!")`) fails code
+generation with an error naming the offending field, rather than emitting a
+silently-wrong schema.
 
 **`Implements` — custom interfaces**
 
