@@ -278,7 +278,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 		Name: "Mutation",
 		Fields: graphql.Fields{
 			"createCategory": &graphql.Field{
-				Type: CategoryType,
+				Type: graphql.NewNonNull(CategoryType),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(CreateCategoryInputType),
@@ -304,7 +304,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 				}),
 			},
 			"updateCategory": &graphql.Field{
-				Type: CategoryType,
+				Type: graphql.NewNonNull(CategoryType),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(graphql.ID),
@@ -342,7 +342,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 				}),
 			},
 			"deleteCategory": &graphql.Field{
-				Type: graphql.Boolean,
+				Type: graphql.NewNonNull(graphql.Boolean),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(graphql.ID),
@@ -365,7 +365,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 				}),
 			},
 			"createTodo": &graphql.Field{
-				Type: TodoType,
+				Type: graphql.NewNonNull(TodoType),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(CreateTodoInputType),
@@ -391,7 +391,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 				}),
 			},
 			"updateTodo": &graphql.Field{
-				Type: TodoType,
+				Type: graphql.NewNonNull(TodoType),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(graphql.ID),
@@ -429,7 +429,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 				}),
 			},
 			"deleteTodo": &graphql.Field{
-				Type: graphql.Boolean,
+				Type: graphql.NewNonNull(graphql.Boolean),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(graphql.ID),

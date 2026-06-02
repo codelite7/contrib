@@ -286,7 +286,7 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 			{{- $n := $m.Type }}
 			{{- if $m.IsCreate }}
 			"create{{ $n.Name }}": &graphql.Field{
-				Type: {{ $n.Name }}Type,
+				Type: graphql.NewNonNull({{ $n.Name }}Type),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(Create{{ $n.Name }}InputType),
@@ -313,7 +313,7 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 			},
 			{{- else }}
 			"update{{ $n.Name }}": &graphql.Field{
-				Type: {{ $n.Name }}Type,
+				Type: graphql.NewNonNull({{ $n.Name }}Type),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(graphql.ID),
@@ -359,7 +359,7 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 				}),
 			},
 			"delete{{ $n.Name }}": &graphql.Field{
-				Type: graphql.Boolean,
+				Type: graphql.NewNonNull(graphql.Boolean),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
 						Type:        graphql.NewNonNull(graphql.ID),

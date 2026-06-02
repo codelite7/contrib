@@ -37,17 +37,28 @@ import (
 //
 // Keys use the form "field:<fieldName>" to match a root field name prefix.
 var allowlistedDifferences = map[string]string{
-	// entgqlgo generates delete mutations as part of its Mutation root type.
-	// entgql's SDL does not include a Mutation root type at all — mutation
-	// resolvers are left to the application (via gqlgen). Since SDL has no
-	// Mutation type, ALL entgqlgo mutations appear as "extra"; they are
-	// intentional entgqlgo additions rather than parity gaps.
-	"field:createCategory": "entgqlgo generates mutations; entgql SDL has no Mutation root type",
-	"field:updateCategory": "entgqlgo generates mutations; entgql SDL has no Mutation root type",
-	"field:deleteCategory": "entgqlgo generates mutations; entgql SDL has no Mutation root type",
-	"field:createTodo":     "entgqlgo generates mutations; entgql SDL has no Mutation root type",
-	"field:updateTodo":     "entgqlgo generates mutations; entgql SDL has no Mutation root type",
-	"field:deleteTodo":     "entgqlgo generates mutations; entgql SDL has no Mutation root type",
+	// entgqlgo generates delete mutations as an entgqlgo superset feature.
+	// entgql has no equivalent — gqlgen users hand-write their own delete
+	// mutations (or omit them). There is no entgql-convention reference to
+	// compare against, so delete mutations are explicitly allowlisted.
+	"field:deleteCategory": "entgqlgo superset: delete mutations have no entgql reference convention",
+	"field:deleteTodo":     "entgqlgo superset: delete mutations have no entgql reference convention",
+}
+
+// entgqlMutationReference is the set of mutation signatures entgql users
+// conventionally hand-write for their gqlgen apps (see entgql/internal/todo/todo.graphql).
+// entgql does not generate the Mutation root; entgqlgo does. The generated
+// mutations must match the shapes entgql users would write, adapted to the
+// parity schema's two entities (Category and Todo).
+//
+// Signature format mirrors fieldSignature() + typeRefToSDL() output:
+//   name(argA:TypeA!, argB:TypeB!): ReturnType!
+// Args are sorted alphabetically (id before input).
+var entgqlMutationReference = map[string]bool{
+	"createCategory(input:CreateCategoryInput!): Category!":          true,
+	"updateCategory(id:ID!, input:UpdateCategoryInput!): Category!":  true,
+	"createTodo(input:CreateTodoInput!): Todo!":                      true,
+	"updateTodo(id:ID!, input:UpdateTodoInput!): Todo!":              true,
 }
 
 // fieldSignature renders "name(arg:Type, ...): ReturnType" for comparison.
@@ -60,13 +71,6 @@ func fieldSignature(name string, args []string, ret string) string {
 func sdlQueryFields(t *testing.T) map[string]bool {
 	t.Helper()
 	return sdlRootFields(t, "Query")
-}
-
-// sdlMutationFields parses ent.graphql and returns the signature set of root Mutation fields.
-// Returns an empty map when the SDL has no Mutation type (entgql's SDL omits it).
-func sdlMutationFields(t *testing.T) map[string]bool {
-	t.Helper()
-	return sdlRootFields(t, "Mutation")
 }
 
 func sdlRootFields(t *testing.T, rootType string) map[string]bool {
@@ -179,12 +183,15 @@ func TestRootQueryParity(t *testing.T) {
 	compareFields(t, sdlQueryFields(t), introspectionRootFields(t, "Query"))
 }
 
-// TestRootMutationParity compares root Mutation fields between entgql's SDL
-// and entgqlgo's introspected schema. Since entgql's SDL does not include a
-// Mutation root type, all entgqlgo mutation fields appear in the "extra" bucket;
-// each is expected to be in the allowlist.
+// TestRootMutationParity compares root Mutation fields between an inline
+// entgql-convention reference and entgqlgo's introspected schema. entgql does
+// not generate the Mutation root type (gqlgen users hand-write it), so the
+// reference is derived from the entgql hand-written example at
+// entgql/internal/todo/todo.graphql, adapted to the parity schema.
+// Only delete mutations are allowlisted — they are an entgqlgo superset with
+// no entgql reference convention.
 func TestRootMutationParity(t *testing.T) {
-	compareFields(t, sdlMutationFields(t), introspectionRootFields(t, "Mutation"))
+	compareFields(t, entgqlMutationReference, introspectionRootFields(t, "Mutation"))
 }
 
 func compareFields(t *testing.T, sdlFields, gqlgoFields map[string]bool) {
