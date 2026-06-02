@@ -308,7 +308,9 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
 					c := clientFromContext(p.Context, client)
-					return c.{{ $n.Name }}.Create().SetInput(*input).Save(p.Context)
+					builder := c.{{ $n.Name }}.Create()
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 				}),
 			},
 			{{- else }}
@@ -348,13 +350,17 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 					if err != nil {
 						return nil, err
 					}
-					return c.{{ $n.Name }}.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
+					builder := c.{{ $n.Name }}.UpdateOneID(idInt)
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 					{{- else }}
 					idUUID, err := uuid.Parse(fmt.Sprint(id))
 					if err != nil {
 						return nil, fmt.Errorf("invalid UUID: %w", err)
 					}
-					return c.{{ $n.Name }}.UpdateOneID(idUUID).SetInput(*input).Save(p.Context)
+					builder := c.{{ $n.Name }}.UpdateOneID(idUUID)
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 					{{- end }}
 				}),
 			},
@@ -509,8 +515,8 @@ var (
 {{- if $m.IsCreate }}
 
 // ParseCreate{{ $n.Name }}Input parses a map into Create{{ $n.Name }}Input.
-func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*{{ $entPkg }}.Create{{ $n.Name }}Input, error) {
-	result := &{{ $entPkg }}.Create{{ $n.Name }}Input{}
+func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.Name }}Input, error) {
+	result := &Create{{ $n.Name }}Input{}
 {{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
@@ -619,8 +625,8 @@ func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*{{ $entPkg }}
 {{- else }}
 
 // ParseUpdate{{ $n.Name }}Input parses a map into Update{{ $n.Name }}Input.
-func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*{{ $entPkg }}.Update{{ $n.Name }}Input, error) {
-	result := &{{ $entPkg }}.Update{{ $n.Name }}Input{}
+func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.Name }}Input, error) {
+	result := &Update{{ $n.Name }}Input{}
 {{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}

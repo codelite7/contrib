@@ -324,7 +324,9 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
 					c := clientFromContext(p.Context, client)
-					return c.Category.Create().SetInput(*input).Save(p.Context)
+					builder := c.Category.Create()
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 				}),
 			},
 			"updateCategory": &graphql.Field{
@@ -362,7 +364,9 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
-					return c.Category.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
+					builder := c.Category.UpdateOneID(idInt)
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 				}),
 			},
 			"deleteCategory": &graphql.Field{
@@ -411,7 +415,9 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 						return nil, fmt.Errorf("parsing input: %w", err)
 					}
 					c := clientFromContext(p.Context, client)
-					return c.Todo.Create().SetInput(*input).Save(p.Context)
+					builder := c.Todo.Create()
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 				}),
 			},
 			"updateTodo": &graphql.Field{
@@ -449,7 +455,9 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					if err != nil {
 						return nil, err
 					}
-					return c.Todo.UpdateOneID(idInt).SetInput(*input).Save(p.Context)
+					builder := c.Todo.UpdateOneID(idInt)
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
 				}),
 			},
 			"deleteTodo": &graphql.Field{
@@ -619,8 +627,8 @@ var (
 )
 
 // ParseCreateCategoryInput parses a map into CreateCategoryInput.
-func ParseCreateCategoryInput(input map[string]interface{}) (*ent.CreateCategoryInput, error) {
-	result := &ent.CreateCategoryInput{}
+func ParseCreateCategoryInput(input map[string]interface{}) (*CreateCategoryInput, error) {
+	result := &CreateCategoryInput{}
 	if v, ok := input["text"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			result.Text = str
@@ -659,8 +667,8 @@ func ParseCreateCategoryInput(input map[string]interface{}) (*ent.CreateCategory
 }
 
 // ParseUpdateCategoryInput parses a map into UpdateCategoryInput.
-func ParseUpdateCategoryInput(input map[string]interface{}) (*ent.UpdateCategoryInput, error) {
-	result := &ent.UpdateCategoryInput{}
+func ParseUpdateCategoryInput(input map[string]interface{}) (*UpdateCategoryInput, error) {
+	result := &UpdateCategoryInput{}
 	if v, ok := input["text"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			s := str
@@ -726,8 +734,8 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*ent.UpdateCategory
 }
 
 // ParseCreateTodoInput parses a map into CreateTodoInput.
-func ParseCreateTodoInput(input map[string]interface{}) (*ent.CreateTodoInput, error) {
-	result := &ent.CreateTodoInput{}
+func ParseCreateTodoInput(input map[string]interface{}) (*CreateTodoInput, error) {
+	result := &CreateTodoInput{}
 	if v, ok := input["status"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			result.Status = todo.Status(str)
@@ -776,8 +784,8 @@ func ParseCreateTodoInput(input map[string]interface{}) (*ent.CreateTodoInput, e
 }
 
 // ParseUpdateTodoInput parses a map into UpdateTodoInput.
-func ParseUpdateTodoInput(input map[string]interface{}) (*ent.UpdateTodoInput, error) {
-	result := &ent.UpdateTodoInput{}
+func ParseUpdateTodoInput(input map[string]interface{}) (*UpdateTodoInput, error) {
+	result := &UpdateTodoInput{}
 	if v, ok := input["status"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			val := todo.Status(str)

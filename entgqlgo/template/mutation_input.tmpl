@@ -1,19 +1,24 @@
-{{ define "gqlgo_mutation_input" }}
+{{ define "gqlgo/mutation_input" }}
 
 {{- /*gotype: entgo.io/ent/entc/gen.Graph*/ -}}
 
-{{ $pkg := base $.Config.Package }}
-{{- with extend $ "Package" $pkg }}
+{{- /*
+    Mutation inputs live in the gqlgo subpackage (not the ent root package) so
+    entgqlgo can coexist with entgql, which owns ent.Create<T>Input and may alias
+    builder types into per-entity subpackages. Defining types or builder methods
+    in the ent root would collide (duplicate declarations / methods on non-local
+    types). Resolvers apply inputs via input.Mutate(builder.Mutation()).
+*/ -}}
+
+{{- with extend $ "Package" "gqlgo" }}
         {{ template "header" . }}
 {{- end }}
 
-{{ template "import" $ }}
-
+{{ $entPkg := base $.Config.Package }}
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "mutation_create_input" "mutation_update_input") }}
 import (
-    "entgo.io/contrib/entgqlgo"
+    "{{ $.Config.Package }}"
     {{- range $n := $gqlNodes }}
-        {{- template "import/types" $n }}
         "{{ $.Config.Package }}/{{ $n.Package }}"
     {{- end }}
 )
@@ -64,7 +69,7 @@ import (
     }
 
     // Mutate applies the {{ $input }} on the {{ $n.MutationName }} builder.
-    func (i *{{ $input }}) Mutate(m *{{ $n.MutationName }}) {
+    func (i *{{ $input }}) Mutate(m *{{ $entPkg }}.{{ $n.MutationName }}) {
         {{- /* The order of the operators is purposefully sorted: Clear, Set and Append */}}
         {{- range $f := $fields }}
             {{- if $f.ClearOp }}
@@ -123,13 +128,5 @@ import (
             {{- end }}
         {{- end }}
     }
-
-    {{- range $b := $n.Builders }}
-    // SetInput applies the change-set in the {{ $input }} on the {{ $b }} builder.
-    func(c *{{ $b }}) SetInput(i {{ $input }}) *{{ $b }} {
-        i.Mutate(c.Mutation())
-        return c
-    }
-    {{- end}}
 {{- end }}
 {{ end }}

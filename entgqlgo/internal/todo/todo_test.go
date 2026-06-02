@@ -2942,13 +2942,15 @@ func TestSkipMutationCreateInput(t *testing.T) {
 
 	// Create a todo using the generated CreateTodoInput
 	// Note: created_at should NOT be in the input type due to skip annotation
-	input := ent.CreateTodoInput{
+	input := gqlgo.CreateTodoInput{
 		Status:   todo.StatusPending,
 		Text:     "Test todo",
 		Priority: intPtr(5),
 	}
 
-	created, err := client.Todo.Create().SetInput(input).Save(ctx)
+	builder := client.Todo.Create()
+	input.Mutate(builder.Mutation())
+	created, err := builder.Save(ctx)
 	if err != nil {
 		t.Fatalf("failed to create todo with input: %v", err)
 	}
