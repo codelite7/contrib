@@ -65,6 +65,49 @@ func TestTodoSplitSuite(t *testing.T) {
 	suite.Run(t, new(TodoSplitTestSuite))
 }
 
+// init registers a computed "textLength" field on the generated Todo object
+// type via the public ExtraFields seam (split-runtime build). The generated
+// *Type vars are package-level and graphql.FieldsThunk caches its result on
+// first resolution, so registration must precede any schema build — hence
+// init(). This is the supported replacement for (*Object).AddFieldConfig, a
+// silent no-op on thunk-built objects.
+func init() {
+	gqlgo.ExtraFields["Todo"] = graphql.Fields{
+		"textLength": &graphql.Field{
+			Type:        graphql.NewNonNull(graphql.Int),
+			Description: "Number of characters in the todo text (computed, not stored).",
+			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+				t, ok := p.Source.(*ent.Todo)
+				if !ok {
+					return nil, nil
+				}
+				return len(t.Text), nil
+			},
+		},
+	}
+}
+
+// TestExtraFields verifies a consumer-registered extra field on a generated
+// object type (Todo.textLength) is part of the schema and resolves through
+// graphql.Do under the split-runtime layout.
+func (s *TodoSplitTestSuite) TestExtraFields() {
+	s.client.Todo.Create().SetText("hello world").SetStatus(todo.StatusInProgress).SaveX(s.ctx)
+
+	res := graphql.Do(graphql.Params{
+		Schema:        s.schema,
+		Context:       s.ctx,
+		RequestString: `query { todos { edges { node { text textLength } } } }`,
+	})
+	s.Require().Empty(res.Errors, "extra-field query errors: %v", res.Errors)
+
+	conn := res.Data.(map[string]interface{})["todos"].(map[string]interface{})
+	edges := conn["edges"].([]interface{})
+	require.Len(s.T(), edges, 1)
+	node := edges[0].(map[string]interface{})["node"].(map[string]interface{})
+	require.Equal(s.T(), "hello world", node["text"])
+	require.Equal(s.T(), len("hello world"), node["textLength"])
+}
+
 // TestOptionalNillableEnumField is the split-runtime counterpart to bug A2: an
 // Optional+Nillable enum (Category.config_type) with UseEnumNames must render as
 // the enum type on the object, serialize a typed enum value back through the

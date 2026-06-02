@@ -38,6 +38,30 @@ var CustomInterfaces = map[string]*graphql.Interface{}
 // present here fall back to graphql.String (see customTypeOr).
 var CustomTypes = map[string]graphql.Type{}
 
+// ExtraFields registers additional fields on generated object types — e.g. a
+// computed field with a custom resolver (Deal.taskCount) that ent itself does
+// not expose. Key by the GraphQL type name (e.g. "Todo", "Deal"); the value is
+// merged into that type's field map when its FieldsThunk resolves.
+//
+// This is the supported extension seam for adding fields to generated object
+// types: because those types are built with graphql.FieldsThunk, calling
+// (*Object).AddFieldConfig on them after construction is a silent no-op. Populate
+// ExtraFields before NewSchema / SchemaConfig is called (it is read lazily the
+// first time the schema resolves each object's fields). Entries whose key does
+// not match a generated type are ignored; an extra field whose name collides
+// with a generated field overrides the generated one.
+var ExtraFields = map[string]graphql.Fields{}
+
+// mergeExtraFields overlays ExtraFields[typeName] onto fields and returns it. It
+// is called from each generated object's FieldsThunk so consumer-registered
+// fields participate in the schema exactly like generated ones.
+func mergeExtraFields(typeName string, fields graphql.Fields) graphql.Fields {
+	for name, f := range ExtraFields[typeName] {
+		fields[name] = f
+	}
+	return fields
+}
+
 // customTypeOr returns the registered custom type for name, or fallback if no
 // such type has been registered in CustomTypes. graphql.Type satisfies both the
 // graphql.Input and graphql.Output interfaces, so the result is usable for both
@@ -66,7 +90,7 @@ func init() {
 			return ifaces
 		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
-			return graphql.Fields{
+			return mergeExtraFields("Category", graphql.Fields{
 				"name": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.String),
 				},
@@ -81,7 +105,7 @@ func init() {
 					Type:    graphql.NewList(graphql.NewNonNull(TodoType)),
 					Resolve: resolveCategoryTodos,
 				},
-			}
+			})
 		}),
 	})
 	FriendshipType = graphql.NewObject(graphql.ObjectConfig{
@@ -91,7 +115,7 @@ func init() {
 			return ifaces
 		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
-			return graphql.Fields{
+			return mergeExtraFields("Friendship", graphql.Fields{
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Friendship.",
@@ -104,7 +128,7 @@ func init() {
 					Type:    graphql.NewNonNull(CategoryType),
 					Resolve: resolveFriendshipCategory,
 				},
-			}
+			})
 		}),
 	})
 	TodoType = graphql.NewObject(graphql.ObjectConfig{
@@ -114,7 +138,7 @@ func init() {
 			return ifaces
 		}),
 		Fields: graphql.FieldsThunk(func() graphql.Fields {
-			return graphql.Fields{
+			return mergeExtraFields("Todo", graphql.Fields{
 				"text": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.String),
 				},
@@ -161,7 +185,7 @@ func init() {
 					Type:    CategoryType,
 					Resolve: resolveTodoCategory,
 				},
-			}
+			})
 		}),
 	})
 }

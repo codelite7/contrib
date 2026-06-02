@@ -350,6 +350,40 @@ schema, err := graphql.NewSchema(cfg)
 
 Subscriptions are served via `graphql.Subscribe`.
 
+### Adding fields to generated object types
+
+`cfg.Query.AddFieldConfig` works for the root `Query`/`Mutation` types, but the
+**generated entity object types** (`gqlgo.TodoType`, `gqlgo.DealType`, ...) are
+built with `graphql.FieldsThunk`, and graphql-go's `(*Object).AddFieldConfig` is
+a silent no-op on a thunk-built object. To add a computed field (e.g. a
+`taskCount` with a custom resolver) to a generated type, register it in the
+`ExtraFields` map, keyed by the GraphQL type name:
+
+```go
+gqlgo.ExtraFields["Todo"] = graphql.Fields{
+    "textLength": &graphql.Field{
+        Type:        graphql.NewNonNull(graphql.Int),
+        Description: "Number of characters in the todo text (computed).",
+        Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+            t, ok := p.Source.(*ent.Todo)
+            if !ok {
+                return nil, nil
+            }
+            return len(t.Text), nil
+        },
+    },
+}
+
+// Populate ExtraFields BEFORE building the schema; it is read lazily the first
+// time each object type's fields resolve.
+schema, err := gqlgo.NewSchema(client)
+```
+
+The registered fields are merged into the type's field map when its thunk
+resolves, so they behave exactly like generated fields. An extra field whose name
+collides with a generated field overrides the generated one; entries whose key
+does not match a generated type are ignored.
+
 ## Transactions
 
 `WithTransactions()` wraps every **generated** mutation field in its own
