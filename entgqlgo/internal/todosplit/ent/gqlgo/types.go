@@ -17,6 +17,8 @@
 package gqlgo
 
 import (
+	"context"
+
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent"
 	"github.com/graphql-go/graphql"
 )
@@ -60,6 +62,49 @@ func mergeExtraFields(typeName string, fields graphql.Fields) graphql.Fields {
 		fields[name] = f
 	}
 	return fields
+}
+
+// WhereInputExtraFields registers additional GraphQL input fields on generated
+// <Entity>WhereInput types — e.g. a custom predicate field (search: String) that
+// ent itself does not expose. Key by the GraphQL where-input type name (e.g.
+// "TodoWhereInput", "PropertyWhereInput"); the value is merged into that type's
+// input-field map when its InputObjectConfigFieldMapThunk resolves.
+//
+// Because where-input types are built with InputObjectConfigFieldMapThunk,
+// (*InputObject).AddFieldConfig after construction is a silent no-op. Populate
+// WhereInputExtraFields before NewSchema / SchemaConfig is called (it is read
+// lazily the first time the schema resolves each where-input's fields). Entries
+// whose key does not match a generated where-input type are ignored; an extra
+// field whose name collides with a generated field overrides the generated one.
+//
+// Use WhereInputParseHooks to give these fields runtime behaviour: the hook
+// receives the raw GraphQL input map (where the extra field's value appears) and
+// the typed where-input, and may mutate the typed input (e.g. add predicates).
+var WhereInputExtraFields = map[string]graphql.InputObjectConfigFieldMap{}
+
+// WhereInputParseHooks registers callbacks invoked by Parse<Entity>WhereInput
+// after it builds the typed where-input. Hooks receive the request context, the
+// raw GraphQL input map for that where-input, and the typed where-input (e.g.
+// *ent.TodoWhereInput) as an interface{}, and may mutate it — typically reading
+// a field declared via WhereInputExtraFields and calling the where-input's
+// AddPredicates to route filtering. Key by the GraphQL where-input type name.
+//
+// Hooks run for nested where-inputs too: because Parse<Entity>WhereInput recurses
+// into not/and/or/<edge>With, a hook registered for "TodoWhereInput" fires for a
+// TodoWhereInput nested inside and: [...] just as it does at the top level.
+// Populate before NewSchema / SchemaConfig is called.
+var WhereInputParseHooks = map[string][]func(ctx context.Context, raw map[string]interface{}, whereInput interface{}) error{}
+
+// runWhereInputHooks invokes the registered parse hooks for typeName in order,
+// passing the raw GraphQL input map and the typed where-input. It is called at
+// the end of each generated Parse<Entity>WhereInput (including nested calls).
+func runWhereInputHooks(ctx context.Context, typeName string, raw map[string]interface{}, whereInput interface{}) error {
+	for _, h := range WhereInputParseHooks[typeName] {
+		if err := h(ctx, raw, whereInput); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // customTypeOr returns the registered custom type for name, or fallback if no

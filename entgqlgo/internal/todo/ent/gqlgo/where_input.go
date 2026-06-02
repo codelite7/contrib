@@ -17,6 +17,7 @@
 package gqlgo
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,7 +57,7 @@ func init() {
 		Name:        "BillProductWhereInput",
 		Description: "BillProductWhereInput is used for filtering BillProduct objects.",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			fields := graphql.InputObjectConfigFieldMap{
 				"not": &graphql.InputObjectFieldConfig{
 					Type:        BillProductWhereInputType,
 					Description: "Logical NOT of the condition.",
@@ -196,6 +197,11 @@ func init() {
 					Type: graphql.Int,
 				},
 			}
+			// Merge consumer-registered extra input fields (see WhereInputExtraFields).
+			for name, f := range WhereInputExtraFields["BillProductWhereInput"] {
+				fields[name] = f
+			}
+			return fields
 		}),
 	})
 
@@ -203,7 +209,7 @@ func init() {
 		Name:        "CategoryWhereInput",
 		Description: "CategoryWhereInput is used for filtering Category objects.",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			fields := graphql.InputObjectConfigFieldMap{
 				"not": &graphql.InputObjectFieldConfig{
 					Type:        CategoryWhereInputType,
 					Description: "Logical NOT of the condition.",
@@ -360,6 +366,11 @@ func init() {
 					Description: "Filter by todos edge with conditions.",
 				},
 			}
+			// Merge consumer-registered extra input fields (see WhereInputExtraFields).
+			for name, f := range WhereInputExtraFields["CategoryWhereInput"] {
+				fields[name] = f
+			}
+			return fields
 		}),
 	})
 
@@ -367,7 +378,7 @@ func init() {
 		Name:        "FriendshipWhereInput",
 		Description: "FriendshipWhereInput is used for filtering Friendship objects.",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			fields := graphql.InputObjectConfigFieldMap{
 				"not": &graphql.InputObjectFieldConfig{
 					Type:        FriendshipWhereInputType,
 					Description: "Logical NOT of the condition.",
@@ -421,6 +432,11 @@ func init() {
 					Description: "Filter by category edge with conditions.",
 				},
 			}
+			// Merge consumer-registered extra input fields (see WhereInputExtraFields).
+			for name, f := range WhereInputExtraFields["FriendshipWhereInput"] {
+				fields[name] = f
+			}
+			return fields
 		}),
 	})
 
@@ -428,7 +444,7 @@ func init() {
 		Name:        "TodoWhereInput",
 		Description: "TodoWhereInput is used for filtering Todo objects.",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			fields := graphql.InputObjectConfigFieldMap{
 				"not": &graphql.InputObjectFieldConfig{
 					Type:        TodoWhereInputType,
 					Description: "Logical NOT of the condition.",
@@ -709,6 +725,11 @@ func init() {
 					Description: "Filter by category edge with conditions.",
 				},
 			}
+			// Merge consumer-registered extra input fields (see WhereInputExtraFields).
+			for name, f := range WhereInputExtraFields["TodoWhereInput"] {
+				fields[name] = f
+			}
+			return fields
 		}),
 	})
 }
@@ -978,7 +999,9 @@ func (i *BillProductWhereInput) P() (predicate.BillProduct, error) {
 }
 
 // ParseBillProductWhereInput converts a map[string]interface{} from GraphQL into a typed BillProductWhereInput.
-func ParseBillProductWhereInput(m map[string]interface{}) (*BillProductWhereInput, error) {
+// ctx is threaded to consumer-registered parse hooks (see WhereInputParseHooks)
+// and is propagated through nested not/and/or/<edge>With inputs.
+func ParseBillProductWhereInput(ctx context.Context, m map[string]interface{}) (*BillProductWhereInput, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -987,7 +1010,7 @@ func ParseBillProductWhereInput(m map[string]interface{}) (*BillProductWhereInpu
 	// Parse not
 	if v, ok := m["not"]; ok && v != nil {
 		if notMap, ok := v.(map[string]interface{}); ok {
-			notInput, err := ParseBillProductWhereInput(notMap)
+			notInput, err := ParseBillProductWhereInput(ctx, notMap)
 			if err != nil {
 				return nil, fmt.Errorf("parsing 'not': %w", err)
 			}
@@ -1000,7 +1023,7 @@ func ParseBillProductWhereInput(m map[string]interface{}) (*BillProductWhereInpu
 		if andSlice, ok := v.([]interface{}); ok {
 			for i, item := range andSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					andInput, err := ParseBillProductWhereInput(itemMap)
+					andInput, err := ParseBillProductWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
 					}
@@ -1015,7 +1038,7 @@ func ParseBillProductWhereInput(m map[string]interface{}) (*BillProductWhereInpu
 		if orSlice, ok := v.([]interface{}); ok {
 			for i, item := range orSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					orInput, err := ParseBillProductWhereInput(itemMap)
+					orInput, err := ParseBillProductWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
 					}
@@ -1319,6 +1342,14 @@ func ParseBillProductWhereInput(m map[string]interface{}) (*BillProductWhereInpu
 			val := int(i)
 			input.QuantityLTE = &val
 		}
+	}
+
+	// Run consumer-registered parse hooks (see WhereInputParseHooks). Because
+	// this runs at the end of every ParseBillProductWhereInput call — including the
+	// recursive not/and/or/<edge>With calls above — hooks fire for nested
+	// where-inputs as well as the top-level one.
+	if err := runWhereInputHooks(ctx, "BillProductWhereInput", m, input); err != nil {
+		return nil, err
 	}
 
 	return input, nil
@@ -1627,7 +1658,9 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 }
 
 // ParseCategoryWhereInput converts a map[string]interface{} from GraphQL into a typed CategoryWhereInput.
-func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, error) {
+// ctx is threaded to consumer-registered parse hooks (see WhereInputParseHooks)
+// and is propagated through nested not/and/or/<edge>With inputs.
+func ParseCategoryWhereInput(ctx context.Context, m map[string]interface{}) (*CategoryWhereInput, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -1636,7 +1669,7 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	// Parse not
 	if v, ok := m["not"]; ok && v != nil {
 		if notMap, ok := v.(map[string]interface{}); ok {
-			notInput, err := ParseCategoryWhereInput(notMap)
+			notInput, err := ParseCategoryWhereInput(ctx, notMap)
 			if err != nil {
 				return nil, fmt.Errorf("parsing 'not': %w", err)
 			}
@@ -1649,7 +1682,7 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 		if andSlice, ok := v.([]interface{}); ok {
 			for i, item := range andSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					andInput, err := ParseCategoryWhereInput(itemMap)
+					andInput, err := ParseCategoryWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
 					}
@@ -1664,7 +1697,7 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 		if orSlice, ok := v.([]interface{}); ok {
 			for i, item := range orSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					orInput, err := ParseCategoryWhereInput(itemMap)
+					orInput, err := ParseCategoryWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
 					}
@@ -2108,7 +2141,7 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 		if slice, ok := v.([]interface{}); ok {
 			for i, item := range slice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					withInput, err := ParseTodoWhereInput(itemMap)
+					withInput, err := ParseTodoWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'hasTodosWith[%d]': %w", i, err)
 					}
@@ -2116,6 +2149,14 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 				}
 			}
 		}
+	}
+
+	// Run consumer-registered parse hooks (see WhereInputParseHooks). Because
+	// this runs at the end of every ParseCategoryWhereInput call — including the
+	// recursive not/and/or/<edge>With calls above — hooks fire for nested
+	// where-inputs as well as the top-level one.
+	if err := runWhereInputHooks(ctx, "CategoryWhereInput", m, input); err != nil {
+		return nil, err
 	}
 
 	return input, nil
@@ -2288,7 +2329,9 @@ func (i *FriendshipWhereInput) P() (predicate.Friendship, error) {
 }
 
 // ParseFriendshipWhereInput converts a map[string]interface{} from GraphQL into a typed FriendshipWhereInput.
-func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput, error) {
+// ctx is threaded to consumer-registered parse hooks (see WhereInputParseHooks)
+// and is propagated through nested not/and/or/<edge>With inputs.
+func ParseFriendshipWhereInput(ctx context.Context, m map[string]interface{}) (*FriendshipWhereInput, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -2297,7 +2340,7 @@ func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput,
 	// Parse not
 	if v, ok := m["not"]; ok && v != nil {
 		if notMap, ok := v.(map[string]interface{}); ok {
-			notInput, err := ParseFriendshipWhereInput(notMap)
+			notInput, err := ParseFriendshipWhereInput(ctx, notMap)
 			if err != nil {
 				return nil, fmt.Errorf("parsing 'not': %w", err)
 			}
@@ -2310,7 +2353,7 @@ func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput,
 		if andSlice, ok := v.([]interface{}); ok {
 			for i, item := range andSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					andInput, err := ParseFriendshipWhereInput(itemMap)
+					andInput, err := ParseFriendshipWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
 					}
@@ -2325,7 +2368,7 @@ func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput,
 		if orSlice, ok := v.([]interface{}); ok {
 			for i, item := range orSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					orInput, err := ParseFriendshipWhereInput(itemMap)
+					orInput, err := ParseFriendshipWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
 					}
@@ -2407,7 +2450,7 @@ func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput,
 		if slice, ok := v.([]interface{}); ok {
 			for i, item := range slice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					withInput, err := ParseTodoWhereInput(itemMap)
+					withInput, err := ParseTodoWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'hasTodoWith[%d]': %w", i, err)
 					}
@@ -2427,7 +2470,7 @@ func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput,
 		if slice, ok := v.([]interface{}); ok {
 			for i, item := range slice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					withInput, err := ParseCategoryWhereInput(itemMap)
+					withInput, err := ParseCategoryWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'hasCategoryWith[%d]': %w", i, err)
 					}
@@ -2435,6 +2478,14 @@ func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput,
 				}
 			}
 		}
+	}
+
+	// Run consumer-registered parse hooks (see WhereInputParseHooks). Because
+	// this runs at the end of every ParseFriendshipWhereInput call — including the
+	// recursive not/and/or/<edge>With calls above — hooks fire for nested
+	// where-inputs as well as the top-level one.
+	if err := runWhereInputHooks(ctx, "FriendshipWhereInput", m, input); err != nil {
+		return nil, err
 	}
 
 	return input, nil
@@ -2937,7 +2988,9 @@ func (i *TodoWhereInput) P() (predicate.Todo, error) {
 }
 
 // ParseTodoWhereInput converts a map[string]interface{} from GraphQL into a typed TodoWhereInput.
-func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
+// ctx is threaded to consumer-registered parse hooks (see WhereInputParseHooks)
+// and is propagated through nested not/and/or/<edge>With inputs.
+func ParseTodoWhereInput(ctx context.Context, m map[string]interface{}) (*TodoWhereInput, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -2946,7 +2999,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	// Parse not
 	if v, ok := m["not"]; ok && v != nil {
 		if notMap, ok := v.(map[string]interface{}); ok {
-			notInput, err := ParseTodoWhereInput(notMap)
+			notInput, err := ParseTodoWhereInput(ctx, notMap)
 			if err != nil {
 				return nil, fmt.Errorf("parsing 'not': %w", err)
 			}
@@ -2959,7 +3012,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 		if andSlice, ok := v.([]interface{}); ok {
 			for i, item := range andSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					andInput, err := ParseTodoWhereInput(itemMap)
+					andInput, err := ParseTodoWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
 					}
@@ -2974,7 +3027,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 		if orSlice, ok := v.([]interface{}); ok {
 			for i, item := range orSlice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					orInput, err := ParseTodoWhereInput(itemMap)
+					orInput, err := ParseTodoWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
 					}
@@ -4128,7 +4181,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 		if slice, ok := v.([]interface{}); ok {
 			for i, item := range slice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					withInput, err := ParseTodoWhereInput(itemMap)
+					withInput, err := ParseTodoWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'hasParentWith[%d]': %w", i, err)
 					}
@@ -4148,7 +4201,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 		if slice, ok := v.([]interface{}); ok {
 			for i, item := range slice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					withInput, err := ParseTodoWhereInput(itemMap)
+					withInput, err := ParseTodoWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'hasChildrenWith[%d]': %w", i, err)
 					}
@@ -4168,7 +4221,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 		if slice, ok := v.([]interface{}); ok {
 			for i, item := range slice {
 				if itemMap, ok := item.(map[string]interface{}); ok {
-					withInput, err := ParseCategoryWhereInput(itemMap)
+					withInput, err := ParseCategoryWhereInput(ctx, itemMap)
 					if err != nil {
 						return nil, fmt.Errorf("parsing 'hasCategoryWith[%d]': %w", i, err)
 					}
@@ -4176,6 +4229,14 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 				}
 			}
 		}
+	}
+
+	// Run consumer-registered parse hooks (see WhereInputParseHooks). Because
+	// this runs at the end of every ParseTodoWhereInput call — including the
+	// recursive not/and/or/<edge>With calls above — hooks fire for nested
+	// where-inputs as well as the top-level one.
+	if err := runWhereInputHooks(ctx, "TodoWhereInput", m, input); err != nil {
+		return nil, err
 	}
 
 	return input, nil

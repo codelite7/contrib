@@ -155,7 +155,7 @@ func newQueryType(client *ent.Client) *graphql.Object {
 					query := c.Category.Query()
 					// Apply where filter.
 					if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
-						whereInput, err := ParseCategoryWhereInput(whereArg)
+						whereInput, err := ParseCategoryWhereInput(p.Context, whereArg)
 						if err != nil {
 							return nil, fmt.Errorf("parsing where input: %w", err)
 						}
@@ -213,7 +213,7 @@ func newQueryType(client *ent.Client) *graphql.Object {
 					query := c.Todo.Query()
 					// Apply where filter.
 					if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
-						whereInput, err := ParseTodoWhereInput(whereArg)
+						whereInput, err := ParseTodoWhereInput(p.Context, whereArg)
 						if err != nil {
 							return nil, fmt.Errorf("parsing where input: %w", err)
 						}

@@ -4036,6 +4036,16 @@
             },
             {
               "defaultValue": null,
+              "description": "Filter to todos whose text length is greater than the given value.",
+              "name": "textLengthGT",
+              "type": {
+                "kind": "SCALAR",
+                "name": "Int",
+                "ofType": null
+              }
+            },
+            {
+              "defaultValue": null,
               "description": "",
               "name": "textNEQ",
               "type": {

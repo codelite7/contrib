@@ -184,7 +184,7 @@ func newQueryType(client *{{ $entPkg }}.Client) *graphql.Object {
 					query := c.{{ $n.Name }}.Query()
 					// Apply where filter.
 					if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
-						whereInput, err := Parse{{ $names.WhereInput }}(whereArg)
+						whereInput, err := Parse{{ $names.WhereInput }}(p.Context, whereArg)
 						if err != nil {
 							return nil, fmt.Errorf("parsing where input: %w", err)
 						}

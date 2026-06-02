@@ -26,8 +26,10 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/edges"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/enttest"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/gqlgo"
+	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/predicate"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/todo"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	_ "github.com/mattn/go-sqlite3"
@@ -85,6 +87,90 @@ func init() {
 			},
 		},
 	}
+
+	// Register a custom "textLengthGT" predicate field on TodoWhereInput via the
+	// where-input extension seam (split-runtime build): WhereInputExtraFields
+	// declares the GraphQL input field, WhereInputParseHooks adds a
+	// LENGTH(text) > N predicate to the typed where-input.
+	gqlgo.WhereInputExtraFields["TodoWhereInput"] = graphql.InputObjectConfigFieldMap{
+		"textLengthGT": &graphql.InputObjectFieldConfig{
+			Type:        graphql.Int,
+			Description: "Filter to todos whose text length is greater than the given value.",
+		},
+	}
+	gqlgo.WhereInputParseHooks["TodoWhereInput"] = append(
+		gqlgo.WhereInputParseHooks["TodoWhereInput"],
+		func(_ context.Context, raw map[string]interface{}, whereInput interface{}) error {
+			v, ok := raw["textLengthGT"]
+			if !ok || v == nil {
+				return nil
+			}
+			n, ok := v.(int)
+			if !ok {
+				return nil
+			}
+			wi, ok := whereInput.(*gqlgo.TodoWhereInput)
+			if !ok {
+				return nil
+			}
+			wi.AddPredicates(predicate.Todo(func(s *sql.Selector) {
+				s.Where(sql.ExprP("LENGTH("+s.C(todo.FieldText)+") > ?", n))
+			}))
+			return nil
+		},
+	)
+}
+
+// seedTodosForLength creates todos with text of lengths 2/4/6/8.
+func (s *TodoSplitTestSuite) seedTodosForLength() {
+	for _, text := range []string{"ab", "abcd", "abcdef", "abcdefgh"} {
+		s.client.Todo.Create().SetText(text).SetStatus(todo.StatusInProgress).SaveX(s.ctx)
+	}
+}
+
+func (s *TodoSplitTestSuite) todoTextsWhere(query string) []string {
+	res := graphql.Do(graphql.Params{
+		Schema:        s.schema,
+		Context:       s.ctx,
+		RequestString: query,
+	})
+	s.Require().Empty(res.Errors, "where query errors: %v", res.Errors)
+	conn := res.Data.(map[string]interface{})["todos"].(map[string]interface{})
+	out := make([]string, 0)
+	for _, e := range conn["edges"].([]interface{}) {
+		node := e.(map[string]interface{})["node"].(map[string]interface{})
+		out = append(out, node["text"].(string))
+	}
+	return out
+}
+
+// TestWhereInputExtraFieldTopLevel verifies the registered textLengthGT field and
+// its parse hook filter the query at the top level under the split runtime.
+func (s *TodoSplitTestSuite) TestWhereInputExtraFieldTopLevel() {
+	s.seedTodosForLength()
+	got := s.todoTextsWhere(`query { todos(where: {textLengthGT: 5}) { edges { node { text } } } }`)
+	require.ElementsMatch(s.T(), []string{"abcdef", "abcdefgh"}, got)
+}
+
+// TestWhereInputExtraFieldNested verifies the parse hook also runs for a
+// TodoWhereInput nested inside and: [...] under the split runtime.
+func (s *TodoSplitTestSuite) TestWhereInputExtraFieldNested() {
+	s.seedTodosForLength()
+	got := s.todoTextsWhere(`query { todos(where: {and: [{textLengthGT: 5}]}) { edges { node { text } } } }`)
+	require.ElementsMatch(s.T(), []string{"abcdef", "abcdefgh"}, got)
+}
+
+// TestWhereInputUnregisteredField verifies an unregistered extra where-input
+// field is rejected by graphql-go validation rather than silently ignored.
+func (s *TodoSplitTestSuite) TestWhereInputUnregisteredField() {
+	s.seedTodosForLength()
+	res := graphql.Do(graphql.Params{
+		Schema:        s.schema,
+		Context:       s.ctx,
+		RequestString: `query { todos(where: {notARegisteredField: 5}) { edges { node { text } } } }`,
+	})
+	require.NotEmpty(s.T(), res.Errors,
+		"querying an unregistered where-input field must be a validation error")
 }
 
 // TestExtraFields verifies a consumer-registered extra field on a generated
