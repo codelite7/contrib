@@ -44,6 +44,20 @@ func (_c *CategoryCreate) SetName(v string) *CategoryCreate {
 	return _c
 }
 
+// SetConfigType sets the "config_type" field.
+func (_c *CategoryCreate) SetConfigType(v ConfigType) *CategoryCreate {
+	_ = _c.mutation.SetField("config_type", v)
+	return _c
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_c *CategoryCreate) SetNillableConfigType(v *ConfigType) *CategoryCreate {
+	if v != nil {
+		_c.SetConfigType(*v)
+	}
+	return _c
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_c *CategoryCreate) AddTodoIDs(ids ...int) *CategoryCreate {
 	_ = _c.mutation.AddEdgeIDs("todos", entbuilder.ToAny(ids)...)
@@ -92,6 +106,11 @@ func (_c *CategoryCreate) check() error {
 			return &ValidationError{Name: "name", Err: fmt.Errorf(`ent: validator failed for field "Category.name": %w`, err)}
 		}
 	}
+	if v, ok := entbuilder.GetField[ConfigType](_c.mutation, "config_type"); ok {
+		if err := ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", Err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -121,6 +140,10 @@ func (_c *CategoryCreate) createSpec() (*Category, *sqlgraph.CreateSpec) {
 	if value, ok := entbuilder.GetField[string](_c.mutation, "name"); ok {
 		_spec.SetField(FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := entbuilder.GetField[ConfigType](_c.mutation, "config_type"); ok {
+		_spec.SetField(FieldConfigType, field.TypeEnum, value)
+		_node.ConfigType = &value
 	}
 	if nodes := entbuilder.EdgeIDsAs[int](_c.mutation, "todos"); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

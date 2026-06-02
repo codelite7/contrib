@@ -58,6 +58,38 @@ func (_u *CategoryUpdate) SetNillableStatus(v *category.Status) *CategoryUpdate 
 	return _u
 }
 
+// SetConfigType sets the "config_type" field.
+func (_u *CategoryUpdate) SetConfigType(v category.ConfigType) *CategoryUpdate {
+	_u.mutation.SetConfigType(v)
+	return _u
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_u *CategoryUpdate) SetNillableConfigType(v *category.ConfigType) *CategoryUpdate {
+	if v != nil {
+		_u.SetConfigType(*v)
+	}
+	return _u
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (_u *CategoryUpdate) ClearConfigType() *CategoryUpdate {
+	_u.mutation.ClearConfigType()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *CategoryUpdate) SetMetadata(v map[string]interface{}) *CategoryUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *CategoryUpdate) ClearMetadata() *CategoryUpdate {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_u *CategoryUpdate) AddTodoIDs(ids ...int) *CategoryUpdate {
 	_u.mutation.AddTodoIDs(ids...)
@@ -71,6 +103,40 @@ func (_u *CategoryUpdate) AddTodos(v ...*Todo) *CategoryUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddTodoIDs(ids...)
+}
+
+// SetOwnerCID sets the "owner_c" edge to the Todo entity by ID.
+func (_u *CategoryUpdate) SetOwnerCID(id int) *CategoryUpdate {
+	_u.mutation.SetOwnerCID(id)
+	return _u
+}
+
+// SetNillableOwnerCID sets the "owner_c" edge to the Todo entity by ID if the given value is not nil.
+func (_u *CategoryUpdate) SetNillableOwnerCID(id *int) *CategoryUpdate {
+	if id != nil {
+		_u = _u.SetOwnerCID(*id)
+	}
+	return _u
+}
+
+// SetOwnerC sets the "owner_c" edge to the Todo entity.
+func (_u *CategoryUpdate) SetOwnerC(v *Todo) *CategoryUpdate {
+	return _u.SetOwnerCID(v.ID)
+}
+
+// AddSubStatusIDs adds the "sub_statuses" edge to the Todo entity by IDs.
+func (_u *CategoryUpdate) AddSubStatusIDs(ids ...int) *CategoryUpdate {
+	_u.mutation.AddSubStatusIDs(ids...)
+	return _u
+}
+
+// AddSubStatuses adds the "sub_statuses" edges to the Todo entity.
+func (_u *CategoryUpdate) AddSubStatuses(v ...*Todo) *CategoryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubStatusIDs(ids...)
 }
 
 // Mutation returns the CategoryMutation object of the builder.
@@ -97,6 +163,33 @@ func (_u *CategoryUpdate) RemoveTodos(v ...*Todo) *CategoryUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTodoIDs(ids...)
+}
+
+// ClearOwnerC clears the "owner_c" edge to the Todo entity.
+func (_u *CategoryUpdate) ClearOwnerC() *CategoryUpdate {
+	_u.mutation.ClearOwnerC()
+	return _u
+}
+
+// ClearSubStatuses clears all "sub_statuses" edges to the Todo entity.
+func (_u *CategoryUpdate) ClearSubStatuses() *CategoryUpdate {
+	_u.mutation.ClearSubStatuses()
+	return _u
+}
+
+// RemoveSubStatusIDs removes the "sub_statuses" edge to Todo entities by IDs.
+func (_u *CategoryUpdate) RemoveSubStatusIDs(ids ...int) *CategoryUpdate {
+	_u.mutation.RemoveSubStatusIDs(ids...)
+	return _u
+}
+
+// RemoveSubStatuses removes "sub_statuses" edges to Todo entities.
+func (_u *CategoryUpdate) RemoveSubStatuses(v ...*Todo) *CategoryUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubStatusIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -138,6 +231,11 @@ func (_u *CategoryUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ConfigType(); ok {
+		if err := category.ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -162,6 +260,34 @@ var categoryUpdateDescriptor = entbuilder.UpdateDescriptor[config, *CategoryMuta
 					return value, true, nil
 				}
 				return nil, false, nil
+			},
+		},
+
+		{
+			Column: category.FieldConfigType,
+			Type:   field.TypeEnum,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.ConfigType(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.ConfigTypeCleared()
+			},
+		},
+
+		{
+			Column: category.FieldMetadata,
+			Type:   field.TypeJSON,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Metadata(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.MetadataCleared()
 			},
 		},
 	},
@@ -211,6 +337,99 @@ var categoryUpdateDescriptor = entbuilder.UpdateDescriptor[config, *CategoryMuta
 					Inverse:      false,
 					Table:        category.TodosTable,
 					Columns:      category.TodosColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
+
+		{
+			Clear: func(cfg config, m *CategoryMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.OwnerCCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.M2O,
+						Inverse:      false,
+						Table:        category.OwnerCTable,
+						Columns:      category.OwnerCColumn,
+						Bidi:         false,
+						TargetColumn: todo.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(cfg config, m *CategoryMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.OwnerCIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.M2O,
+					Inverse:      false,
+					Table:        category.OwnerCTable,
+					Columns:      category.OwnerCColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
+
+		{
+			Clear: func(cfg config, m *CategoryMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.SubStatusesCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.O2M,
+						Inverse:      false,
+						Table:        category.SubStatusesTable,
+						Columns:      category.SubStatusesColumn,
+						Bidi:         false,
+						TargetColumn: todo.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Remove: func(cfg config, m *CategoryMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.RemovedSubStatusesIDs()
+				if len(nodes) == 0 || m.SubStatusesCleared() {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.O2M,
+					Inverse:      false,
+					Table:        category.SubStatusesTable,
+					Columns:      category.SubStatusesColumn,
+					Bidi:         false,
+					TargetColumn: todo.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+			Add: func(cfg config, m *CategoryMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.SubStatusesIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.O2M,
+					Inverse:      false,
+					Table:        category.SubStatusesTable,
+					Columns:      category.SubStatusesColumn,
 					Bidi:         false,
 					TargetColumn: todo.FieldID,
 					TargetType:   field.TypeInt,
@@ -287,6 +506,38 @@ func (_u *CategoryUpdateOne) SetNillableStatus(v *category.Status) *CategoryUpda
 	return _u
 }
 
+// SetConfigType sets the "config_type" field.
+func (_u *CategoryUpdateOne) SetConfigType(v category.ConfigType) *CategoryUpdateOne {
+	_u.mutation.SetConfigType(v)
+	return _u
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_u *CategoryUpdateOne) SetNillableConfigType(v *category.ConfigType) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetConfigType(*v)
+	}
+	return _u
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (_u *CategoryUpdateOne) ClearConfigType() *CategoryUpdateOne {
+	_u.mutation.ClearConfigType()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *CategoryUpdateOne) SetMetadata(v map[string]interface{}) *CategoryUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *CategoryUpdateOne) ClearMetadata() *CategoryUpdateOne {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_u *CategoryUpdateOne) AddTodoIDs(ids ...int) *CategoryUpdateOne {
 	_u.mutation.AddTodoIDs(ids...)
@@ -300,6 +551,40 @@ func (_u *CategoryUpdateOne) AddTodos(v ...*Todo) *CategoryUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.AddTodoIDs(ids...)
+}
+
+// SetOwnerCID sets the "owner_c" edge to the Todo entity by ID.
+func (_u *CategoryUpdateOne) SetOwnerCID(id int) *CategoryUpdateOne {
+	_u.mutation.SetOwnerCID(id)
+	return _u
+}
+
+// SetNillableOwnerCID sets the "owner_c" edge to the Todo entity by ID if the given value is not nil.
+func (_u *CategoryUpdateOne) SetNillableOwnerCID(id *int) *CategoryUpdateOne {
+	if id != nil {
+		_u = _u.SetOwnerCID(*id)
+	}
+	return _u
+}
+
+// SetOwnerC sets the "owner_c" edge to the Todo entity.
+func (_u *CategoryUpdateOne) SetOwnerC(v *Todo) *CategoryUpdateOne {
+	return _u.SetOwnerCID(v.ID)
+}
+
+// AddSubStatusIDs adds the "sub_statuses" edge to the Todo entity by IDs.
+func (_u *CategoryUpdateOne) AddSubStatusIDs(ids ...int) *CategoryUpdateOne {
+	_u.mutation.AddSubStatusIDs(ids...)
+	return _u
+}
+
+// AddSubStatuses adds the "sub_statuses" edges to the Todo entity.
+func (_u *CategoryUpdateOne) AddSubStatuses(v ...*Todo) *CategoryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubStatusIDs(ids...)
 }
 
 // Mutation returns the CategoryMutation object of the builder.
@@ -326,6 +611,33 @@ func (_u *CategoryUpdateOne) RemoveTodos(v ...*Todo) *CategoryUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTodoIDs(ids...)
+}
+
+// ClearOwnerC clears the "owner_c" edge to the Todo entity.
+func (_u *CategoryUpdateOne) ClearOwnerC() *CategoryUpdateOne {
+	_u.mutation.ClearOwnerC()
+	return _u
+}
+
+// ClearSubStatuses clears all "sub_statuses" edges to the Todo entity.
+func (_u *CategoryUpdateOne) ClearSubStatuses() *CategoryUpdateOne {
+	_u.mutation.ClearSubStatuses()
+	return _u
+}
+
+// RemoveSubStatusIDs removes the "sub_statuses" edge to Todo entities by IDs.
+func (_u *CategoryUpdateOne) RemoveSubStatusIDs(ids ...int) *CategoryUpdateOne {
+	_u.mutation.RemoveSubStatusIDs(ids...)
+	return _u
+}
+
+// RemoveSubStatuses removes "sub_statuses" edges to Todo entities.
+func (_u *CategoryUpdateOne) RemoveSubStatuses(v ...*Todo) *CategoryUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubStatusIDs(ids...)
 }
 
 // Where appends a list predicates to the CategoryUpdate builder.
@@ -378,6 +690,11 @@ func (_u *CategoryUpdateOne) check() error {
 	if v, ok := _u.mutation.Status(); ok {
 		if err := category.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Category.status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ConfigType(); ok {
+		if err := category.ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
 		}
 	}
 	return nil

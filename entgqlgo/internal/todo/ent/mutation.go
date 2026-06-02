@@ -30,6 +30,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 const (
@@ -526,9 +527,13 @@ type CategoryMutation struct {
 	text          *string
 	status        *category.Status
 	kind          *category.Kind
+	config_type   *category.ConfigType
 	tags          *[]string
 	appendtags    []string
 	_config       *map[string]string
+	external_id   *uuid.UUID
+	attributes    *map[string]interface{}
+	payload       *[]byte
 	clearedFields map[string]struct{}
 	todos         map[int]struct{}
 	removedtodos  map[int]struct{}
@@ -744,6 +749,55 @@ func (m *CategoryMutation) ResetKind() {
 	m.kind = nil
 }
 
+// SetConfigType sets the "config_type" field.
+func (m *CategoryMutation) SetConfigType(ct category.ConfigType) {
+	m.config_type = &ct
+}
+
+// ConfigType returns the value of the "config_type" field in the mutation.
+func (m *CategoryMutation) ConfigType() (r category.ConfigType, exists bool) {
+	v := m.config_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfigType returns the old "config_type" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldConfigType(ctx context.Context) (v *category.ConfigType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfigType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfigType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfigType: %w", err)
+	}
+	return oldValue.ConfigType, nil
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (m *CategoryMutation) ClearConfigType() {
+	m.config_type = nil
+	m.clearedFields[category.FieldConfigType] = struct{}{}
+}
+
+// ConfigTypeCleared returns if the "config_type" field was cleared in this mutation.
+func (m *CategoryMutation) ConfigTypeCleared() bool {
+	_, ok := m.clearedFields[category.FieldConfigType]
+	return ok
+}
+
+// ResetConfigType resets all changes to the "config_type" field.
+func (m *CategoryMutation) ResetConfigType() {
+	m.config_type = nil
+	delete(m.clearedFields, category.FieldConfigType)
+}
+
 // SetTags sets the "tags" field.
 func (m *CategoryMutation) SetTags(s []string) {
 	m.tags = &s
@@ -858,6 +912,153 @@ func (m *CategoryMutation) ResetConfig() {
 	delete(m.clearedFields, category.FieldConfig)
 }
 
+// SetExternalID sets the "external_id" field.
+func (m *CategoryMutation) SetExternalID(u uuid.UUID) {
+	m.external_id = &u
+}
+
+// ExternalID returns the value of the "external_id" field in the mutation.
+func (m *CategoryMutation) ExternalID() (r uuid.UUID, exists bool) {
+	v := m.external_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExternalID returns the old "external_id" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldExternalID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExternalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExternalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExternalID: %w", err)
+	}
+	return oldValue.ExternalID, nil
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (m *CategoryMutation) ClearExternalID() {
+	m.external_id = nil
+	m.clearedFields[category.FieldExternalID] = struct{}{}
+}
+
+// ExternalIDCleared returns if the "external_id" field was cleared in this mutation.
+func (m *CategoryMutation) ExternalIDCleared() bool {
+	_, ok := m.clearedFields[category.FieldExternalID]
+	return ok
+}
+
+// ResetExternalID resets all changes to the "external_id" field.
+func (m *CategoryMutation) ResetExternalID() {
+	m.external_id = nil
+	delete(m.clearedFields, category.FieldExternalID)
+}
+
+// SetAttributes sets the "attributes" field.
+func (m *CategoryMutation) SetAttributes(value map[string]interface{}) {
+	m.attributes = &value
+}
+
+// Attributes returns the value of the "attributes" field in the mutation.
+func (m *CategoryMutation) Attributes() (r map[string]interface{}, exists bool) {
+	v := m.attributes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAttributes returns the old "attributes" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldAttributes(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAttributes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAttributes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAttributes: %w", err)
+	}
+	return oldValue.Attributes, nil
+}
+
+// ClearAttributes clears the value of the "attributes" field.
+func (m *CategoryMutation) ClearAttributes() {
+	m.attributes = nil
+	m.clearedFields[category.FieldAttributes] = struct{}{}
+}
+
+// AttributesCleared returns if the "attributes" field was cleared in this mutation.
+func (m *CategoryMutation) AttributesCleared() bool {
+	_, ok := m.clearedFields[category.FieldAttributes]
+	return ok
+}
+
+// ResetAttributes resets all changes to the "attributes" field.
+func (m *CategoryMutation) ResetAttributes() {
+	m.attributes = nil
+	delete(m.clearedFields, category.FieldAttributes)
+}
+
+// SetPayload sets the "payload" field.
+func (m *CategoryMutation) SetPayload(b []byte) {
+	m.payload = &b
+}
+
+// Payload returns the value of the "payload" field in the mutation.
+func (m *CategoryMutation) Payload() (r []byte, exists bool) {
+	v := m.payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayload returns the old "payload" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldPayload(ctx context.Context) (v []byte, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayload: %w", err)
+	}
+	return oldValue.Payload, nil
+}
+
+// ClearPayload clears the value of the "payload" field.
+func (m *CategoryMutation) ClearPayload() {
+	m.payload = nil
+	m.clearedFields[category.FieldPayload] = struct{}{}
+}
+
+// PayloadCleared returns if the "payload" field was cleared in this mutation.
+func (m *CategoryMutation) PayloadCleared() bool {
+	_, ok := m.clearedFields[category.FieldPayload]
+	return ok
+}
+
+// ResetPayload resets all changes to the "payload" field.
+func (m *CategoryMutation) ResetPayload() {
+	m.payload = nil
+	delete(m.clearedFields, category.FieldPayload)
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by ids.
 func (m *CategoryMutation) AddTodoIDs(ids ...int) {
 	if m.todos == nil {
@@ -946,7 +1147,7 @@ func (m *CategoryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CategoryMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 9)
 	if m.text != nil {
 		fields = append(fields, category.FieldText)
 	}
@@ -956,11 +1157,23 @@ func (m *CategoryMutation) Fields() []string {
 	if m.kind != nil {
 		fields = append(fields, category.FieldKind)
 	}
+	if m.config_type != nil {
+		fields = append(fields, category.FieldConfigType)
+	}
 	if m.tags != nil {
 		fields = append(fields, category.FieldTags)
 	}
 	if m._config != nil {
 		fields = append(fields, category.FieldConfig)
+	}
+	if m.external_id != nil {
+		fields = append(fields, category.FieldExternalID)
+	}
+	if m.attributes != nil {
+		fields = append(fields, category.FieldAttributes)
+	}
+	if m.payload != nil {
+		fields = append(fields, category.FieldPayload)
 	}
 	return fields
 }
@@ -976,10 +1189,18 @@ func (m *CategoryMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case category.FieldKind:
 		return m.Kind()
+	case category.FieldConfigType:
+		return m.ConfigType()
 	case category.FieldTags:
 		return m.Tags()
 	case category.FieldConfig:
 		return m.Config()
+	case category.FieldExternalID:
+		return m.ExternalID()
+	case category.FieldAttributes:
+		return m.Attributes()
+	case category.FieldPayload:
+		return m.Payload()
 	}
 	return nil, false
 }
@@ -995,10 +1216,18 @@ func (m *CategoryMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldStatus(ctx)
 	case category.FieldKind:
 		return m.OldKind(ctx)
+	case category.FieldConfigType:
+		return m.OldConfigType(ctx)
 	case category.FieldTags:
 		return m.OldTags(ctx)
 	case category.FieldConfig:
 		return m.OldConfig(ctx)
+	case category.FieldExternalID:
+		return m.OldExternalID(ctx)
+	case category.FieldAttributes:
+		return m.OldAttributes(ctx)
+	case category.FieldPayload:
+		return m.OldPayload(ctx)
 	}
 	return nil, fmt.Errorf("unknown Category field %s", name)
 }
@@ -1029,6 +1258,13 @@ func (m *CategoryMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetKind(v)
 		return nil
+	case category.FieldConfigType:
+		v, ok := value.(category.ConfigType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfigType(v)
+		return nil
 	case category.FieldTags:
 		v, ok := value.([]string)
 		if !ok {
@@ -1042,6 +1278,27 @@ func (m *CategoryMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetConfig(v)
+		return nil
+	case category.FieldExternalID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExternalID(v)
+		return nil
+	case category.FieldAttributes:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAttributes(v)
+		return nil
+	case category.FieldPayload:
+		v, ok := value.([]byte)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayload(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)
@@ -1073,11 +1330,23 @@ func (m *CategoryMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *CategoryMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(category.FieldConfigType) {
+		fields = append(fields, category.FieldConfigType)
+	}
 	if m.FieldCleared(category.FieldTags) {
 		fields = append(fields, category.FieldTags)
 	}
 	if m.FieldCleared(category.FieldConfig) {
 		fields = append(fields, category.FieldConfig)
+	}
+	if m.FieldCleared(category.FieldExternalID) {
+		fields = append(fields, category.FieldExternalID)
+	}
+	if m.FieldCleared(category.FieldAttributes) {
+		fields = append(fields, category.FieldAttributes)
+	}
+	if m.FieldCleared(category.FieldPayload) {
+		fields = append(fields, category.FieldPayload)
 	}
 	return fields
 }
@@ -1093,11 +1362,23 @@ func (m *CategoryMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *CategoryMutation) ClearField(name string) error {
 	switch name {
+	case category.FieldConfigType:
+		m.ClearConfigType()
+		return nil
 	case category.FieldTags:
 		m.ClearTags()
 		return nil
 	case category.FieldConfig:
 		m.ClearConfig()
+		return nil
+	case category.FieldExternalID:
+		m.ClearExternalID()
+		return nil
+	case category.FieldAttributes:
+		m.ClearAttributes()
+		return nil
+	case category.FieldPayload:
+		m.ClearPayload()
 		return nil
 	}
 	return fmt.Errorf("unknown Category nullable field %s", name)
@@ -1116,11 +1397,23 @@ func (m *CategoryMutation) ResetField(name string) error {
 	case category.FieldKind:
 		m.ResetKind()
 		return nil
+	case category.FieldConfigType:
+		m.ResetConfigType()
+		return nil
 	case category.FieldTags:
 		m.ResetTags()
 		return nil
 	case category.FieldConfig:
 		m.ResetConfig()
+		return nil
+	case category.FieldExternalID:
+		m.ResetExternalID()
+		return nil
+	case category.FieldAttributes:
+		m.ResetAttributes()
+		return nil
+	case category.FieldPayload:
+		m.ResetPayload()
 		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)

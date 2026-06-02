@@ -13,12 +13,23 @@ var (
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "text", Type: field.TypeString},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ENABLED", "DISABLED"}, Default: "ENABLED"},
+		{Name: "config_type", Type: field.TypeEnum, Nullable: true, Enums: []string{"PRIMARY", "SECONDARY", "LEGACY"}},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
+		{Name: "category_owner_c", Type: field.TypeInt, Nullable: true},
 	}
 	// CategoriesTable holds the schema information for the "categories" table.
 	CategoriesTable = &schema.Table{
 		Name:       "categories",
 		Columns:    CategoriesColumns,
 		PrimaryKey: []*schema.Column{CategoriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "categories_todos_owner_c",
+				Columns:    []*schema.Column{CategoriesColumns[5]},
+				RefColumns: []*schema.Column{TodosColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// TodosColumns holds the columns for the "todos" table.
 	TodosColumns = []*schema.Column{
@@ -27,8 +38,11 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"IN_PROGRESS", "COMPLETED", "PENDING"}},
 		{Name: "priority", Type: field.TypeInt, Default: 0},
 		{Name: "text", Type: field.TypeString, Size: 2147483647},
+		{Name: "note", Type: field.TypeString},
 		{Name: "category_todos", Type: field.TypeInt, Nullable: true},
+		{Name: "category_sub_statuses", Type: field.TypeInt, Nullable: true},
 		{Name: "todo_children", Type: field.TypeInt, Nullable: true},
+		{Name: "todo_owner", Type: field.TypeInt},
 	}
 	// TodosTable holds the schema information for the "todos" table.
 	TodosTable = &schema.Table{
@@ -38,15 +52,27 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "todos_categories_todos",
-				Columns:    []*schema.Column{TodosColumns[5]},
+				Columns:    []*schema.Column{TodosColumns[6]},
+				RefColumns: []*schema.Column{CategoriesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "todos_categories_sub_statuses",
+				Columns:    []*schema.Column{TodosColumns[7]},
 				RefColumns: []*schema.Column{CategoriesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "todos_todos_children",
-				Columns:    []*schema.Column{TodosColumns[6]},
+				Columns:    []*schema.Column{TodosColumns[8]},
 				RefColumns: []*schema.Column{TodosColumns[0]},
 				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "todos_categories_owner",
+				Columns:    []*schema.Column{TodosColumns[9]},
+				RefColumns: []*schema.Column{CategoriesColumns[0]},
+				OnDelete:   schema.NoAction,
 			},
 		},
 	}
@@ -58,6 +84,9 @@ var (
 )
 
 func init() {
+	CategoriesTable.ForeignKeys[0].RefTable = TodosTable
 	TodosTable.ForeignKeys[0].RefTable = CategoriesTable
-	TodosTable.ForeignKeys[1].RefTable = TodosTable
+	TodosTable.ForeignKeys[1].RefTable = CategoriesTable
+	TodosTable.ForeignKeys[2].RefTable = TodosTable
+	TodosTable.ForeignKeys[3].RefTable = CategoriesTable
 }

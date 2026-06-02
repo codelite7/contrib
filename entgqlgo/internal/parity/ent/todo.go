@@ -26,12 +26,16 @@ type Todo struct {
 	Priority int `json:"priority,omitempty"`
 	// Text holds the value of the "text" field.
 	Text string `json:"text,omitempty"`
+	// Note holds the value of the "note" field.
+	Note *string `json:"note,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TodoQuery when eager-loading is set.
-	Edges          TodoEdges `json:"edges"`
-	category_todos *int
-	todo_children  *int
-	selectValues   sql.SelectValues
+	Edges                 TodoEdges `json:"edges"`
+	category_todos        *int
+	category_sub_statuses *int
+	todo_children         *int
+	todo_owner            *int
+	selectValues          sql.SelectValues
 }
 
 // TodoEdges holds the relations/edges for other nodes in the graph.
@@ -42,9 +46,11 @@ type TodoEdges struct {
 	Children []*Todo `json:"children,omitempty"`
 	// Category holds the value of the category edge.
 	Category *Category `json:"category,omitempty"`
+	// Owner holds the value of the owner edge.
+	Owner *Category `json:"owner,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes   [3]bool
+	loadedTypes   [4]bool
 	namedChildren map[string][]*Todo
 }
 
@@ -79,6 +85,17 @@ func (e TodoEdges) CategoryOrErr() (*Category, error) {
 	return nil, &NotLoadedError{edge: "category"}
 }
 
+// OwnerOrErr returns the Owner value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TodoEdges) OwnerOrErr() (*Category, error) {
+	if e.Owner != nil {
+		return e.Owner, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: category.Label}
+	}
+	return nil, &NotLoadedError{edge: "owner"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Todo) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -86,13 +103,17 @@ func (*Todo) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case todo.FieldID, todo.FieldPriority:
 			values[i] = new(sql.NullInt64)
-		case todo.FieldStatus, todo.FieldText:
+		case todo.FieldStatus, todo.FieldText, todo.FieldNote:
 			values[i] = new(sql.NullString)
 		case todo.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case todo.ForeignKeys[0]: // category_todos
 			values[i] = new(sql.NullInt64)
-		case todo.ForeignKeys[1]: // todo_children
+		case todo.ForeignKeys[1]: // category_sub_statuses
+			values[i] = new(sql.NullInt64)
+		case todo.ForeignKeys[2]: // todo_children
+			values[i] = new(sql.NullInt64)
+		case todo.ForeignKeys[3]: // todo_owner
 			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -139,6 +160,13 @@ func (_m *Todo) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Text = value.String
 			}
+		case todo.FieldNote:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field note", values[i])
+			} else if value.Valid {
+				_m.Note = new(string)
+				*_m.Note = value.String
+			}
 		case todo.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field category_todos", value)
@@ -148,10 +176,24 @@ func (_m *Todo) assignValues(columns []string, values []any) error {
 			}
 		case todo.ForeignKeys[1]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field category_sub_statuses", value)
+			} else if value.Valid {
+				_m.category_sub_statuses = new(int)
+				*_m.category_sub_statuses = int(value.Int64)
+			}
+		case todo.ForeignKeys[2]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for edge-field todo_children", value)
 			} else if value.Valid {
 				_m.todo_children = new(int)
 				*_m.todo_children = int(value.Int64)
+			}
+		case todo.ForeignKeys[3]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field todo_owner", value)
+			} else if value.Valid {
+				_m.todo_owner = new(int)
+				*_m.todo_owner = int(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -179,6 +221,11 @@ func (_m *Todo) QueryChildren() *TodoQuery {
 // QueryCategory queries the "category" edge of the Todo entity.
 func (_m *Todo) QueryCategory() *CategoryQuery {
 	return NewTodoClient(_m.config).QueryCategory(_m)
+}
+
+// QueryOwner queries the "owner" edge of the Todo entity.
+func (_m *Todo) QueryOwner() *CategoryQuery {
+	return NewTodoClient(_m.config).QueryOwner(_m)
 }
 
 // Update returns a builder for updating this Todo.
@@ -215,6 +262,11 @@ func (_m *Todo) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("text=")
 	builder.WriteString(_m.Text)
+	builder.WriteString(", ")
+	if v := _m.Note; v != nil {
+		builder.WriteString("note=")
+		builder.WriteString(*v)
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

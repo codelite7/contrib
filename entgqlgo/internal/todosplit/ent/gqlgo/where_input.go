@@ -125,6 +125,24 @@ func init() {
 				"nameContainsFold": &graphql.InputObjectFieldConfig{
 					Type: graphql.String,
 				},
+				"configType": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"configTypeNEQ": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"configTypeIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryConfigTypeEnum)),
+				},
+				"configTypeNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryConfigTypeEnum)),
+				},
+				"configTypeIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"configTypeNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
 				"hasTodos": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
 					Description: "Check if todos edge exists.",
@@ -405,6 +423,14 @@ type CategoryWhereInput struct {
 	NameEqualFold    *string  `json:"nameEqualFold,omitempty"`
 	NameContainsFold *string  `json:"nameContainsFold,omitempty"`
 
+	// "config_type" field predicates.
+	ConfigType       *category.ConfigType  `json:"configType,omitempty"`
+	ConfigTypeNEQ    *category.ConfigType  `json:"configTypeNEQ,omitempty"`
+	ConfigTypeIn     []category.ConfigType `json:"configTypeIn,omitempty"`
+	ConfigTypeNotIn  []category.ConfigType `json:"configTypeNotIn,omitempty"`
+	ConfigTypeIsNil  bool                  `json:"configTypeIsNil,omitempty"`
+	ConfigTypeNotNil bool                  `json:"configTypeNotNil,omitempty"`
+
 	// "todos" edge predicates.
 	HasTodos     *bool             `json:"hasTodos,omitempty"`
 	HasTodosWith []*TodoWhereInput `json:"hasTodosWith,omitempty"`
@@ -543,6 +569,24 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 	}
 	if i.NameContainsFold != nil {
 		predicates = append(predicates, category.NameContainsFold(*i.NameContainsFold))
+	}
+	if i.ConfigType != nil {
+		predicates = append(predicates, category.ConfigTypeEQ(*i.ConfigType))
+	}
+	if i.ConfigTypeNEQ != nil {
+		predicates = append(predicates, category.ConfigTypeNEQ(*i.ConfigTypeNEQ))
+	}
+	if len(i.ConfigTypeIn) > 0 {
+		predicates = append(predicates, category.ConfigTypeIn(i.ConfigTypeIn...))
+	}
+	if len(i.ConfigTypeNotIn) > 0 {
+		predicates = append(predicates, category.ConfigTypeNotIn(i.ConfigTypeNotIn...))
+	}
+	if i.ConfigTypeIsNil {
+		predicates = append(predicates, category.ConfigTypeIsNil())
+	}
+	if i.ConfigTypeNotNil {
+		predicates = append(predicates, category.ConfigTypeNotNil())
 	}
 
 	if i.HasTodos != nil {
@@ -764,6 +808,44 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	if v, ok := m["nameContainsFold"]; ok && v != nil {
 		if s, ok := v.(string); ok {
 			input.NameContainsFold = &s
+		}
+	}
+	// Parse configType
+	if v, ok := m["configType"]; ok && v != nil {
+		val := category.ConfigType(fmt.Sprint(v))
+		input.ConfigType = &val
+	}
+	// Parse configTypeNEQ
+	if v, ok := m["configTypeNEQ"]; ok && v != nil {
+		val := category.ConfigType(fmt.Sprint(v))
+		input.ConfigTypeNEQ = &val
+	}
+	// Parse configTypeIn
+	if v, ok := m["configTypeIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				input.ConfigTypeIn = append(input.ConfigTypeIn, category.ConfigType(fmt.Sprint(item)))
+			}
+		}
+	}
+	// Parse configTypeNotIn
+	if v, ok := m["configTypeNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				input.ConfigTypeNotIn = append(input.ConfigTypeNotIn, category.ConfigType(fmt.Sprint(item)))
+			}
+		}
+	}
+	// Parse configTypeIsNil
+	if v, ok := m["configTypeIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ConfigTypeIsNil = b
+		}
+	}
+	// Parse configTypeNotNil
+	if v, ok := m["configTypeNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ConfigTypeNotNil = b
 		}
 	}
 	// Parse hasTodos
@@ -1642,25 +1724,19 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	}
 	// Parse status
 	if v, ok := m["status"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := todo.Status(s)
-			input.Status = &val
-		}
+		val := todo.Status(fmt.Sprint(v))
+		input.Status = &val
 	}
 	// Parse statusNEQ
 	if v, ok := m["statusNEQ"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := todo.Status(s)
-			input.StatusNEQ = &val
-		}
+		val := todo.Status(fmt.Sprint(v))
+		input.StatusNEQ = &val
 	}
 	// Parse statusIn
 	if v, ok := m["statusIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusIn = append(input.StatusIn, todo.Status(s))
-				}
+				input.StatusIn = append(input.StatusIn, todo.Status(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -1668,9 +1744,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	if v, ok := m["statusNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusNotIn = append(input.StatusNotIn, todo.Status(s))
-				}
+				input.StatusNotIn = append(input.StatusNotIn, todo.Status(fmt.Sprint(item)))
 			}
 		}
 	}

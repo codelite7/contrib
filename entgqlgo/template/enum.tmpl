@@ -14,8 +14,24 @@ in the LICENSE file in the root directory of this source tree.
 
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "enum_field") }}
 
+{{- /* Collect the packages of nodes that declare an enum field; the enum value
+     configs reference each field's typed Go enum constant (e.g.
+     todo.Status("IN_PROGRESS")) so graphql-go's enum serializer matches the
+     value the resolver returns from the ent struct field. */ -}}
+{{- $enumPkgs := dict }}
+{{- range $n := $gqlNodes }}
+{{- range $f := $n.Fields }}
+{{- if $f.IsEnum }}
+{{- $enumPkgs = set $enumPkgs $n.Package true }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 import (
 	"github.com/graphql-go/graphql"
+	{{- range $pkg, $_ := $enumPkgs }}
+	"{{ $.Config.Package }}/{{ $pkg }}"
+	{{- end }}
 )
 
 // Enum type definitions for graphql-go.
@@ -38,7 +54,7 @@ var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
 		{{- range $e := $f.Enums }}
 		{{- if $useEnumNames }}
 		"{{ gqlgoTrimPrefix $e.Name (pascal $f.Name) }}": &graphql.EnumValueConfig{
-			Value: "{{ $e.Value }}",
+			Value: {{ $f.Type }}("{{ $e.Value }}"),
 			Description: "Database value: {{ $e.Value }}",
 			{{- if gqlgoIsDeprecatedEnumValue $f (gqlgoTrimPrefix $e.Name (pascal $f.Name)) }}
 			DeprecationReason: "No longer supported",
@@ -46,7 +62,7 @@ var {{ $enumName }}Enum = graphql.NewEnum(graphql.EnumConfig{
 		},
 		{{- else }}
 		"{{ $e.Value }}": &graphql.EnumValueConfig{
-			Value: "{{ $e.Value }}",
+			Value: {{ $f.Type }}("{{ $e.Value }}"),
 			{{- if gqlgoIsDeprecatedEnumValue $f $e.Value }}
 			DeprecationReason: "No longer supported",
 			{{- end }}

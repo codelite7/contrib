@@ -35,6 +35,7 @@ type (
 	CategoryDeleteOne  = category.CategoryDeleteOne
 	CategoryGroupBy    = category.CategoryGroupBy
 	CategorySelect     = category.CategorySelect
+	CategoryConfigType = category.ConfigType
 )
 
 // Constructor aliases — the sub-package's New<X> stays the source of truth.

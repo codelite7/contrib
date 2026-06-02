@@ -64,6 +64,12 @@ func (_c *TodoCreate) SetText(v string) *TodoCreate {
 	return _c
 }
 
+// SetNote sets the "note" field.
+func (_c *TodoCreate) SetNote(v string) *TodoCreate {
+	_c.mutation.SetNote(v)
+	return _c
+}
+
 // SetParentID sets the "parent" edge to the Todo entity by ID.
 func (_c *TodoCreate) SetParentID(id int) *TodoCreate {
 	_c.mutation.SetParentID(id)
@@ -115,6 +121,17 @@ func (_c *TodoCreate) SetNillableCategoryID(id *int) *TodoCreate {
 // SetCategory sets the "category" edge to the Category entity.
 func (_c *TodoCreate) SetCategory(v *Category) *TodoCreate {
 	return _c.SetCategoryID(v.ID)
+}
+
+// SetOwnerID sets the "owner" edge to the Category entity by ID.
+func (_c *TodoCreate) SetOwnerID(id int) *TodoCreate {
+	_c.mutation.SetOwnerID(id)
+	return _c
+}
+
+// SetOwner sets the "owner" edge to the Category entity.
+func (_c *TodoCreate) SetOwner(v *Category) *TodoCreate {
+	return _c.SetOwnerID(v.ID)
 }
 
 // Mutation returns the TodoMutation object of the builder.
@@ -240,8 +257,34 @@ var todoCreateSpec = entgen.CreateSpec[*TodoMutation]{
 				},
 			},
 		},
+		{
+			Name: "note",
+			Requirement: entgen.FieldRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "note", err: errors.New(`ent: missing required field "Todo.note"`)}
+				},
+			},
+			IsSet: func(m *TodoMutation) bool {
+				_, ok := m.Note()
+				return ok
+			},
+		},
 	},
-	Edges: []entgen.EdgeSpec[*TodoMutation]{},
+	Edges: []entgen.EdgeSpec[*TodoMutation]{
+		{
+			Name: "owner",
+			Requirement: entgen.EdgeRequirement{
+				Required: true,
+				Error: func() error {
+					return &ValidationError{Name: "owner", err: errors.New(`ent: missing required edge "Todo.owner"`)}
+				},
+			},
+			Count: func(m *TodoMutation) int {
+				return len(m.OwnerIDs())
+			},
+		},
+	},
 }
 
 var todoCreateDescriptor = entbuilder.CreateDescriptor[config, Todo, *TodoMutation]{
@@ -314,6 +357,13 @@ var todoCreateDescriptor = entbuilder.CreateDescriptor[config, Todo, *TodoMutati
 			field.TypeString,
 			(*TodoMutation).Text,
 			func(n *Todo, v string) { n.Text = v },
+		),
+
+		entbuilder.NillableField[config, Todo, *TodoMutation, string](
+			todo.FieldNote,
+			field.TypeString,
+			(*TodoMutation).Note,
+			func(n *Todo, v *string) { n.Note = v },
 		),
 	},
 	Edges: []entbuilder.EdgeDescriptor[config, Todo, *TodoMutation]{
@@ -398,6 +448,37 @@ var todoCreateDescriptor = entbuilder.CreateDescriptor[config, Todo, *TodoMutati
 					return nil
 				}
 				node.category_todos = &ids[0]
+				return nil
+			},
+		},
+
+		{
+			Value: func(cfg config, m *TodoMutation) (entbuilder.EdgeValue, bool, error) {
+				nodes := m.OwnerIDs()
+				if len(nodes) == 0 {
+					return entbuilder.EdgeValue{}, false, nil
+				}
+				edge := &sqlgraph.EdgeSpec{
+					Rel:     sqlgraph.M2O,
+					Inverse: false,
+					Table:   todo.OwnerTable,
+					Columns: []string{todo.OwnerColumn},
+					Bidi:    false,
+					Target: &sqlgraph.EdgeTarget{
+						IDSpec: sqlgraph.NewFieldSpec(category.FieldID, field.TypeInt),
+					},
+				}
+				for _, k := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, k)
+				}
+				return entbuilder.EdgeValue{Spec: edge, Nodes: nodes}, true, nil
+			},
+			Assign: func(node *Todo, ev entbuilder.EdgeValue) error {
+				ids, ok := ev.Nodes.([]int)
+				if !ok || len(ids) == 0 {
+					return nil
+				}
+				node.todo_owner = &ids[0]
 				return nil
 			},
 		},

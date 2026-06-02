@@ -34,10 +34,18 @@ const (
 	FieldStatus = "status"
 	// FieldKind holds the string denoting the kind field in the database.
 	FieldKind = "kind"
+	// FieldConfigType holds the string denoting the config_type field in the database.
+	FieldConfigType = "config_type"
 	// FieldTags holds the string denoting the tags field in the database.
 	FieldTags = "tags"
 	// FieldConfig holds the string denoting the config field in the database.
 	FieldConfig = "config"
+	// FieldExternalID holds the string denoting the external_id field in the database.
+	FieldExternalID = "external_id"
+	// FieldAttributes holds the string denoting the attributes field in the database.
+	FieldAttributes = "attributes"
+	// FieldPayload holds the string denoting the payload field in the database.
+	FieldPayload = "payload"
 	// EdgeTodos holds the string denoting the todos edge name in mutations.
 	EdgeTodos = "todos"
 	// Table holds the table name of the category in the database.
@@ -57,8 +65,12 @@ var Columns = []string{
 	FieldText,
 	FieldStatus,
 	FieldKind,
+	FieldConfigType,
 	FieldTags,
 	FieldConfig,
+	FieldExternalID,
+	FieldAttributes,
+	FieldPayload,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -128,6 +140,30 @@ func KindValidator(k Kind) error {
 	}
 }
 
+// ConfigType defines the type for the "config_type" enum field.
+type ConfigType string
+
+// ConfigType values.
+const (
+	ConfigTypeInternal ConfigType = "INTERNAL"
+	ConfigTypeExternal ConfigType = "EXTERNAL"
+	ConfigTypeLegacy   ConfigType = "LEGACY"
+)
+
+func (ct ConfigType) String() string {
+	return string(ct)
+}
+
+// ConfigTypeValidator is a validator for the "config_type" field enum values. It is called by the builders before save.
+func ConfigTypeValidator(ct ConfigType) error {
+	switch ct {
+	case ConfigTypeInternal, ConfigTypeExternal, ConfigTypeLegacy:
+		return nil
+	default:
+		return fmt.Errorf("category: invalid enum value for config_type field: %q", ct)
+	}
+}
+
 // OrderOption defines the ordering options for the Category queries.
 type OrderOption func(*sql.Selector)
 
@@ -149,6 +185,16 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByKind orders the results by the kind field.
 func ByKind(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldKind, opts...).ToFunc()
+}
+
+// ByConfigType orders the results by the config_type field.
+func ByConfigType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConfigType, opts...).ToFunc()
+}
+
+// ByExternalID orders the results by the external_id field.
+func ByExternalID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExternalID, opts...).ToFunc()
 }
 
 // ByTodosCount orders the results by todos count.

@@ -20,6 +20,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // Category defines the category type schema.
@@ -54,6 +55,22 @@ func (Category) Fields() []ent.Field {
 				entgqlgo.UseEnumNames(),
 				entgqlgo.DeprecatedEnumValues("Secondary"),
 			),
+		// Optional+Nillable enum with UseEnumNames, mirroring gemini's
+		// ContactPhoneNumber.phone_type. The object field must render as the
+		// enum type (nullable), and its WhereInput IsNil/NotNil predicates must
+		// be Boolean — the two halves of bug A2.
+		field.Enum("config_type").
+			NamedValues(
+				"Internal", "INTERNAL",
+				"External", "EXTERNAL",
+				"Legacy", "LEGACY",
+			).
+			Optional().
+			Nillable().
+			Annotations(
+				entgqlgo.UseEnumNames(),
+				entgqlgo.DeprecatedEnumValues("Legacy"),
+			),
 		// String-list field annotated with a GraphQL SDL list type. Exercises the
 		// SDL-type translator: "[String!]" must render as
 		// graphql.NewList(graphql.NewNonNull(graphql.String)), not raw SDL.
@@ -69,6 +86,21 @@ func (Category) Fields() []ent.Field {
 			Optional().
 			Annotations(
 				entgqlgo.Type("CustomScalarXYZ"),
+			),
+		// Scalar-routing coverage: a (non-ID) UUID field routes through the
+		// CustomTypes registry as customTypeOr("UUID", graphql.ID).
+		field.UUID("external_id", uuid.UUID{}).
+			Optional(),
+		// A map[string]interface{} JSON field routes as customTypeOr("Map",
+		// graphql.String) to match entgql's Map scalar.
+		field.JSON("attributes", map[string]interface{}{}).
+			Optional(),
+		// A Bytes field annotated with entgqlgo.Type("Upload") honors the
+		// annotation, routing as customTypeOr("Upload", graphql.String).
+		field.Bytes("payload").
+			Optional().
+			Annotations(
+				entgqlgo.Type("Upload"),
 			),
 	}
 }

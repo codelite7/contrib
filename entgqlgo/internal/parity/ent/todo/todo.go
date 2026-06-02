@@ -23,12 +23,16 @@ const (
 	FieldPriority = "priority"
 	// FieldText holds the string denoting the text field in the database.
 	FieldText = "text"
+	// FieldNote holds the string denoting the note field in the database.
+	FieldNote = "note"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
 	EdgeChildren = "children"
 	// EdgeCategory holds the string denoting the category edge name in mutations.
 	EdgeCategory = "category"
+	// EdgeOwner holds the string denoting the owner edge name in mutations.
+	EdgeOwner = "owner"
 	// Table holds the table name of the todo in the database.
 	Table = "todos"
 	// ParentTable is the table that holds the parent relation/edge.
@@ -46,6 +50,13 @@ const (
 	CategoryInverseTable = "categories"
 	// CategoryColumn is the table column denoting the category relation/edge.
 	CategoryColumn = "category_todos"
+	// OwnerTable is the table that holds the owner relation/edge.
+	OwnerTable = "todos"
+	// OwnerInverseTable is the table name for the Category entity.
+	// It exists in this package in order to avoid circular dependency with the "category" package.
+	OwnerInverseTable = "categories"
+	// OwnerColumn is the table column denoting the owner relation/edge.
+	OwnerColumn = "todo_owner"
 )
 
 // Columns holds all SQL columns for todo fields.
@@ -55,13 +66,16 @@ var Columns = []string{
 	FieldStatus,
 	FieldPriority,
 	FieldText,
+	FieldNote,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "todos"
 // table and are not defined as standalone fields in the schema.
 var ForeignKeys = []string{
 	"category_todos",
+	"category_sub_statuses",
 	"todo_children",
+	"todo_owner",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -140,6 +154,11 @@ func ByText(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldText, opts...).ToFunc()
 }
 
+// ByNote orders the results by the note field.
+func ByNote(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldNote, opts...).ToFunc()
+}
+
 // ByParentField orders the results by parent field.
 func ByParentField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -167,6 +186,13 @@ func ByCategoryField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newCategoryStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByOwnerField orders the results by owner field.
+func ByOwnerField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOwnerStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newParentStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -186,5 +212,12 @@ func newCategoryStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CategoryInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, CategoryTable, CategoryColumn),
+	)
+}
+func newOwnerStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OwnerInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, OwnerTable, OwnerColumn),
 	)
 }

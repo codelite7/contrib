@@ -3,10 +3,12 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"entgo.io/contrib/entgqlgo/internal/parity/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/parity/ent/todo"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 )
@@ -20,20 +22,30 @@ type Category struct {
 	Text string `json:"text,omitempty"`
 	// Status holds the value of the "status" field.
 	Status category.Status `json:"status,omitempty"`
+	// ConfigType holds the value of the "config_type" field.
+	ConfigType *category.ConfigType `json:"config_type,omitempty"`
+	// Metadata holds the value of the "metadata" field.
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CategoryQuery when eager-loading is set.
-	Edges        CategoryEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges            CategoryEdges `json:"edges"`
+	category_owner_c *int
+	selectValues     sql.SelectValues
 }
 
 // CategoryEdges holds the relations/edges for other nodes in the graph.
 type CategoryEdges struct {
 	// Todos holds the value of the todos edge.
 	Todos []*Todo `json:"todos,omitempty"`
+	// OwnerC holds the value of the owner_c edge.
+	OwnerC *Todo `json:"owner_c,omitempty"`
+	// SubStatuses holds the value of the sub_statuses edge.
+	SubStatuses []*Todo `json:"sub_statuses,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
-	namedTodos  map[string][]*Todo
+	loadedTypes      [3]bool
+	namedTodos       map[string][]*Todo
+	namedSubStatuses map[string][]*Todo
 }
 
 // TodosOrErr returns the Todos value or an error if the edge
@@ -45,15 +57,39 @@ func (e CategoryEdges) TodosOrErr() ([]*Todo, error) {
 	return nil, &NotLoadedError{edge: "todos"}
 }
 
+// OwnerCOrErr returns the OwnerC value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e CategoryEdges) OwnerCOrErr() (*Todo, error) {
+	if e.OwnerC != nil {
+		return e.OwnerC, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: todo.Label}
+	}
+	return nil, &NotLoadedError{edge: "owner_c"}
+}
+
+// SubStatusesOrErr returns the SubStatuses value or an error if the edge
+// was not loaded in eager-loading.
+func (e CategoryEdges) SubStatusesOrErr() ([]*Todo, error) {
+	if e.loadedTypes[2] {
+		return e.SubStatuses, nil
+	}
+	return nil, &NotLoadedError{edge: "sub_statuses"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Category) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case category.FieldMetadata:
+			values[i] = new([]byte)
 		case category.FieldID:
 			values[i] = new(sql.NullInt64)
-		case category.FieldText, category.FieldStatus:
+		case category.FieldText, category.FieldStatus, category.FieldConfigType:
 			values[i] = new(sql.NullString)
+		case category.ForeignKeys[0]: // category_owner_c
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -87,6 +123,28 @@ func (_m *Category) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Status = category.Status(value.String)
 			}
+		case category.FieldConfigType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field config_type", values[i])
+			} else if value.Valid {
+				_m.ConfigType = new(category.ConfigType)
+				*_m.ConfigType = category.ConfigType(value.String)
+			}
+		case category.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
+			}
+		case category.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field category_owner_c", value)
+			} else if value.Valid {
+				_m.category_owner_c = new(int)
+				*_m.category_owner_c = int(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -103,6 +161,16 @@ func (_m *Category) Value(name string) (ent.Value, error) {
 // QueryTodos queries the "todos" edge of the Category entity.
 func (_m *Category) QueryTodos() *TodoQuery {
 	return NewCategoryClient(_m.config).QueryTodos(_m)
+}
+
+// QueryOwnerC queries the "owner_c" edge of the Category entity.
+func (_m *Category) QueryOwnerC() *TodoQuery {
+	return NewCategoryClient(_m.config).QueryOwnerC(_m)
+}
+
+// QuerySubStatuses queries the "sub_statuses" edge of the Category entity.
+func (_m *Category) QuerySubStatuses() *TodoQuery {
+	return NewCategoryClient(_m.config).QuerySubStatuses(_m)
 }
 
 // Update returns a builder for updating this Category.
@@ -133,6 +201,14 @@ func (_m *Category) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Status))
+	builder.WriteString(", ")
+	if v := _m.ConfigType; v != nil {
+		builder.WriteString("config_type=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
 	builder.WriteByte(')')
 	return builder.String()
 }
@@ -158,6 +234,30 @@ func (_m *Category) appendNamedTodos(name string, edges ...*Todo) {
 		_m.Edges.namedTodos[name] = []*Todo{}
 	} else {
 		_m.Edges.namedTodos[name] = append(_m.Edges.namedTodos[name], edges...)
+	}
+}
+
+// NamedSubStatuses returns the SubStatuses named value or an error if the edge was not
+// loaded in eager-loading with this name.
+func (_m *Category) NamedSubStatuses(name string) ([]*Todo, error) {
+	if _m.Edges.namedSubStatuses == nil {
+		return nil, &NotLoadedError{edge: name}
+	}
+	nodes, ok := _m.Edges.namedSubStatuses[name]
+	if !ok {
+		return nil, &NotLoadedError{edge: name}
+	}
+	return nodes, nil
+}
+
+func (_m *Category) appendNamedSubStatuses(name string, edges ...*Todo) {
+	if _m.Edges.namedSubStatuses == nil {
+		_m.Edges.namedSubStatuses = make(map[string][]*Todo)
+	}
+	if len(edges) == 0 {
+		_m.Edges.namedSubStatuses[name] = []*Todo{}
+	} else {
+		_m.Edges.namedSubStatuses[name] = append(_m.Edges.namedSubStatuses[name], edges...)
 	}
 }
 

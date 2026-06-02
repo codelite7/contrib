@@ -24,6 +24,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 // Category is the model entity for the Category schema.
@@ -37,10 +38,18 @@ type Category struct {
 	Status category.Status `json:"status,omitempty"`
 	// Kind holds the value of the "kind" field.
 	Kind category.Kind `json:"kind,omitempty"`
+	// ConfigType holds the value of the "config_type" field.
+	ConfigType *category.ConfigType `json:"config_type,omitempty"`
 	// Tags holds the value of the "tags" field.
 	Tags []string `json:"tags,omitempty"`
 	// Config holds the value of the "config" field.
 	Config map[string]string `json:"config,omitempty"`
+	// ExternalID holds the value of the "external_id" field.
+	ExternalID uuid.UUID `json:"external_id,omitempty"`
+	// Attributes holds the value of the "attributes" field.
+	Attributes map[string]interface{} `json:"attributes,omitempty"`
+	// Payload holds the value of the "payload" field.
+	Payload []byte `json:"payload,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CategoryQuery when eager-loading is set.
 	Edges        CategoryEdges `json:"edges"`
@@ -71,12 +80,14 @@ func (*Category) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case category.FieldTags, category.FieldConfig:
+		case category.FieldTags, category.FieldConfig, category.FieldAttributes, category.FieldPayload:
 			values[i] = new([]byte)
 		case category.FieldID:
 			values[i] = new(sql.NullInt64)
-		case category.FieldText, category.FieldStatus, category.FieldKind:
+		case category.FieldText, category.FieldStatus, category.FieldKind, category.FieldConfigType:
 			values[i] = new(sql.NullString)
+		case category.FieldExternalID:
+			values[i] = new(uuid.UUID)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -116,6 +127,13 @@ func (_m *Category) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Kind = category.Kind(value.String)
 			}
+		case category.FieldConfigType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field config_type", values[i])
+			} else if value.Valid {
+				_m.ConfigType = new(category.ConfigType)
+				*_m.ConfigType = category.ConfigType(value.String)
+			}
 		case category.FieldTags:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field tags", values[i])
@@ -131,6 +149,26 @@ func (_m *Category) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Config); err != nil {
 					return fmt.Errorf("unmarshal field config: %w", err)
 				}
+			}
+		case category.FieldExternalID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field external_id", values[i])
+			} else if value != nil {
+				_m.ExternalID = *value
+			}
+		case category.FieldAttributes:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field attributes", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Attributes); err != nil {
+					return fmt.Errorf("unmarshal field attributes: %w", err)
+				}
+			}
+		case category.FieldPayload:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field payload", values[i])
+			} else if value != nil {
+				_m.Payload = *value
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -182,11 +220,25 @@ func (_m *Category) String() string {
 	builder.WriteString("kind=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Kind))
 	builder.WriteString(", ")
+	if v := _m.ConfigType; v != nil {
+		builder.WriteString("config_type=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("tags=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Tags))
 	builder.WriteString(", ")
 	builder.WriteString("config=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Config))
+	builder.WriteString(", ")
+	builder.WriteString("external_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ExternalID))
+	builder.WriteString(", ")
+	builder.WriteString("attributes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Attributes))
+	builder.WriteString(", ")
+	builder.WriteString("payload=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Payload))
 	builder.WriteByte(')')
 	return builder.String()
 }

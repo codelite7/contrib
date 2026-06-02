@@ -411,7 +411,8 @@ var (
 	// Create{{ $n.Name }}InputType is the GraphQL input type for creating a {{ $n.Name }}.
 	Create{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "Create{{ $n.Name }}Input",
-		Fields: graphql.InputObjectConfigFieldMap{
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+		return graphql.InputObjectConfigFieldMap{
 			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
@@ -431,23 +432,25 @@ var (
 			{{- range $e := $inputEdges }}
 			{{- if $e.Unique }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
-				Type: graphql.ID,
+				Type: {{ if $e.Optional }}graphql.ID{{ else }}graphql.NewNonNull(graphql.ID){{ end }},
 				Description: "ID of the {{ $e.Name }} edge.",
 			},
 			{{- else }}
-			"{{ singular (camel $e.Name) }}IDs": &graphql.InputObjectFieldConfig{
+			"{{ camel (singular $e.Name) }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs of the {{ $e.Name }} edges.",
 			},
 			{{- end }}
 			{{- end }}
-		},
+		}
+	}),
 	})
 	{{- else }}
 	// Update{{ $n.Name }}InputType is the GraphQL input type for updating a {{ $n.Name }}.
 	Update{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "Update{{ $n.Name }}Input",
-		Fields: graphql.InputObjectConfigFieldMap{
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+		return graphql.InputObjectConfigFieldMap{
 			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
@@ -476,7 +479,7 @@ var (
 				Description: "ID of the {{ $e.Name }} edge.",
 			},
 			{{- if $e.Optional }}
-			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
+			"{{ camel (snake $e.MutationClear) }}": &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
 				Description: "Clear the {{ camel $e.Name }} edge.",
 			},
@@ -490,13 +493,14 @@ var (
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs to remove from the {{ $e.Name }} edges.",
 			},
-			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
+			"{{ camel (snake $e.MutationClear) }}": &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
 				Description: "Clear all {{ $e.Name }} edges.",
 			},
 			{{- end }}
 			{{- end }}
-		},
+		}
+	}),
 	})
 	{{- end }}
 {{- end }}
@@ -518,14 +522,15 @@ func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.N
 {{- $isPointer := or $f.Optional $f.Default (not (not $f.DefaultFunc)) }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
 {{- if $f.IsEnum }}
-		if str, ok := v.(string); ok {
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		str := fmt.Sprint(v)
 {{- if $isPointer }}
-			val := {{ $n.Package }}.{{ $f.StructField }}(str)
-			result.{{ $f.StructField }} = &val
+		val := {{ $n.Package }}.{{ $f.StructField }}(str)
+		result.{{ $f.StructField }} = &val
 {{- else }}
-			result.{{ $f.StructField }} = {{ $n.Package }}.{{ $f.StructField }}(str)
+		result.{{ $f.StructField }} = {{ $n.Package }}.{{ $f.StructField }}(str)
 {{- end }}
-		}
 {{- else if eq $f.Type.String "int" }}
 		switch val := v.(type) {
 		case int:
@@ -593,19 +598,19 @@ func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.N
 		{{- end }}
 	}
 	{{- else }}
-	if v, ok := input["{{ singular (camel $e.Name) }}IDs"]; ok && v != nil {
+	if v, ok := input["{{ camel (singular $e.Name) }}IDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
 			for _, idVal := range ids {
 				{{- if $e.Type.ID.IsInt }}
 				id, err := strconv.Atoi(fmt.Sprint(idVal))
 				if err != nil {
-					return nil, fmt.Errorf("invalid {{ singular (camel $e.Name) }}ID: %w", err)
+					return nil, fmt.Errorf("invalid {{ camel (singular $e.Name) }}ID: %w", err)
 				}
 				result.{{ singular $e.Name | pascal }}IDs = append(result.{{ singular $e.Name | pascal }}IDs, id)
 				{{- else }}
 				id, err := uuid.Parse(fmt.Sprint(idVal))
 				if err != nil {
-					return nil, fmt.Errorf("invalid {{ singular (camel $e.Name) }}ID: %w", err)
+					return nil, fmt.Errorf("invalid {{ camel (singular $e.Name) }}ID: %w", err)
 				}
 				result.{{ singular $e.Name | pascal }}IDs = append(result.{{ singular $e.Name | pascal }}IDs, id)
 				{{- end }}
@@ -627,10 +632,10 @@ func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.N
 {{- if not $f.IsEdgeField }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
 {{- if $f.IsEnum }}
-		if str, ok := v.(string); ok {
-			val := {{ $n.Package }}.{{ $f.StructField }}(str)
-			result.{{ $f.StructField }} = &val
-		}
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		val := {{ $n.Package }}.{{ $f.StructField }}(fmt.Sprint(v))
+		result.{{ $f.StructField }} = &val
 {{- else if eq $f.Type.String "int" }}
 		switch val := v.(type) {
 		case int:
@@ -684,7 +689,7 @@ func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.N
 		{{- end }}
 	}
 	{{- if $e.Optional }}
-	if v, ok := input["clear{{ $e.StructField }}"]; ok {
+	if v, ok := input["{{ camel (snake $e.MutationClear) }}"]; ok {
 		if b, ok := v.(bool); ok {
 			result.Clear{{ $e.StructField }} = b
 		}
@@ -729,7 +734,7 @@ func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.N
 			}
 		}
 	}
-	if v, ok := input["clear{{ $e.StructField }}"]; ok {
+	if v, ok := input["{{ camel (snake $e.MutationClear) }}"]; ok {
 		if b, ok := v.(bool); ok {
 			result.Clear{{ $e.StructField }} = b
 		}

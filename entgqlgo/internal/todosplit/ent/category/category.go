@@ -17,6 +17,9 @@
 package category
 
 import (
+	"fmt"
+
+	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/internal"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 )
@@ -28,6 +31,8 @@ const (
 	FieldID = "id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldConfigType holds the string denoting the config_type field in the database.
+	FieldConfigType = "config_type"
 	// EdgeTodos holds the string denoting the todos edge name in mutations.
 	EdgeTodos = "todos"
 	// Table holds the table name of the category in the database.
@@ -45,6 +50,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldName,
+	FieldConfigType,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -62,6 +68,26 @@ var (
 	NameValidator func(string) error
 )
 
+// ConfigType is an alias for the enum type defined in the internal package.
+type ConfigType = internal.CategoryConfigType
+
+// ConfigType values.
+const (
+	ConfigTypeInternal ConfigType = "INTERNAL"
+	ConfigTypeExternal ConfigType = "EXTERNAL"
+	ConfigTypeLegacy   ConfigType = "LEGACY"
+)
+
+// ConfigTypeValidator is a validator for the "config_type" field enum values. It is called by the builders before save.
+func ConfigTypeValidator(ct ConfigType) error {
+	switch ct {
+	case ConfigTypeInternal, ConfigTypeExternal, ConfigTypeLegacy:
+		return nil
+	default:
+		return fmt.Errorf("category: invalid enum value for config_type field: %q", ct)
+	}
+}
+
 // OrderOption defines the ordering options for the Category queries.
 type OrderOption func(*sql.Selector)
 
@@ -73,6 +99,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByConfigType orders the results by the config_type field.
+func ByConfigType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConfigType, opts...).ToFunc()
 }
 
 // ByTodosCount orders the results by todos count.

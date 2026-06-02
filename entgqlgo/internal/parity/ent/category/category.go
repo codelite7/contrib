@@ -18,8 +18,16 @@ const (
 	FieldText = "text"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldConfigType holds the string denoting the config_type field in the database.
+	FieldConfigType = "config_type"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
 	// EdgeTodos holds the string denoting the todos edge name in mutations.
 	EdgeTodos = "todos"
+	// EdgeOwnerC holds the string denoting the owner_c edge name in mutations.
+	EdgeOwnerC = "owner_c"
+	// EdgeSubStatuses holds the string denoting the sub_statuses edge name in mutations.
+	EdgeSubStatuses = "sub_statuses"
 	// Table holds the table name of the category in the database.
 	Table = "categories"
 	// TodosTable is the table that holds the todos relation/edge.
@@ -29,6 +37,20 @@ const (
 	TodosInverseTable = "todos"
 	// TodosColumn is the table column denoting the todos relation/edge.
 	TodosColumn = "category_todos"
+	// OwnerCTable is the table that holds the owner_c relation/edge.
+	OwnerCTable = "categories"
+	// OwnerCInverseTable is the table name for the Todo entity.
+	// It exists in this package in order to avoid circular dependency with the "todo" package.
+	OwnerCInverseTable = "todos"
+	// OwnerCColumn is the table column denoting the owner_c relation/edge.
+	OwnerCColumn = "category_owner_c"
+	// SubStatusesTable is the table that holds the sub_statuses relation/edge.
+	SubStatusesTable = "todos"
+	// SubStatusesInverseTable is the table name for the Todo entity.
+	// It exists in this package in order to avoid circular dependency with the "todo" package.
+	SubStatusesInverseTable = "todos"
+	// SubStatusesColumn is the table column denoting the sub_statuses relation/edge.
+	SubStatusesColumn = "category_sub_statuses"
 )
 
 // Columns holds all SQL columns for category fields.
@@ -36,12 +58,25 @@ var Columns = []string{
 	FieldID,
 	FieldText,
 	FieldStatus,
+	FieldConfigType,
+	FieldMetadata,
+}
+
+// ForeignKeys holds the SQL foreign-keys that are owned by the "categories"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"category_owner_c",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -79,6 +114,30 @@ func StatusValidator(s Status) error {
 	}
 }
 
+// ConfigType defines the type for the "config_type" enum field.
+type ConfigType string
+
+// ConfigType values.
+const (
+	ConfigTypePrimary   ConfigType = "PRIMARY"
+	ConfigTypeSecondary ConfigType = "SECONDARY"
+	ConfigTypeLegacy    ConfigType = "LEGACY"
+)
+
+func (ct ConfigType) String() string {
+	return string(ct)
+}
+
+// ConfigTypeValidator is a validator for the "config_type" field enum values. It is called by the builders before save.
+func ConfigTypeValidator(ct ConfigType) error {
+	switch ct {
+	case ConfigTypePrimary, ConfigTypeSecondary, ConfigTypeLegacy:
+		return nil
+	default:
+		return fmt.Errorf("category: invalid enum value for config_type field: %q", ct)
+	}
+}
+
 // OrderOption defines the ordering options for the Category queries.
 type OrderOption func(*sql.Selector)
 
@@ -97,6 +156,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
+// ByConfigType orders the results by the config_type field.
+func ByConfigType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConfigType, opts...).ToFunc()
+}
+
 // ByTodosCount orders the results by todos count.
 func ByTodosCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -110,10 +174,45 @@ func ByTodos(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTodosStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByOwnerCField orders the results by owner_c field.
+func ByOwnerCField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOwnerCStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// BySubStatusesCount orders the results by sub_statuses count.
+func BySubStatusesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubStatusesStep(), opts...)
+	}
+}
+
+// BySubStatuses orders the results by sub_statuses terms.
+func BySubStatuses(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubStatusesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newTodosStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TodosInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TodosTable, TodosColumn),
+	)
+}
+func newOwnerCStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OwnerCInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, OwnerCTable, OwnerCColumn),
+	)
+}
+func newSubStatusesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubStatusesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SubStatusesTable, SubStatusesColumn),
 	)
 }

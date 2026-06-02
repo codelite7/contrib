@@ -26,6 +26,10 @@ func CategoryQueryCollectFieldsFromList(ctx context.Context, fields []string, qu
 		switch field {
 		case "todos":
 			query = query.WithTodos()
+		case "ownerC":
+			query = query.WithOwnerC()
+		case "subStatuses":
+			query = query.WithSubStatuses()
 		}
 	}
 	return query
@@ -70,6 +74,20 @@ func CategoryQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*ent
 					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
 				}
 			})
+		case "ownerC":
+			query = query.WithOwnerC(func(q *ent.TodoQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		case "subStatuses":
+			query = query.WithSubStatuses(func(q *ent.TodoQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
 		}
 	}
 	return query
@@ -92,6 +110,8 @@ func TodoQueryCollectFieldsFromList(ctx context.Context, fields []string, query 
 			query = query.WithChildren()
 		case "category":
 			query = query.WithCategory()
+		case "owner":
+			query = query.WithOwner()
 		}
 	}
 	return query
@@ -145,6 +165,13 @@ func TodoQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlg
 			})
 		case "category":
 			query = query.WithCategory(func(q *ent.CategoryQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					CategoryQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		case "owner":
+			query = query.WithOwner(func(q *ent.CategoryQuery) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					CategoryQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)

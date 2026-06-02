@@ -39,6 +39,25 @@ func (Category) Fields() []ent.Field {
 				"Disabled", "DISABLED",
 			).
 			Default("ENABLED"),
+		// Optional+Nillable enum with UseEnumNames + a deprecated value, mirroring
+		// gemini's ContactPhoneNumber.phone_type construct. Exercises the
+		// object-field enum-type branch (A2) and the WhereInput IsNil/NotNil
+		// Boolean predicates for an enum field (A2).
+		field.Enum("config_type").
+			NamedValues(
+				"Primary", "PRIMARY",
+				"Secondary", "SECONDARY",
+				"Legacy", "LEGACY",
+			).
+			Optional().
+			Nillable().
+			Annotations(
+				entgql.UseEnumNames(),
+				entgql.DeprecatedEnumValues("Legacy"),
+			),
+		// JSON map field — entgql maps map[string]interface{} to the Map scalar.
+		field.JSON("metadata", map[string]interface{}{}).
+			Optional(),
 	}
 }
 
@@ -46,6 +65,13 @@ func (Category) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("todos", Todo.Type).
 			Annotations(entgql.RelayConnection()),
+		// Trailing-acronym edge name: update-input clear field must be camelCased
+		// like entgql (clearOwnerc, not clearOwnerC) — A5b case 1.
+		edge.To("owner_c", Todo.Type).
+			Unique(),
+		// Plural edge name ending in "-statuses": non-unique add/remove ID input
+		// fields must singularize to "...Status" not "...Statuse" — A5b case 2.
+		edge.To("sub_statuses", Todo.Type),
 	}
 }
 

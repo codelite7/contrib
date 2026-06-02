@@ -28,6 +28,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 )
 
@@ -299,6 +300,54 @@ func init() {
 				},
 				"kindNotIn": &graphql.InputObjectFieldConfig{
 					Type: graphql.NewList(graphql.NewNonNull(CategoryKindEnum)),
+				},
+				"configType": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"configTypeNEQ": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"configTypeIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryConfigTypeEnum)),
+				},
+				"configTypeNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryConfigTypeEnum)),
+				},
+				"configTypeIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"configTypeNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"externalID": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDNEQ": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(customTypeOr("UUID", graphql.ID))),
+				},
+				"externalIDNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(customTypeOr("UUID", graphql.ID))),
+				},
+				"externalIDGT": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDGTE": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDLT": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDLTE": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"externalIDNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
 				},
 				"hasTodos": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
@@ -1197,6 +1246,26 @@ type CategoryWhereInput struct {
 	KindIn    []category.Kind `json:"kindIn,omitempty"`
 	KindNotIn []category.Kind `json:"kindNotIn,omitempty"`
 
+	// "config_type" field predicates.
+	ConfigType       *category.ConfigType  `json:"configType,omitempty"`
+	ConfigTypeNEQ    *category.ConfigType  `json:"configTypeNEQ,omitempty"`
+	ConfigTypeIn     []category.ConfigType `json:"configTypeIn,omitempty"`
+	ConfigTypeNotIn  []category.ConfigType `json:"configTypeNotIn,omitempty"`
+	ConfigTypeIsNil  bool                  `json:"configTypeIsNil,omitempty"`
+	ConfigTypeNotNil bool                  `json:"configTypeNotNil,omitempty"`
+
+	// "external_id" field predicates.
+	ExternalID       *uuid.UUID  `json:"externalID,omitempty"`
+	ExternalIDNEQ    *uuid.UUID  `json:"externalIDNEQ,omitempty"`
+	ExternalIDIn     []uuid.UUID `json:"externalIDIn,omitempty"`
+	ExternalIDNotIn  []uuid.UUID `json:"externalIDNotIn,omitempty"`
+	ExternalIDGT     *uuid.UUID  `json:"externalIDGT,omitempty"`
+	ExternalIDGTE    *uuid.UUID  `json:"externalIDGTE,omitempty"`
+	ExternalIDLT     *uuid.UUID  `json:"externalIDLT,omitempty"`
+	ExternalIDLTE    *uuid.UUID  `json:"externalIDLTE,omitempty"`
+	ExternalIDIsNil  bool        `json:"externalIDIsNil,omitempty"`
+	ExternalIDNotNil bool        `json:"externalIDNotNil,omitempty"`
+
 	// "todos" edge predicates.
 	HasTodos     *bool             `json:"hasTodos,omitempty"`
 	HasTodosWith []*TodoWhereInput `json:"hasTodosWith,omitempty"`
@@ -1359,6 +1428,54 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 	}
 	if len(i.KindNotIn) > 0 {
 		predicates = append(predicates, category.KindNotIn(i.KindNotIn...))
+	}
+	if i.ConfigType != nil {
+		predicates = append(predicates, category.ConfigTypeEQ(*i.ConfigType))
+	}
+	if i.ConfigTypeNEQ != nil {
+		predicates = append(predicates, category.ConfigTypeNEQ(*i.ConfigTypeNEQ))
+	}
+	if len(i.ConfigTypeIn) > 0 {
+		predicates = append(predicates, category.ConfigTypeIn(i.ConfigTypeIn...))
+	}
+	if len(i.ConfigTypeNotIn) > 0 {
+		predicates = append(predicates, category.ConfigTypeNotIn(i.ConfigTypeNotIn...))
+	}
+	if i.ConfigTypeIsNil {
+		predicates = append(predicates, category.ConfigTypeIsNil())
+	}
+	if i.ConfigTypeNotNil {
+		predicates = append(predicates, category.ConfigTypeNotNil())
+	}
+	if i.ExternalID != nil {
+		predicates = append(predicates, category.ExternalIDEQ(*i.ExternalID))
+	}
+	if i.ExternalIDNEQ != nil {
+		predicates = append(predicates, category.ExternalIDNEQ(*i.ExternalIDNEQ))
+	}
+	if len(i.ExternalIDIn) > 0 {
+		predicates = append(predicates, category.ExternalIDIn(i.ExternalIDIn...))
+	}
+	if len(i.ExternalIDNotIn) > 0 {
+		predicates = append(predicates, category.ExternalIDNotIn(i.ExternalIDNotIn...))
+	}
+	if i.ExternalIDGT != nil {
+		predicates = append(predicates, category.ExternalIDGT(*i.ExternalIDGT))
+	}
+	if i.ExternalIDGTE != nil {
+		predicates = append(predicates, category.ExternalIDGTE(*i.ExternalIDGTE))
+	}
+	if i.ExternalIDLT != nil {
+		predicates = append(predicates, category.ExternalIDLT(*i.ExternalIDLT))
+	}
+	if i.ExternalIDLTE != nil {
+		predicates = append(predicates, category.ExternalIDLTE(*i.ExternalIDLTE))
+	}
+	if i.ExternalIDIsNil {
+		predicates = append(predicates, category.ExternalIDIsNil())
+	}
+	if i.ExternalIDNotNil {
+		predicates = append(predicates, category.ExternalIDNotNil())
 	}
 
 	if i.HasTodos != nil {
@@ -1584,25 +1701,19 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	}
 	// Parse status
 	if v, ok := m["status"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := category.Status(s)
-			input.Status = &val
-		}
+		val := category.Status(fmt.Sprint(v))
+		input.Status = &val
 	}
 	// Parse statusNEQ
 	if v, ok := m["statusNEQ"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := category.Status(s)
-			input.StatusNEQ = &val
-		}
+		val := category.Status(fmt.Sprint(v))
+		input.StatusNEQ = &val
 	}
 	// Parse statusIn
 	if v, ok := m["statusIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusIn = append(input.StatusIn, category.Status(s))
-				}
+				input.StatusIn = append(input.StatusIn, category.Status(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -1610,33 +1721,25 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	if v, ok := m["statusNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusNotIn = append(input.StatusNotIn, category.Status(s))
-				}
+				input.StatusNotIn = append(input.StatusNotIn, category.Status(fmt.Sprint(item)))
 			}
 		}
 	}
 	// Parse kind
 	if v, ok := m["kind"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := category.Kind(s)
-			input.Kind = &val
-		}
+		val := category.Kind(fmt.Sprint(v))
+		input.Kind = &val
 	}
 	// Parse kindNEQ
 	if v, ok := m["kindNEQ"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := category.Kind(s)
-			input.KindNEQ = &val
-		}
+		val := category.Kind(fmt.Sprint(v))
+		input.KindNEQ = &val
 	}
 	// Parse kindIn
 	if v, ok := m["kindIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.KindIn = append(input.KindIn, category.Kind(s))
-				}
+				input.KindIn = append(input.KindIn, category.Kind(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -1644,10 +1747,90 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	if v, ok := m["kindNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.KindNotIn = append(input.KindNotIn, category.Kind(s))
-				}
+				input.KindNotIn = append(input.KindNotIn, category.Kind(fmt.Sprint(item)))
 			}
+		}
+	}
+	// Parse configType
+	if v, ok := m["configType"]; ok && v != nil {
+		val := category.ConfigType(fmt.Sprint(v))
+		input.ConfigType = &val
+	}
+	// Parse configTypeNEQ
+	if v, ok := m["configTypeNEQ"]; ok && v != nil {
+		val := category.ConfigType(fmt.Sprint(v))
+		input.ConfigTypeNEQ = &val
+	}
+	// Parse configTypeIn
+	if v, ok := m["configTypeIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				input.ConfigTypeIn = append(input.ConfigTypeIn, category.ConfigType(fmt.Sprint(item)))
+			}
+		}
+	}
+	// Parse configTypeNotIn
+	if v, ok := m["configTypeNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				input.ConfigTypeNotIn = append(input.ConfigTypeNotIn, category.ConfigType(fmt.Sprint(item)))
+			}
+		}
+	}
+	// Parse configTypeIsNil
+	if v, ok := m["configTypeIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ConfigTypeIsNil = b
+		}
+	}
+	// Parse configTypeNotNil
+	if v, ok := m["configTypeNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ConfigTypeNotNil = b
+		}
+	}
+	// Parse externalID
+	if v, ok := m["externalID"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDNEQ
+	if v, ok := m["externalIDNEQ"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDIn
+	if v, ok := m["externalIDIn"]; ok && v != nil {
+		// Unsupported variadic type: uuid.UUID
+	}
+	// Parse externalIDNotIn
+	if v, ok := m["externalIDNotIn"]; ok && v != nil {
+		// Unsupported variadic type: uuid.UUID
+	}
+	// Parse externalIDGT
+	if v, ok := m["externalIDGT"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDGTE
+	if v, ok := m["externalIDGTE"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDLT
+	if v, ok := m["externalIDLT"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDLTE
+	if v, ok := m["externalIDLTE"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDIsNil
+	if v, ok := m["externalIDIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ExternalIDIsNil = b
+		}
+	}
+	// Parse externalIDNotNil
+	if v, ok := m["externalIDNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ExternalIDNotNil = b
 		}
 	}
 	// Parse hasTodos
@@ -2488,25 +2671,19 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	}
 	// Parse status
 	if v, ok := m["status"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := todo.Status(s)
-			input.Status = &val
-		}
+		val := todo.Status(fmt.Sprint(v))
+		input.Status = &val
 	}
 	// Parse statusNEQ
 	if v, ok := m["statusNEQ"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := todo.Status(s)
-			input.StatusNEQ = &val
-		}
+		val := todo.Status(fmt.Sprint(v))
+		input.StatusNEQ = &val
 	}
 	// Parse statusIn
 	if v, ok := m["statusIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusIn = append(input.StatusIn, todo.Status(s))
-				}
+				input.StatusIn = append(input.StatusIn, todo.Status(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -2514,9 +2691,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	if v, ok := m["statusNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusNotIn = append(input.StatusNotIn, todo.Status(s))
-				}
+				input.StatusNotIn = append(input.StatusNotIn, todo.Status(fmt.Sprint(item)))
 			}
 		}
 	}

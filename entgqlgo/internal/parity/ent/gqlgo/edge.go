@@ -38,6 +38,62 @@ func (r *CategoryTodosResolver) Resolve(p graphql.ResolveParams) (interface{}, e
 	return source.QueryTodos().All(p.Context)
 }
 
+// CategoryOwnerCResolver resolves the owner_c edge for Category.
+// It first checks if the edge was already loaded via eager loading.
+// If not, it falls back to querying the database.
+type CategoryOwnerCResolver struct {
+	client *ent.Client
+}
+
+// NewCategoryOwnerCResolver creates a new resolver for the owner_c edge.
+func NewCategoryOwnerCResolver(client *ent.Client) *CategoryOwnerCResolver {
+	return &CategoryOwnerCResolver{client: client}
+}
+
+// Resolve implements the edge resolution for Category.owner_c.
+func (r *CategoryOwnerCResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Category)
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.OwnerC; edge != nil {
+		return edge, nil
+	}
+
+	// Fall back to query
+	return source.QueryOwnerC().Only(p.Context)
+}
+
+// CategorySubStatusesResolver resolves the sub_statuses edge for Category.
+// It first checks if the edge was already loaded via eager loading.
+// If not, it falls back to querying the database.
+type CategorySubStatusesResolver struct {
+	client *ent.Client
+}
+
+// NewCategorySubStatusesResolver creates a new resolver for the sub_statuses edge.
+func NewCategorySubStatusesResolver(client *ent.Client) *CategorySubStatusesResolver {
+	return &CategorySubStatusesResolver{client: client}
+}
+
+// Resolve implements the edge resolution for Category.sub_statuses.
+func (r *CategorySubStatusesResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Category)
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	if edges := source.Edges.SubStatuses; edges != nil {
+		return edges, nil
+	}
+
+	// Fall back to query
+	return source.QuerySubStatuses().All(p.Context)
+}
+
 // TodoParentResolver resolves the parent edge for Todo.
 // It first checks if the edge was already loaded via eager loading.
 // If not, it falls back to querying the database.
@@ -122,6 +178,38 @@ func (r *TodoCategoryResolver) Resolve(p graphql.ResolveParams) (interface{}, er
 	return source.QueryCategory().Only(p.Context)
 }
 
+// TodoOwnerResolver resolves the owner edge for Todo.
+// It first checks if the edge was already loaded via eager loading.
+// If not, it falls back to querying the database.
+type TodoOwnerResolver struct {
+	client *ent.Client
+}
+
+// NewTodoOwnerResolver creates a new resolver for the owner edge.
+func NewTodoOwnerResolver(client *ent.Client) *TodoOwnerResolver {
+	return &TodoOwnerResolver{client: client}
+}
+
+// Resolve implements the edge resolution for Todo.owner.
+func (r *TodoOwnerResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Todo)
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Owner; edge != nil {
+		return edge, nil
+	}
+
+	// Fall back to query
+	edge, err := source.QueryOwner().Only(p.Context)
+	if err != nil {
+		return nil, err
+	}
+	return edge, nil
+}
+
 // EdgeResolverMap provides a map of edge resolvers for all types.
 type EdgeResolverMap struct {
 	client *ent.Client
@@ -137,6 +225,16 @@ func (m *EdgeResolverMap) CategoryTodos() graphql.FieldResolveFn {
 	return NewCategoryTodosResolver(m.client).Resolve
 }
 
+// CategoryOwnerC returns the resolver for Category.owner_c.
+func (m *EdgeResolverMap) CategoryOwnerC() graphql.FieldResolveFn {
+	return NewCategoryOwnerCResolver(m.client).Resolve
+}
+
+// CategorySubStatuses returns the resolver for Category.sub_statuses.
+func (m *EdgeResolverMap) CategorySubStatuses() graphql.FieldResolveFn {
+	return NewCategorySubStatusesResolver(m.client).Resolve
+}
+
 // TodoParent returns the resolver for Todo.parent.
 func (m *EdgeResolverMap) TodoParent() graphql.FieldResolveFn {
 	return NewTodoParentResolver(m.client).Resolve
@@ -150,4 +248,9 @@ func (m *EdgeResolverMap) TodoChildren() graphql.FieldResolveFn {
 // TodoCategory returns the resolver for Todo.category.
 func (m *EdgeResolverMap) TodoCategory() graphql.FieldResolveFn {
 	return NewTodoCategoryResolver(m.client).Resolve
+}
+
+// TodoOwner returns the resolver for Todo.owner.
+func (m *EdgeResolverMap) TodoOwner() graphql.FieldResolveFn {
+	return NewTodoOwnerResolver(m.client).Resolve
 }

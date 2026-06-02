@@ -20,6 +20,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 // ID filters vertices based on their ID field.
@@ -70,6 +71,16 @@ func IDLTE(id int) predicate.Category {
 // Text applies equality check predicate on the "text" field. It's identical to TextEQ.
 func Text(v string) predicate.Category {
 	return predicate.Category(sql.FieldEQ(FieldText, v))
+}
+
+// ExternalID applies equality check predicate on the "external_id" field. It's identical to ExternalIDEQ.
+func ExternalID(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldExternalID, v))
+}
+
+// Payload applies equality check predicate on the "payload" field. It's identical to PayloadEQ.
+func Payload(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldPayload, v))
 }
 
 // TextEQ applies the EQ predicate on the "text" field.
@@ -177,6 +188,36 @@ func KindNotIn(vs ...Kind) predicate.Category {
 	return predicate.Category(sql.FieldNotIn(FieldKind, vs...))
 }
 
+// ConfigTypeEQ applies the EQ predicate on the "config_type" field.
+func ConfigTypeEQ(v ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldConfigType, v))
+}
+
+// ConfigTypeNEQ applies the NEQ predicate on the "config_type" field.
+func ConfigTypeNEQ(v ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldNEQ(FieldConfigType, v))
+}
+
+// ConfigTypeIn applies the In predicate on the "config_type" field.
+func ConfigTypeIn(vs ...ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldIn(FieldConfigType, vs...))
+}
+
+// ConfigTypeNotIn applies the NotIn predicate on the "config_type" field.
+func ConfigTypeNotIn(vs ...ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldNotIn(FieldConfigType, vs...))
+}
+
+// ConfigTypeIsNil applies the IsNil predicate on the "config_type" field.
+func ConfigTypeIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldConfigType))
+}
+
+// ConfigTypeNotNil applies the NotNil predicate on the "config_type" field.
+func ConfigTypeNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldConfigType))
+}
+
 // TagsIsNil applies the IsNil predicate on the "tags" field.
 func TagsIsNil() predicate.Category {
 	return predicate.Category(sql.FieldIsNull(FieldTags))
@@ -195,6 +236,116 @@ func ConfigIsNil() predicate.Category {
 // ConfigNotNil applies the NotNil predicate on the "config" field.
 func ConfigNotNil() predicate.Category {
 	return predicate.Category(sql.FieldNotNull(FieldConfig))
+}
+
+// ExternalIDEQ applies the EQ predicate on the "external_id" field.
+func ExternalIDEQ(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldExternalID, v))
+}
+
+// ExternalIDNEQ applies the NEQ predicate on the "external_id" field.
+func ExternalIDNEQ(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldNEQ(FieldExternalID, v))
+}
+
+// ExternalIDIn applies the In predicate on the "external_id" field.
+func ExternalIDIn(vs ...uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldIn(FieldExternalID, vs...))
+}
+
+// ExternalIDNotIn applies the NotIn predicate on the "external_id" field.
+func ExternalIDNotIn(vs ...uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldNotIn(FieldExternalID, vs...))
+}
+
+// ExternalIDGT applies the GT predicate on the "external_id" field.
+func ExternalIDGT(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldGT(FieldExternalID, v))
+}
+
+// ExternalIDGTE applies the GTE predicate on the "external_id" field.
+func ExternalIDGTE(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldGTE(FieldExternalID, v))
+}
+
+// ExternalIDLT applies the LT predicate on the "external_id" field.
+func ExternalIDLT(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldLT(FieldExternalID, v))
+}
+
+// ExternalIDLTE applies the LTE predicate on the "external_id" field.
+func ExternalIDLTE(v uuid.UUID) predicate.Category {
+	return predicate.Category(sql.FieldLTE(FieldExternalID, v))
+}
+
+// ExternalIDIsNil applies the IsNil predicate on the "external_id" field.
+func ExternalIDIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldExternalID))
+}
+
+// ExternalIDNotNil applies the NotNil predicate on the "external_id" field.
+func ExternalIDNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldExternalID))
+}
+
+// AttributesIsNil applies the IsNil predicate on the "attributes" field.
+func AttributesIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldAttributes))
+}
+
+// AttributesNotNil applies the NotNil predicate on the "attributes" field.
+func AttributesNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldAttributes))
+}
+
+// PayloadEQ applies the EQ predicate on the "payload" field.
+func PayloadEQ(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldPayload, v))
+}
+
+// PayloadNEQ applies the NEQ predicate on the "payload" field.
+func PayloadNEQ(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldNEQ(FieldPayload, v))
+}
+
+// PayloadIn applies the In predicate on the "payload" field.
+func PayloadIn(vs ...[]byte) predicate.Category {
+	return predicate.Category(sql.FieldIn(FieldPayload, vs...))
+}
+
+// PayloadNotIn applies the NotIn predicate on the "payload" field.
+func PayloadNotIn(vs ...[]byte) predicate.Category {
+	return predicate.Category(sql.FieldNotIn(FieldPayload, vs...))
+}
+
+// PayloadGT applies the GT predicate on the "payload" field.
+func PayloadGT(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldGT(FieldPayload, v))
+}
+
+// PayloadGTE applies the GTE predicate on the "payload" field.
+func PayloadGTE(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldGTE(FieldPayload, v))
+}
+
+// PayloadLT applies the LT predicate on the "payload" field.
+func PayloadLT(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldLT(FieldPayload, v))
+}
+
+// PayloadLTE applies the LTE predicate on the "payload" field.
+func PayloadLTE(v []byte) predicate.Category {
+	return predicate.Category(sql.FieldLTE(FieldPayload, v))
+}
+
+// PayloadIsNil applies the IsNil predicate on the "payload" field.
+func PayloadIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldPayload))
+}
+
+// PayloadNotNil applies the NotNil predicate on the "payload" field.
+func PayloadNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldPayload))
 }
 
 // HasTodos applies the HasEdge predicate on the "todos" edge.

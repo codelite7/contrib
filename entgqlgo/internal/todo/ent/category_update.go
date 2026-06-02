@@ -30,6 +30,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // CategoryUpdate is the builder for updating Category entities.
@@ -87,6 +88,26 @@ func (_u *CategoryUpdate) SetNillableKind(v *category.Kind) *CategoryUpdate {
 	return _u
 }
 
+// SetConfigType sets the "config_type" field.
+func (_u *CategoryUpdate) SetConfigType(v category.ConfigType) *CategoryUpdate {
+	_u.mutation.SetConfigType(v)
+	return _u
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_u *CategoryUpdate) SetNillableConfigType(v *category.ConfigType) *CategoryUpdate {
+	if v != nil {
+		_u.SetConfigType(*v)
+	}
+	return _u
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (_u *CategoryUpdate) ClearConfigType() *CategoryUpdate {
+	_u.mutation.ClearConfigType()
+	return _u
+}
+
 // SetTags sets the "tags" field.
 func (_u *CategoryUpdate) SetTags(v []string) *CategoryUpdate {
 	_u.mutation.SetTags(v)
@@ -114,6 +135,50 @@ func (_u *CategoryUpdate) SetConfig(v map[string]string) *CategoryUpdate {
 // ClearConfig clears the value of the "config" field.
 func (_u *CategoryUpdate) ClearConfig() *CategoryUpdate {
 	_u.mutation.ClearConfig()
+	return _u
+}
+
+// SetExternalID sets the "external_id" field.
+func (_u *CategoryUpdate) SetExternalID(v uuid.UUID) *CategoryUpdate {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *CategoryUpdate) SetNillableExternalID(v *uuid.UUID) *CategoryUpdate {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (_u *CategoryUpdate) ClearExternalID() *CategoryUpdate {
+	_u.mutation.ClearExternalID()
+	return _u
+}
+
+// SetAttributes sets the "attributes" field.
+func (_u *CategoryUpdate) SetAttributes(v map[string]interface{}) *CategoryUpdate {
+	_u.mutation.SetAttributes(v)
+	return _u
+}
+
+// ClearAttributes clears the value of the "attributes" field.
+func (_u *CategoryUpdate) ClearAttributes() *CategoryUpdate {
+	_u.mutation.ClearAttributes()
+	return _u
+}
+
+// SetPayload sets the "payload" field.
+func (_u *CategoryUpdate) SetPayload(v []byte) *CategoryUpdate {
+	_u.mutation.SetPayload(v)
+	return _u
+}
+
+// ClearPayload clears the value of the "payload" field.
+func (_u *CategoryUpdate) ClearPayload() *CategoryUpdate {
+	_u.mutation.ClearPayload()
 	return _u
 }
 
@@ -202,6 +267,11 @@ func (_u *CategoryUpdate) check() error {
 			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Category.kind": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ConfigType(); ok {
+		if err := category.ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -241,6 +311,20 @@ var categoryUpdateDescriptor = entbuilder.UpdateDescriptor[config, *CategoryMuta
 		},
 
 		{
+			Column: category.FieldConfigType,
+			Type:   field.TypeEnum,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.ConfigType(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.ConfigTypeCleared()
+			},
+		},
+
+		{
 			Column: category.FieldTags,
 			Type:   field.TypeJSON,
 			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
@@ -273,6 +357,48 @@ var categoryUpdateDescriptor = entbuilder.UpdateDescriptor[config, *CategoryMuta
 			},
 			Clear: func(m *CategoryMutation) bool {
 				return m.ConfigCleared()
+			},
+		},
+
+		{
+			Column: category.FieldExternalID,
+			Type:   field.TypeUUID,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.ExternalID(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.ExternalIDCleared()
+			},
+		},
+
+		{
+			Column: category.FieldAttributes,
+			Type:   field.TypeJSON,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Attributes(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.AttributesCleared()
+			},
+		},
+
+		{
+			Column: category.FieldPayload,
+			Type:   field.TypeBytes,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Payload(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.PayloadCleared()
 			},
 		},
 	},
@@ -412,6 +538,26 @@ func (_u *CategoryUpdateOne) SetNillableKind(v *category.Kind) *CategoryUpdateOn
 	return _u
 }
 
+// SetConfigType sets the "config_type" field.
+func (_u *CategoryUpdateOne) SetConfigType(v category.ConfigType) *CategoryUpdateOne {
+	_u.mutation.SetConfigType(v)
+	return _u
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_u *CategoryUpdateOne) SetNillableConfigType(v *category.ConfigType) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetConfigType(*v)
+	}
+	return _u
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (_u *CategoryUpdateOne) ClearConfigType() *CategoryUpdateOne {
+	_u.mutation.ClearConfigType()
+	return _u
+}
+
 // SetTags sets the "tags" field.
 func (_u *CategoryUpdateOne) SetTags(v []string) *CategoryUpdateOne {
 	_u.mutation.SetTags(v)
@@ -439,6 +585,50 @@ func (_u *CategoryUpdateOne) SetConfig(v map[string]string) *CategoryUpdateOne {
 // ClearConfig clears the value of the "config" field.
 func (_u *CategoryUpdateOne) ClearConfig() *CategoryUpdateOne {
 	_u.mutation.ClearConfig()
+	return _u
+}
+
+// SetExternalID sets the "external_id" field.
+func (_u *CategoryUpdateOne) SetExternalID(v uuid.UUID) *CategoryUpdateOne {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *CategoryUpdateOne) SetNillableExternalID(v *uuid.UUID) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (_u *CategoryUpdateOne) ClearExternalID() *CategoryUpdateOne {
+	_u.mutation.ClearExternalID()
+	return _u
+}
+
+// SetAttributes sets the "attributes" field.
+func (_u *CategoryUpdateOne) SetAttributes(v map[string]interface{}) *CategoryUpdateOne {
+	_u.mutation.SetAttributes(v)
+	return _u
+}
+
+// ClearAttributes clears the value of the "attributes" field.
+func (_u *CategoryUpdateOne) ClearAttributes() *CategoryUpdateOne {
+	_u.mutation.ClearAttributes()
+	return _u
+}
+
+// SetPayload sets the "payload" field.
+func (_u *CategoryUpdateOne) SetPayload(v []byte) *CategoryUpdateOne {
+	_u.mutation.SetPayload(v)
+	return _u
+}
+
+// ClearPayload clears the value of the "payload" field.
+func (_u *CategoryUpdateOne) ClearPayload() *CategoryUpdateOne {
+	_u.mutation.ClearPayload()
 	return _u
 }
 
@@ -538,6 +728,11 @@ func (_u *CategoryUpdateOne) check() error {
 	if v, ok := _u.mutation.Kind(); ok {
 		if err := category.KindValidator(v); err != nil {
 			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "Category.kind": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ConfigType(); ok {
+		if err := category.ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
 		}
 	}
 	return nil

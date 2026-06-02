@@ -70,6 +70,9 @@ func init() {
 				"name": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.String),
 				},
+				"configType": &graphql.Field{
+					Type: CategoryConfigTypeEnum,
+				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Category.",
@@ -116,7 +119,7 @@ func init() {
 					Type: graphql.NewNonNull(graphql.String),
 				},
 				"status": &graphql.Field{
-					Type: graphql.NewNonNull(graphql.String),
+					Type: graphql.NewNonNull(TodoStatusEnum),
 				},
 				"priority": &graphql.Field{
 					Type: graphql.Int,

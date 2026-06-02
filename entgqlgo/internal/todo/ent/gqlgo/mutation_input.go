@@ -20,16 +20,21 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
+	"github.com/google/uuid"
 )
 
 // CreateCategoryInput represents a mutation input for creating categories.
 type CreateCategoryInput struct {
-	Text    string
-	Status  *category.Status
-	Kind    *category.Kind
-	Tags    []string
-	Config  map[string]string
-	TodoIDs []int
+	Text       string
+	Status     *category.Status
+	Kind       *category.Kind
+	ConfigType *category.ConfigType
+	Tags       []string
+	Config     map[string]string
+	ExternalID *uuid.UUID
+	Attributes map[string]interface{}
+	Payload    []byte
+	TodoIDs    []int
 }
 
 // Mutate applies the CreateCategoryInput on the CategoryMutation builder.
@@ -41,11 +46,23 @@ func (i *CreateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	if v := i.Kind; v != nil {
 		m.SetKind(*v)
 	}
+	if v := i.ConfigType; v != nil {
+		m.SetConfigType(*v)
+	}
 	if v := i.Tags; v != nil {
 		m.SetTags(v)
 	}
 	if v := i.Config; v != nil {
 		m.SetConfig(v)
+	}
+	if v := i.ExternalID; v != nil {
+		m.SetExternalID(*v)
+	}
+	if v := i.Attributes; v != nil {
+		m.SetAttributes(v)
+	}
+	if v := i.Payload; v != nil {
+		m.SetPayload(v)
 	}
 	if v := i.TodoIDs; len(v) > 0 {
 		m.AddTodoIDs(v...)
@@ -54,17 +71,25 @@ func (i *CreateCategoryInput) Mutate(m *ent.CategoryMutation) {
 
 // UpdateCategoryInput represents a mutation input for updating categories.
 type UpdateCategoryInput struct {
-	Text          *string
-	Status        *category.Status
-	Kind          *category.Kind
-	ClearTags     bool
-	Tags          []string
-	AppendTags    []string
-	ClearConfig   bool
-	Config        map[string]string
-	ClearTodos    bool
-	AddTodoIDs    []int
-	RemoveTodoIDs []int
+	Text            *string
+	Status          *category.Status
+	Kind            *category.Kind
+	ClearConfigType bool
+	ConfigType      *category.ConfigType
+	ClearTags       bool
+	Tags            []string
+	AppendTags      []string
+	ClearConfig     bool
+	Config          map[string]string
+	ClearExternalID bool
+	ExternalID      *uuid.UUID
+	ClearAttributes bool
+	Attributes      map[string]interface{}
+	ClearPayload    bool
+	Payload         []byte
+	ClearTodos      bool
+	AddTodoIDs      []int
+	RemoveTodoIDs   []int
 }
 
 // Mutate applies the UpdateCategoryInput on the CategoryMutation builder.
@@ -77,6 +102,12 @@ func (i *UpdateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	}
 	if v := i.Kind; v != nil {
 		m.SetKind(*v)
+	}
+	if i.ClearConfigType {
+		m.ClearConfigType()
+	}
+	if v := i.ConfigType; v != nil {
+		m.SetConfigType(*v)
 	}
 	if i.ClearTags {
 		m.ClearTags()
@@ -92,6 +123,24 @@ func (i *UpdateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	}
 	if v := i.Config; v != nil {
 		m.SetConfig(v)
+	}
+	if i.ClearExternalID {
+		m.ClearExternalID()
+	}
+	if v := i.ExternalID; v != nil {
+		m.SetExternalID(*v)
+	}
+	if i.ClearAttributes {
+		m.ClearAttributes()
+	}
+	if v := i.Attributes; v != nil {
+		m.SetAttributes(v)
+	}
+	if i.ClearPayload {
+		m.ClearPayload()
+	}
+	if v := i.Payload; v != nil {
+		m.SetPayload(v)
 	}
 	if i.ClearTodos {
 		m.ClearTodos()

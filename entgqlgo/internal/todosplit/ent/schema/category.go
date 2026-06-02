@@ -33,6 +33,22 @@ func (Category) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").
 			NotEmpty(),
+		// Optional+Nillable enum with UseEnumNames, mirroring gemini's
+		// ContactPhoneNumber.phone_type. Exercises bug A2 (object field renders as
+		// the enum type; WhereInput IsNil/NotNil predicates are Boolean) under the
+		// split-runtime layout.
+		field.Enum("config_type").
+			NamedValues(
+				"Internal", "INTERNAL",
+				"External", "EXTERNAL",
+				"Legacy", "LEGACY",
+			).
+			Optional().
+			Nillable().
+			Annotations(
+				entgqlgo.UseEnumNames(),
+				entgqlgo.DeprecatedEnumValues("Legacy"),
+			),
 	}
 }
 

@@ -90,7 +90,7 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	node := &Node{
 		ID:     n.ID,
 		Type:   "Category",
-		Fields: make([]*Field, 5),
+		Fields: make([]*Field, 9),
 		Edges:  make([]*Edge, 1),
 	}
 	var buf []byte
@@ -119,10 +119,18 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 		Name:  "kind",
 		Value: string(buf),
 	}
-	if buf, err = json.Marshal(n.Tags); err != nil {
+	if buf, err = json.Marshal(n.ConfigType); err != nil {
 		return nil, err
 	}
 	node.Fields[3] = &Field{
+		Type:  "category.ConfigType",
+		Name:  "config_type",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Tags); err != nil {
+		return nil, err
+	}
+	node.Fields[4] = &Field{
 		Type:  "[]string",
 		Name:  "tags",
 		Value: string(buf),
@@ -130,9 +138,33 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	if buf, err = json.Marshal(n.Config); err != nil {
 		return nil, err
 	}
-	node.Fields[4] = &Field{
+	node.Fields[5] = &Field{
 		Type:  "map[string]string",
 		Name:  "config",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.ExternalID); err != nil {
+		return nil, err
+	}
+	node.Fields[6] = &Field{
+		Type:  "uuid.UUID",
+		Name:  "external_id",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Attributes); err != nil {
+		return nil, err
+	}
+	node.Fields[7] = &Field{
+		Type:  "map[string]interface {}",
+		Name:  "attributes",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Payload); err != nil {
+		return nil, err
+	}
+	node.Fields[8] = &Field{
+		Type:  "[]byte",
+		Name:  "payload",
 		Value: string(buf),
 	}
 	node.Edges[0] = &Edge{

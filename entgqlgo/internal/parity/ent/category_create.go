@@ -43,6 +43,26 @@ func (_c *CategoryCreate) SetNillableStatus(v *category.Status) *CategoryCreate 
 	return _c
 }
 
+// SetConfigType sets the "config_type" field.
+func (_c *CategoryCreate) SetConfigType(v category.ConfigType) *CategoryCreate {
+	_c.mutation.SetConfigType(v)
+	return _c
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_c *CategoryCreate) SetNillableConfigType(v *category.ConfigType) *CategoryCreate {
+	if v != nil {
+		_c.SetConfigType(*v)
+	}
+	return _c
+}
+
+// SetMetadata sets the "metadata" field.
+func (_c *CategoryCreate) SetMetadata(v map[string]interface{}) *CategoryCreate {
+	_c.mutation.SetMetadata(v)
+	return _c
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_c *CategoryCreate) AddTodoIDs(ids ...int) *CategoryCreate {
 	_c.mutation.AddTodoIDs(ids...)
@@ -56,6 +76,40 @@ func (_c *CategoryCreate) AddTodos(v ...*Todo) *CategoryCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddTodoIDs(ids...)
+}
+
+// SetOwnerCID sets the "owner_c" edge to the Todo entity by ID.
+func (_c *CategoryCreate) SetOwnerCID(id int) *CategoryCreate {
+	_c.mutation.SetOwnerCID(id)
+	return _c
+}
+
+// SetNillableOwnerCID sets the "owner_c" edge to the Todo entity by ID if the given value is not nil.
+func (_c *CategoryCreate) SetNillableOwnerCID(id *int) *CategoryCreate {
+	if id != nil {
+		_c = _c.SetOwnerCID(*id)
+	}
+	return _c
+}
+
+// SetOwnerC sets the "owner_c" edge to the Todo entity.
+func (_c *CategoryCreate) SetOwnerC(v *Todo) *CategoryCreate {
+	return _c.SetOwnerCID(v.ID)
+}
+
+// AddSubStatusIDs adds the "sub_statuses" edge to the Todo entity by IDs.
+func (_c *CategoryCreate) AddSubStatusIDs(ids ...int) *CategoryCreate {
+	_c.mutation.AddSubStatusIDs(ids...)
+	return _c
+}
+
+// AddSubStatuses adds the "sub_statuses" edges to the Todo entity.
+func (_c *CategoryCreate) AddSubStatuses(v ...*Todo) *CategoryCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSubStatusIDs(ids...)
 }
 
 // Mutation returns the CategoryMutation object of the builder.
@@ -148,6 +202,22 @@ var categoryCreateSpec = entgen.CreateSpec[*CategoryMutation]{
 				},
 			},
 		},
+		{
+			Name: "config_type",
+			Validators: []func(*CategoryMutation) error{
+				func(m *CategoryMutation) error {
+					if v, ok := m.ConfigType(); ok {
+						if err := category.ConfigTypeValidator(v); err != nil {
+							return &ValidationError{Name: "config_type", err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+						}
+					}
+					return nil
+				},
+			},
+		},
+		{
+			Name: "metadata",
+		},
 	},
 	Edges: []entgen.EdgeSpec[*CategoryMutation]{},
 }
@@ -209,6 +279,20 @@ var categoryCreateDescriptor = entbuilder.CreateDescriptor[config, Category, *Ca
 			(*CategoryMutation).Status,
 			func(n *Category, v category.Status) { n.Status = v },
 		),
+
+		entbuilder.NillableField[config, Category, *CategoryMutation, category.ConfigType](
+			category.FieldConfigType,
+			field.TypeEnum,
+			(*CategoryMutation).ConfigType,
+			func(n *Category, v *category.ConfigType) { n.ConfigType = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, map[string]interface{}](
+			category.FieldMetadata,
+			field.TypeJSON,
+			(*CategoryMutation).Metadata,
+			func(n *Category, v map[string]interface{}) { n.Metadata = v },
+		),
 	},
 	Edges: []entbuilder.EdgeDescriptor[config, Category, *CategoryMutation]{
 		{
@@ -222,6 +306,60 @@ var categoryCreateDescriptor = entbuilder.CreateDescriptor[config, Category, *Ca
 					Inverse: false,
 					Table:   category.TodosTable,
 					Columns: []string{category.TodosColumn},
+					Bidi:    false,
+					Target: &sqlgraph.EdgeTarget{
+						IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
+					},
+				}
+				for _, k := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, k)
+				}
+				return entbuilder.EdgeValue{Spec: edge, Nodes: nodes}, true, nil
+			},
+		},
+
+		{
+			Value: func(cfg config, m *CategoryMutation) (entbuilder.EdgeValue, bool, error) {
+				nodes := m.OwnerCIDs()
+				if len(nodes) == 0 {
+					return entbuilder.EdgeValue{}, false, nil
+				}
+				edge := &sqlgraph.EdgeSpec{
+					Rel:     sqlgraph.M2O,
+					Inverse: false,
+					Table:   category.OwnerCTable,
+					Columns: []string{category.OwnerCColumn},
+					Bidi:    false,
+					Target: &sqlgraph.EdgeTarget{
+						IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
+					},
+				}
+				for _, k := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, k)
+				}
+				return entbuilder.EdgeValue{Spec: edge, Nodes: nodes}, true, nil
+			},
+			Assign: func(node *Category, ev entbuilder.EdgeValue) error {
+				ids, ok := ev.Nodes.([]int)
+				if !ok || len(ids) == 0 {
+					return nil
+				}
+				node.category_owner_c = &ids[0]
+				return nil
+			},
+		},
+
+		{
+			Value: func(cfg config, m *CategoryMutation) (entbuilder.EdgeValue, bool, error) {
+				nodes := m.SubStatusesIDs()
+				if len(nodes) == 0 {
+					return entbuilder.EdgeValue{}, false, nil
+				}
+				edge := &sqlgraph.EdgeSpec{
+					Rel:     sqlgraph.O2M,
+					Inverse: false,
+					Table:   category.SubStatusesTable,
+					Columns: []string{category.SubStatusesColumn},
 					Bidi:    false,
 					Target: &sqlgraph.EdgeTarget{
 						IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),

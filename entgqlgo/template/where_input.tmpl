@@ -79,10 +79,10 @@ func init() {
                     {{- $jsonTag = $f.Name }}
                 {{- end }}
                 "{{ camel $jsonTag }}": &graphql.InputObjectFieldConfig{
-                    {{- if $f.IsEnum }}
-                    Type: {{ if $op.Variadic }}graphql.NewList(graphql.NewNonNull({{ $n.Name }}{{ $f.StructField }}Enum)){{ else }}{{ $n.Name }}{{ $f.StructField }}Enum{{ end }},
-                    {{- else if $op.Niladic }}
+                    {{- if $op.Niladic }}
                     Type: graphql.Boolean,
+                    {{- else if $f.IsEnum }}
+                    Type: {{ if $op.Variadic }}graphql.NewList(graphql.NewNonNull({{ $n.Name }}{{ $f.StructField }}Enum)){{ else }}{{ $n.Name }}{{ $f.StructField }}Enum{{ end }},
                     {{- else if $op.Variadic }}
                     Type: graphql.NewList(graphql.NewNonNull({{ gqlgoType $f }})),
                     {{- else }}
@@ -359,19 +359,17 @@ func init() {
                 input.{{ $field }} = b
             }
             {{- else if $f.IsEnum }}
+                {{- /* graphql-go decodes enum input to the typed Go value;
+                       fmt.Sprint normalizes both the typed enum and a raw string. */}}
                 {{- if $op.Variadic }}
             if slice, ok := v.([]interface{}); ok {
                 for _, item := range slice {
-                    if s, ok := item.(string); ok {
-                        input.{{ $field }} = append(input.{{ $field }}, {{ $f.Type }}(s))
-                    }
+                    input.{{ $field }} = append(input.{{ $field }}, {{ $f.Type }}(fmt.Sprint(item)))
                 }
             }
                 {{- else }}
-            if s, ok := v.(string); ok {
-                val := {{ $f.Type }}(s)
-                input.{{ $field }} = &val
-            }
+            val := {{ $f.Type }}(fmt.Sprint(v))
+            input.{{ $field }} = &val
                 {{- end }}
             {{- else if $op.Variadic }}
                 {{- if $f.Type.Numeric }}

@@ -39,8 +39,8 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	node := &Node{
 		ID:     n.ID,
 		Type:   "Category",
-		Fields: make([]*Field, 2),
-		Edges:  make([]*Edge, 1),
+		Fields: make([]*Field, 4),
+		Edges:  make([]*Edge, 3),
 	}
 	var buf []byte
 	var err error
@@ -60,6 +60,22 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 		Name:  "status",
 		Value: string(buf),
 	}
+	if buf, err = json.Marshal(n.ConfigType); err != nil {
+		return nil, err
+	}
+	node.Fields[2] = &Field{
+		Type:  "category.ConfigType",
+		Name:  "config_type",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Metadata); err != nil {
+		return nil, err
+	}
+	node.Fields[3] = &Field{
+		Type:  "map[string]interface {}",
+		Name:  "metadata",
+		Value: string(buf),
+	}
 	node.Edges[0] = &Edge{
 		Type: "Todo",
 		Name: "todos",
@@ -67,6 +83,24 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	if err := n.QueryTodos().
 		Select(todo.FieldID).
 		Scan(ctx, &node.Edges[0].IDs); err != nil {
+		return nil, err
+	}
+	node.Edges[1] = &Edge{
+		Type: "Todo",
+		Name: "owner_c",
+	}
+	if err := n.QueryOwnerC().
+		Select(todo.FieldID).
+		Scan(ctx, &node.Edges[1].IDs); err != nil {
+		return nil, err
+	}
+	node.Edges[2] = &Edge{
+		Type: "Todo",
+		Name: "sub_statuses",
+	}
+	if err := n.QuerySubStatuses().
+		Select(todo.FieldID).
+		Scan(ctx, &node.Edges[2].IDs); err != nil {
 		return nil, err
 	}
 	return node, nil
@@ -77,8 +111,8 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 	node := &Node{
 		ID:     n.ID,
 		Type:   "Todo",
-		Fields: make([]*Field, 4),
-		Edges:  make([]*Edge, 3),
+		Fields: make([]*Field, 5),
+		Edges:  make([]*Edge, 4),
 	}
 	var buf []byte
 	var err error
@@ -114,6 +148,14 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 		Name:  "text",
 		Value: string(buf),
 	}
+	if buf, err = json.Marshal(n.Note); err != nil {
+		return nil, err
+	}
+	node.Fields[4] = &Field{
+		Type:  "string",
+		Name:  "note",
+		Value: string(buf),
+	}
 	node.Edges[0] = &Edge{
 		Type: "Todo",
 		Name: "parent",
@@ -139,6 +181,15 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 	if err := n.QueryCategory().
 		Select(category.FieldID).
 		Scan(ctx, &node.Edges[2].IDs); err != nil {
+		return nil, err
+	}
+	node.Edges[3] = &Edge{
+		Type: "Category",
+		Name: "owner",
+	}
+	if err := n.QueryOwner().
+		Select(category.FieldID).
+		Scan(ctx, &node.Edges[3].IDs); err != nil {
 		return nil, err
 	}
 	return node, nil

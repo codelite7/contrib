@@ -10,9 +10,13 @@ import (
 
 // CreateCategoryInput represents a mutation input for creating categories.
 type CreateCategoryInput struct {
-	Text    string
-	Status  *category.Status
-	TodoIDs []int
+	Text         string
+	Status       *category.Status
+	ConfigType   *category.ConfigType
+	Metadata     map[string]interface{}
+	TodoIDs      []int
+	OwnerCID     *int
+	SubStatusIDs []int
 }
 
 // Mutate applies the CreateCategoryInput on the CategoryMutation builder.
@@ -21,18 +25,39 @@ func (i *CreateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	if v := i.Status; v != nil {
 		m.SetStatus(*v)
 	}
+	if v := i.ConfigType; v != nil {
+		m.SetConfigType(*v)
+	}
+	if v := i.Metadata; v != nil {
+		m.SetMetadata(v)
+	}
 	if v := i.TodoIDs; len(v) > 0 {
 		m.AddTodoIDs(v...)
+	}
+	if v := i.OwnerCID; v != nil {
+		m.SetOwnerCID(*v)
+	}
+	if v := i.SubStatusIDs; len(v) > 0 {
+		m.AddSubStatusIDs(v...)
 	}
 }
 
 // UpdateCategoryInput represents a mutation input for updating categories.
 type UpdateCategoryInput struct {
-	Text          *string
-	Status        *category.Status
-	ClearTodos    bool
-	AddTodoIDs    []int
-	RemoveTodoIDs []int
+	Text               *string
+	Status             *category.Status
+	ClearConfigType    bool
+	ConfigType         *category.ConfigType
+	ClearMetadata      bool
+	Metadata           map[string]interface{}
+	ClearTodos         bool
+	AddTodoIDs         []int
+	RemoveTodoIDs      []int
+	ClearOwnerC        bool
+	OwnerCID           *int
+	ClearSubStatuses   bool
+	AddSubStatusIDs    []int
+	RemoveSubStatusIDs []int
 }
 
 // Mutate applies the UpdateCategoryInput on the CategoryMutation builder.
@@ -43,6 +68,18 @@ func (i *UpdateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	if v := i.Status; v != nil {
 		m.SetStatus(*v)
 	}
+	if i.ClearConfigType {
+		m.ClearConfigType()
+	}
+	if v := i.ConfigType; v != nil {
+		m.SetConfigType(*v)
+	}
+	if i.ClearMetadata {
+		m.ClearMetadata()
+	}
+	if v := i.Metadata; v != nil {
+		m.SetMetadata(v)
+	}
 	if i.ClearTodos {
 		m.ClearTodos()
 	}
@@ -52,6 +89,21 @@ func (i *UpdateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	if v := i.RemoveTodoIDs; len(v) > 0 {
 		m.RemoveTodoIDs(v...)
 	}
+	if i.ClearOwnerC {
+		m.ClearOwnerC()
+	}
+	if v := i.OwnerCID; v != nil {
+		m.SetOwnerCID(*v)
+	}
+	if i.ClearSubStatuses {
+		m.ClearSubStatuses()
+	}
+	if v := i.AddSubStatusIDs; len(v) > 0 {
+		m.AddSubStatusIDs(v...)
+	}
+	if v := i.RemoveSubStatusIDs; len(v) > 0 {
+		m.RemoveSubStatusIDs(v...)
+	}
 }
 
 // CreateTodoInput represents a mutation input for creating todos.
@@ -59,9 +111,11 @@ type CreateTodoInput struct {
 	Status     todo.Status
 	Priority   *int
 	Text       string
+	Note       string
 	ParentID   *int
 	ChildIDs   []int
 	CategoryID *int
+	OwnerID    int
 }
 
 // Mutate applies the CreateTodoInput on the TodoMutation builder.
@@ -71,6 +125,7 @@ func (i *CreateTodoInput) Mutate(m *ent.TodoMutation) {
 		m.SetPriority(*v)
 	}
 	m.SetText(i.Text)
+	m.SetNote(i.Note)
 	if v := i.ParentID; v != nil {
 		m.SetParentID(*v)
 	}
@@ -80,6 +135,7 @@ func (i *CreateTodoInput) Mutate(m *ent.TodoMutation) {
 	if v := i.CategoryID; v != nil {
 		m.SetCategoryID(*v)
 	}
+	m.SetOwnerID(i.OwnerID)
 }
 
 // UpdateTodoInput represents a mutation input for updating todos.
@@ -87,6 +143,7 @@ type UpdateTodoInput struct {
 	Status         *todo.Status
 	Priority       *int
 	Text           *string
+	Note           *string
 	ClearParent    bool
 	ParentID       *int
 	ClearChildren  bool
@@ -94,6 +151,7 @@ type UpdateTodoInput struct {
 	RemoveChildIDs []int
 	ClearCategory  bool
 	CategoryID     *int
+	OwnerID        *int
 }
 
 // Mutate applies the UpdateTodoInput on the TodoMutation builder.
@@ -106,6 +164,9 @@ func (i *UpdateTodoInput) Mutate(m *ent.TodoMutation) {
 	}
 	if v := i.Text; v != nil {
 		m.SetText(*v)
+	}
+	if v := i.Note; v != nil {
+		m.SetNote(*v)
 	}
 	if i.ClearParent {
 		m.ClearParent()
@@ -127,5 +188,8 @@ func (i *UpdateTodoInput) Mutate(m *ent.TodoMutation) {
 	}
 	if v := i.CategoryID; v != nil {
 		m.SetCategoryID(*v)
+	}
+	if v := i.OwnerID; v != nil {
+		m.SetOwnerID(*v)
 	}
 }

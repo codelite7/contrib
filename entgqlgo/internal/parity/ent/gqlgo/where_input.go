@@ -119,6 +119,24 @@ func init() {
 				"statusNotIn": &graphql.InputObjectFieldConfig{
 					Type: graphql.NewList(graphql.NewNonNull(CategoryStatusEnum)),
 				},
+				"configType": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"configTypeNEQ": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"configTypeIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryConfigTypeEnum)),
+				},
+				"configTypeNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(CategoryConfigTypeEnum)),
+				},
+				"configTypeIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"configTypeNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
 				"hasTodos": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
 					Description: "Check if todos edge exists.",
@@ -126,6 +144,22 @@ func init() {
 				"hasTodosWith": &graphql.InputObjectFieldConfig{
 					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
 					Description: "Filter by todos edge with conditions.",
+				},
+				"hasOwnerC": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if owner_c edge exists.",
+				},
+				"hasOwnerCWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Filter by owner_c edge with conditions.",
+				},
+				"hasSubStatuses": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if sub_statuses edge exists.",
+				},
+				"hasSubStatusesWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Filter by sub_statuses edge with conditions.",
 				},
 			}
 		}),
@@ -271,6 +305,45 @@ func init() {
 				"textContainsFold": &graphql.InputObjectFieldConfig{
 					Type: graphql.String,
 				},
+				"note": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"noteNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"noteGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteContains": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteHasPrefix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteHasSuffix": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteEqualFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"noteContainsFold": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
 				"hasParent": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
 					Description: "Check if parent edge exists.",
@@ -294,6 +367,14 @@ func init() {
 				"hasCategoryWith": &graphql.InputObjectFieldConfig{
 					Type:        graphql.NewList(graphql.NewNonNull(CategoryWhereInputType)),
 					Description: "Filter by category edge with conditions.",
+				},
+				"hasOwner": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if owner edge exists.",
+				},
+				"hasOwnerWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(CategoryWhereInputType)),
+					Description: "Filter by owner edge with conditions.",
 				},
 			}
 		}),
@@ -338,9 +419,25 @@ type CategoryWhereInput struct {
 	StatusIn    []category.Status `json:"statusIn,omitempty"`
 	StatusNotIn []category.Status `json:"statusNotIn,omitempty"`
 
+	// "config_type" field predicates.
+	ConfigType       *category.ConfigType  `json:"configType,omitempty"`
+	ConfigTypeNEQ    *category.ConfigType  `json:"configTypeNEQ,omitempty"`
+	ConfigTypeIn     []category.ConfigType `json:"configTypeIn,omitempty"`
+	ConfigTypeNotIn  []category.ConfigType `json:"configTypeNotIn,omitempty"`
+	ConfigTypeIsNil  bool                  `json:"configTypeIsNil,omitempty"`
+	ConfigTypeNotNil bool                  `json:"configTypeNotNil,omitempty"`
+
 	// "todos" edge predicates.
 	HasTodos     *bool             `json:"hasTodos,omitempty"`
 	HasTodosWith []*TodoWhereInput `json:"hasTodosWith,omitempty"`
+
+	// "owner_c" edge predicates.
+	HasOwnerC     *bool             `json:"hasOwnerC,omitempty"`
+	HasOwnerCWith []*TodoWhereInput `json:"hasOwnerCWith,omitempty"`
+
+	// "sub_statuses" edge predicates.
+	HasSubStatuses     *bool             `json:"hasSubStatuses,omitempty"`
+	HasSubStatusesWith []*TodoWhereInput `json:"hasSubStatusesWith,omitempty"`
 }
 
 // AddPredicates adds custom predicates to the where input to be used during the filtering phase.
@@ -489,6 +586,24 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 	if len(i.StatusNotIn) > 0 {
 		predicates = append(predicates, category.StatusNotIn(i.StatusNotIn...))
 	}
+	if i.ConfigType != nil {
+		predicates = append(predicates, category.ConfigTypeEQ(*i.ConfigType))
+	}
+	if i.ConfigTypeNEQ != nil {
+		predicates = append(predicates, category.ConfigTypeNEQ(*i.ConfigTypeNEQ))
+	}
+	if len(i.ConfigTypeIn) > 0 {
+		predicates = append(predicates, category.ConfigTypeIn(i.ConfigTypeIn...))
+	}
+	if len(i.ConfigTypeNotIn) > 0 {
+		predicates = append(predicates, category.ConfigTypeNotIn(i.ConfigTypeNotIn...))
+	}
+	if i.ConfigTypeIsNil {
+		predicates = append(predicates, category.ConfigTypeIsNil())
+	}
+	if i.ConfigTypeNotNil {
+		predicates = append(predicates, category.ConfigTypeNotNil())
+	}
 
 	if i.HasTodos != nil {
 		p := category.HasTodos()
@@ -507,6 +622,42 @@ func (i *CategoryWhereInput) P() (predicate.Category, error) {
 			with = append(with, p)
 		}
 		predicates = append(predicates, category.HasTodosWith(with...))
+	}
+	if i.HasOwnerC != nil {
+		p := category.HasOwnerC()
+		if !*i.HasOwnerC {
+			p = category.Not(p)
+		}
+		predicates = append(predicates, p)
+	}
+	if len(i.HasOwnerCWith) > 0 {
+		with := make([]predicate.Todo, 0, len(i.HasOwnerCWith))
+		for _, w := range i.HasOwnerCWith {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'HasOwnerCWith'", err)
+			}
+			with = append(with, p)
+		}
+		predicates = append(predicates, category.HasOwnerCWith(with...))
+	}
+	if i.HasSubStatuses != nil {
+		p := category.HasSubStatuses()
+		if !*i.HasSubStatuses {
+			p = category.Not(p)
+		}
+		predicates = append(predicates, p)
+	}
+	if len(i.HasSubStatusesWith) > 0 {
+		with := make([]predicate.Todo, 0, len(i.HasSubStatusesWith))
+		for _, w := range i.HasSubStatusesWith {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'HasSubStatusesWith'", err)
+			}
+			with = append(with, p)
+		}
+		predicates = append(predicates, category.HasSubStatusesWith(with...))
 	}
 	switch len(predicates) {
 	case 1:
@@ -713,25 +864,19 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	}
 	// Parse status
 	if v, ok := m["status"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := category.Status(s)
-			input.Status = &val
-		}
+		val := category.Status(fmt.Sprint(v))
+		input.Status = &val
 	}
 	// Parse statusNEQ
 	if v, ok := m["statusNEQ"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := category.Status(s)
-			input.StatusNEQ = &val
-		}
+		val := category.Status(fmt.Sprint(v))
+		input.StatusNEQ = &val
 	}
 	// Parse statusIn
 	if v, ok := m["statusIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusIn = append(input.StatusIn, category.Status(s))
-				}
+				input.StatusIn = append(input.StatusIn, category.Status(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -739,10 +884,46 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	if v, ok := m["statusNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusNotIn = append(input.StatusNotIn, category.Status(s))
-				}
+				input.StatusNotIn = append(input.StatusNotIn, category.Status(fmt.Sprint(item)))
 			}
+		}
+	}
+	// Parse configType
+	if v, ok := m["configType"]; ok && v != nil {
+		val := category.ConfigType(fmt.Sprint(v))
+		input.ConfigType = &val
+	}
+	// Parse configTypeNEQ
+	if v, ok := m["configTypeNEQ"]; ok && v != nil {
+		val := category.ConfigType(fmt.Sprint(v))
+		input.ConfigTypeNEQ = &val
+	}
+	// Parse configTypeIn
+	if v, ok := m["configTypeIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				input.ConfigTypeIn = append(input.ConfigTypeIn, category.ConfigType(fmt.Sprint(item)))
+			}
+		}
+	}
+	// Parse configTypeNotIn
+	if v, ok := m["configTypeNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				input.ConfigTypeNotIn = append(input.ConfigTypeNotIn, category.ConfigType(fmt.Sprint(item)))
+			}
+		}
+	}
+	// Parse configTypeIsNil
+	if v, ok := m["configTypeIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ConfigTypeIsNil = b
+		}
+	}
+	// Parse configTypeNotNil
+	if v, ok := m["configTypeNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ConfigTypeNotNil = b
 		}
 	}
 	// Parse hasTodos
@@ -761,6 +942,46 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 						return nil, fmt.Errorf("parsing 'hasTodosWith[%d]': %w", i, err)
 					}
 					input.HasTodosWith = append(input.HasTodosWith, withInput)
+				}
+			}
+		}
+	}
+	// Parse hasOwnerC
+	if v, ok := m["hasOwnerC"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasOwnerC = &b
+		}
+	}
+	// Parse hasOwnerCWith
+	if v, ok := m["hasOwnerCWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasOwnerCWith[%d]': %w", i, err)
+					}
+					input.HasOwnerCWith = append(input.HasOwnerCWith, withInput)
+				}
+			}
+		}
+	}
+	// Parse hasSubStatuses
+	if v, ok := m["hasSubStatuses"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasSubStatuses = &b
+		}
+	}
+	// Parse hasSubStatusesWith
+	if v, ok := m["hasSubStatusesWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasSubStatusesWith[%d]': %w", i, err)
+					}
+					input.HasSubStatusesWith = append(input.HasSubStatusesWith, withInput)
 				}
 			}
 		}
@@ -827,6 +1048,21 @@ type TodoWhereInput struct {
 	TextEqualFold    *string  `json:"textEqualFold,omitempty"`
 	TextContainsFold *string  `json:"textContainsFold,omitempty"`
 
+	// "note" field predicates.
+	Note             *string  `json:"note,omitempty"`
+	NoteNEQ          *string  `json:"noteNEQ,omitempty"`
+	NoteIn           []string `json:"noteIn,omitempty"`
+	NoteNotIn        []string `json:"noteNotIn,omitempty"`
+	NoteGT           *string  `json:"noteGT,omitempty"`
+	NoteGTE          *string  `json:"noteGTE,omitempty"`
+	NoteLT           *string  `json:"noteLT,omitempty"`
+	NoteLTE          *string  `json:"noteLTE,omitempty"`
+	NoteContains     *string  `json:"noteContains,omitempty"`
+	NoteHasPrefix    *string  `json:"noteHasPrefix,omitempty"`
+	NoteHasSuffix    *string  `json:"noteHasSuffix,omitempty"`
+	NoteEqualFold    *string  `json:"noteEqualFold,omitempty"`
+	NoteContainsFold *string  `json:"noteContainsFold,omitempty"`
+
 	// "parent" edge predicates.
 	HasParent     *bool             `json:"hasParent,omitempty"`
 	HasParentWith []*TodoWhereInput `json:"hasParentWith,omitempty"`
@@ -838,6 +1074,10 @@ type TodoWhereInput struct {
 	// "category" edge predicates.
 	HasCategory     *bool                 `json:"hasCategory,omitempty"`
 	HasCategoryWith []*CategoryWhereInput `json:"hasCategoryWith,omitempty"`
+
+	// "owner" edge predicates.
+	HasOwner     *bool                 `json:"hasOwner,omitempty"`
+	HasOwnerWith []*CategoryWhereInput `json:"hasOwnerWith,omitempty"`
 }
 
 // AddPredicates adds custom predicates to the where input to be used during the filtering phase.
@@ -1034,6 +1274,45 @@ func (i *TodoWhereInput) P() (predicate.Todo, error) {
 	if i.TextContainsFold != nil {
 		predicates = append(predicates, todo.TextContainsFold(*i.TextContainsFold))
 	}
+	if i.Note != nil {
+		predicates = append(predicates, todo.NoteEQ(*i.Note))
+	}
+	if i.NoteNEQ != nil {
+		predicates = append(predicates, todo.NoteNEQ(*i.NoteNEQ))
+	}
+	if len(i.NoteIn) > 0 {
+		predicates = append(predicates, todo.NoteIn(i.NoteIn...))
+	}
+	if len(i.NoteNotIn) > 0 {
+		predicates = append(predicates, todo.NoteNotIn(i.NoteNotIn...))
+	}
+	if i.NoteGT != nil {
+		predicates = append(predicates, todo.NoteGT(*i.NoteGT))
+	}
+	if i.NoteGTE != nil {
+		predicates = append(predicates, todo.NoteGTE(*i.NoteGTE))
+	}
+	if i.NoteLT != nil {
+		predicates = append(predicates, todo.NoteLT(*i.NoteLT))
+	}
+	if i.NoteLTE != nil {
+		predicates = append(predicates, todo.NoteLTE(*i.NoteLTE))
+	}
+	if i.NoteContains != nil {
+		predicates = append(predicates, todo.NoteContains(*i.NoteContains))
+	}
+	if i.NoteHasPrefix != nil {
+		predicates = append(predicates, todo.NoteHasPrefix(*i.NoteHasPrefix))
+	}
+	if i.NoteHasSuffix != nil {
+		predicates = append(predicates, todo.NoteHasSuffix(*i.NoteHasSuffix))
+	}
+	if i.NoteEqualFold != nil {
+		predicates = append(predicates, todo.NoteEqualFold(*i.NoteEqualFold))
+	}
+	if i.NoteContainsFold != nil {
+		predicates = append(predicates, todo.NoteContainsFold(*i.NoteContainsFold))
+	}
 
 	if i.HasParent != nil {
 		p := todo.HasParent()
@@ -1088,6 +1367,24 @@ func (i *TodoWhereInput) P() (predicate.Todo, error) {
 			with = append(with, p)
 		}
 		predicates = append(predicates, todo.HasCategoryWith(with...))
+	}
+	if i.HasOwner != nil {
+		p := todo.HasOwner()
+		if !*i.HasOwner {
+			p = todo.Not(p)
+		}
+		predicates = append(predicates, p)
+	}
+	if len(i.HasOwnerWith) > 0 {
+		with := make([]predicate.Category, 0, len(i.HasOwnerWith))
+		for _, w := range i.HasOwnerWith {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'HasOwnerWith'", err)
+			}
+			with = append(with, p)
+		}
+		predicates = append(predicates, todo.HasOwnerWith(with...))
 	}
 	switch len(predicates) {
 	case 1:
@@ -1264,25 +1561,19 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	}
 	// Parse status
 	if v, ok := m["status"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := todo.Status(s)
-			input.Status = &val
-		}
+		val := todo.Status(fmt.Sprint(v))
+		input.Status = &val
 	}
 	// Parse statusNEQ
 	if v, ok := m["statusNEQ"]; ok && v != nil {
-		if s, ok := v.(string); ok {
-			val := todo.Status(s)
-			input.StatusNEQ = &val
-		}
+		val := todo.Status(fmt.Sprint(v))
+		input.StatusNEQ = &val
 	}
 	// Parse statusIn
 	if v, ok := m["statusIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusIn = append(input.StatusIn, todo.Status(s))
-				}
+				input.StatusIn = append(input.StatusIn, todo.Status(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -1290,9 +1581,7 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	if v, ok := m["statusNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if s, ok := item.(string); ok {
-					input.StatusNotIn = append(input.StatusNotIn, todo.Status(s))
-				}
+				input.StatusNotIn = append(input.StatusNotIn, todo.Status(fmt.Sprint(item)))
 			}
 		}
 	}
@@ -1444,6 +1733,92 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 			input.TextContainsFold = &s
 		}
 	}
+	// Parse note
+	if v, ok := m["note"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.Note = &s
+		}
+	}
+	// Parse noteNEQ
+	if v, ok := m["noteNEQ"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteNEQ = &s
+		}
+	}
+	// Parse noteIn
+	if v, ok := m["noteIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.NoteIn = append(input.NoteIn, s)
+				}
+			}
+		}
+	}
+	// Parse noteNotIn
+	if v, ok := m["noteNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if s, ok := item.(string); ok {
+					input.NoteNotIn = append(input.NoteNotIn, s)
+				}
+			}
+		}
+	}
+	// Parse noteGT
+	if v, ok := m["noteGT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteGT = &s
+		}
+	}
+	// Parse noteGTE
+	if v, ok := m["noteGTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteGTE = &s
+		}
+	}
+	// Parse noteLT
+	if v, ok := m["noteLT"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteLT = &s
+		}
+	}
+	// Parse noteLTE
+	if v, ok := m["noteLTE"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteLTE = &s
+		}
+	}
+	// Parse noteContains
+	if v, ok := m["noteContains"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteContains = &s
+		}
+	}
+	// Parse noteHasPrefix
+	if v, ok := m["noteHasPrefix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteHasPrefix = &s
+		}
+	}
+	// Parse noteHasSuffix
+	if v, ok := m["noteHasSuffix"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteHasSuffix = &s
+		}
+	}
+	// Parse noteEqualFold
+	if v, ok := m["noteEqualFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteEqualFold = &s
+		}
+	}
+	// Parse noteContainsFold
+	if v, ok := m["noteContainsFold"]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			input.NoteContainsFold = &s
+		}
+	}
 	// Parse hasParent
 	if v, ok := m["hasParent"]; ok && v != nil {
 		if b, ok := v.(bool); ok {
@@ -1500,6 +1875,26 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 						return nil, fmt.Errorf("parsing 'hasCategoryWith[%d]': %w", i, err)
 					}
 					input.HasCategoryWith = append(input.HasCategoryWith, withInput)
+				}
+			}
+		}
+	}
+	// Parse hasOwner
+	if v, ok := m["hasOwner"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasOwner = &b
+		}
+	}
+	// Parse hasOwnerWith
+	if v, ok := m["hasOwnerWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseCategoryWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasOwnerWith[%d]': %w", i, err)
+					}
+					input.HasOwnerWith = append(input.HasOwnerWith, withInput)
 				}
 			}
 		}

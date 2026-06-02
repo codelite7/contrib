@@ -15,6 +15,7 @@
 package entgqlgo
 
 import (
+	"reflect"
 	"testing"
 
 	"entgo.io/ent/entc/gen"
@@ -70,12 +71,12 @@ func TestGqlgoType(t *testing.T) {
 			expected: "TimeScalar",
 		},
 		{
-			name: "uuid field maps to ID",
+			name: "uuid field routes to UUID scalar with ID fallback",
 			field: &gen.Field{
 				Name: "external_id",
 				Type: &field.TypeInfo{Type: field.TypeUUID},
 			},
-			expected: "graphql.ID",
+			expected: `customTypeOr("UUID", graphql.ID)`,
 		},
 		{
 			name: "enum field",
@@ -103,6 +104,56 @@ func TestGqlgoType(t *testing.T) {
 		},
 	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := gqlgoType(tt.field)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestGqlgoTypeScalarRouting covers the CustomTypes-registry routing for UUID,
+// map[string]interface{} JSON ("Map"), and a Bytes field carrying a Type
+// annotation ("Upload"). These let downstream consumers register real scalars
+// while preserving the prior default when unregistered.
+func TestGqlgoTypeScalarRouting(t *testing.T) {
+	tests := []struct {
+		name     string
+		field    *gen.Field
+		expected string
+	}{
+		{
+			name: "map[string]interface{} JSON routes to Map scalar",
+			field: &gen.Field{
+				Name: "metadata",
+				Type: &field.TypeInfo{
+					Type:  field.TypeJSON,
+					RType: &field.RType{Kind: reflect.Map, Ident: "map[string]interface {}"},
+				},
+			},
+			expected: `customTypeOr("Map", graphql.String)`,
+		},
+		{
+			name: "bytes field with Upload Type annotation honors the annotation",
+			field: &gen.Field{
+				Name: "payload",
+				Type: &field.TypeInfo{Type: field.TypeBytes},
+				Annotations: gen.Annotations{
+					"EntGQL": map[string]interface{}{"Type": "Upload"},
+				},
+			},
+			expected: `customTypeOr("Upload", graphql.String)`,
+		},
+		{
+			name: "bytes field without annotation stays String",
+			field: &gen.Field{
+				Name: "blob",
+				Type: &field.TypeInfo{Type: field.TypeBytes},
+			},
+			expected: "graphql.String",
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := gqlgoType(tt.field)

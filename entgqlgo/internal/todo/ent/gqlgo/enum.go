@@ -17,6 +17,8 @@
 package gqlgo
 
 import (
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"github.com/graphql-go/graphql"
 )
 
@@ -29,10 +31,10 @@ var CategoryStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 	Description: "CategoryStatus is enum for the field status",
 	Values: graphql.EnumValueConfigMap{
 		"ENABLED": &graphql.EnumValueConfig{
-			Value: "ENABLED",
+			Value: category.Status("ENABLED"),
 		},
 		"DISABLED": &graphql.EnumValueConfig{
-			Value:             "DISABLED",
+			Value:             category.Status("DISABLED"),
 			DeprecationReason: "No longer supported",
 		},
 	},
@@ -44,12 +46,33 @@ var CategoryKindEnum = graphql.NewEnum(graphql.EnumConfig{
 	Description: "CategoryKind is enum for the field kind",
 	Values: graphql.EnumValueConfigMap{
 		"Primary": &graphql.EnumValueConfig{
-			Value:       "PRIMARY",
+			Value:       category.Kind("PRIMARY"),
 			Description: "Database value: PRIMARY",
 		},
 		"Secondary": &graphql.EnumValueConfig{
-			Value:             "SECONDARY",
+			Value:             category.Kind("SECONDARY"),
 			Description:       "Database value: SECONDARY",
+			DeprecationReason: "No longer supported",
+		},
+	},
+})
+
+// CategoryConfigTypeEnum is the GraphQL enum for Category.config_type.
+var CategoryConfigTypeEnum = graphql.NewEnum(graphql.EnumConfig{
+	Name:        "CategoryConfigType",
+	Description: "CategoryConfigType is enum for the field config_type",
+	Values: graphql.EnumValueConfigMap{
+		"Internal": &graphql.EnumValueConfig{
+			Value:       category.ConfigType("INTERNAL"),
+			Description: "Database value: INTERNAL",
+		},
+		"External": &graphql.EnumValueConfig{
+			Value:       category.ConfigType("EXTERNAL"),
+			Description: "Database value: EXTERNAL",
+		},
+		"Legacy": &graphql.EnumValueConfig{
+			Value:             category.ConfigType("LEGACY"),
+			Description:       "Database value: LEGACY",
 			DeprecationReason: "No longer supported",
 		},
 	},
@@ -61,13 +84,13 @@ var TodoStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 	Description: "TodoStatus is enum for the field status",
 	Values: graphql.EnumValueConfigMap{
 		"IN_PROGRESS": &graphql.EnumValueConfig{
-			Value: "IN_PROGRESS",
+			Value: todo.Status("IN_PROGRESS"),
 		},
 		"COMPLETED": &graphql.EnumValueConfig{
-			Value: "COMPLETED",
+			Value: todo.Status("COMPLETED"),
 		},
 		"PENDING": &graphql.EnumValueConfig{
-			Value: "PENDING",
+			Value: todo.Status("PENDING"),
 		},
 	},
 })

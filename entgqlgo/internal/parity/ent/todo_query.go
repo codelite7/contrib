@@ -27,6 +27,7 @@ type TodoQuery struct {
 	withParent        *TodoQuery
 	withChildren      *TodoQuery
 	withCategory      *CategoryQuery
+	withOwner         *CategoryQuery
 	withFKs           bool
 	withNamedChildren map[string]*TodoQuery
 	// intermediate query (i.e. traversal path).
@@ -124,6 +125,28 @@ func (_q *TodoQuery) QueryCategory() *CategoryQuery {
 			sqlgraph.From(todo.Table, todo.FieldID, selector),
 			sqlgraph.To(category.Table, category.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, todo.CategoryTable, todo.CategoryColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOwner chains the current query on the "owner" edge.
+func (_q *TodoQuery) QueryOwner() *CategoryQuery {
+	query := (&CategoryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(todo.Table, todo.FieldID, selector),
+			sqlgraph.To(category.Table, category.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, todo.OwnerTable, todo.OwnerColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -326,6 +349,7 @@ func (_q *TodoQuery) Clone() *TodoQuery {
 		withParent:   _q.withParent.Clone(),
 		withChildren: _q.withChildren.Clone(),
 		withCategory: _q.withCategory.Clone(),
+		withOwner:    _q.withOwner.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -362,6 +386,17 @@ func (_q *TodoQuery) WithCategory(opts ...func(*CategoryQuery)) *TodoQuery {
 		opt(query)
 	}
 	_q.withCategory = query
+	return _q
+}
+
+// WithOwner tells the query-builder to eager-load the nodes that are connected to
+// the "owner" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TodoQuery) WithOwner(opts ...func(*CategoryQuery)) *TodoQuery {
+	query := (&CategoryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withOwner = query
 	return _q
 }
 
@@ -444,13 +479,14 @@ func (_q *TodoQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Todo, e
 		nodes       = []*Todo{}
 		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withParent != nil,
 			_q.withChildren != nil,
 			_q.withCategory != nil,
+			_q.withOwner != nil,
 		}
 	)
-	if _q.withParent != nil || _q.withCategory != nil {
+	if _q.withParent != nil || _q.withCategory != nil || _q.withOwner != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -490,6 +526,12 @@ func (_q *TodoQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Todo, e
 	if query := _q.withCategory; query != nil {
 		if err := _q.loadCategory(ctx, query, nodes, nil,
 			func(n *Todo, e *Category) { n.Edges.Category = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withOwner; query != nil {
+		if err := _q.loadOwner(ctx, query, nodes, nil,
+			func(n *Todo, e *Category) { n.Edges.Owner = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -557,6 +599,24 @@ var todoCategoryEdgeLoadDescriptor = entbuilder.EdgeLoadDescriptor[Todo, Categor
 		return n.category_todos
 	},
 }
+var todoOwnerEdgeLoadDescriptor = entbuilder.EdgeLoadDescriptor[Todo, Category, int, int]{
+	EdgeSpec: func() *sqlgraph.EdgeSpec {
+		return entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+			Rel:          sqlgraph.M2O,
+			Inverse:      false,
+			Table:        todo.OwnerTable,
+			Columns:      todo.OwnerColumn,
+			Bidi:         false,
+			TargetColumn: category.FieldID,
+			TargetType:   field.TypeInt,
+		})
+	},
+	ExtractNodeID: func(n *Todo) int { return n.ID },
+	ExtractEdgeID: func(e *Category) int { return e.ID },
+	ExtractNodeFK: func(n *Todo) *int {
+		return n.todo_owner
+	},
+}
 
 func (_q *TodoQuery) loadParent(ctx context.Context, query *TodoQuery, nodes []*Todo, init func(*Todo), assign func(*Todo, *Todo)) error {
 	return entbuilder.LoadEdgeM2O(ctx, &todoParentEdgeLoadDescriptor, nodes, assign,
@@ -576,6 +636,14 @@ func (_q *TodoQuery) loadChildren(ctx context.Context, query *TodoQuery, nodes [
 }
 func (_q *TodoQuery) loadCategory(ctx context.Context, query *CategoryQuery, nodes []*Todo, init func(*Todo), assign func(*Todo, *Category)) error {
 	return entbuilder.LoadEdgeM2O(ctx, &todoCategoryEdgeLoadDescriptor, nodes, assign,
+		func(ids []int) {
+			query.Where(category.IDIn(ids...))
+		},
+		query.All)
+	return nil
+}
+func (_q *TodoQuery) loadOwner(ctx context.Context, query *CategoryQuery, nodes []*Todo, init func(*Todo), assign func(*Todo, *Category)) error {
+	return entbuilder.LoadEdgeM2O(ctx, &todoOwnerEdgeLoadDescriptor, nodes, assign,
 		func(ids []int) {
 			query.Where(category.IDIn(ids...))
 		},

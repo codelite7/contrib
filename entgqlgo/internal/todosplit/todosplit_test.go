@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent"
+	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/edges"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/enttest"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/gqlgo"
@@ -58,6 +59,70 @@ func (s *TodoSplitTestSuite) TearDownTest() {
 
 func TestTodoSplitSuite(t *testing.T) {
 	suite.Run(t, new(TodoSplitTestSuite))
+}
+
+// TestOptionalNillableEnumField is the split-runtime counterpart to bug A2: an
+// Optional+Nillable enum (Category.config_type) with UseEnumNames must render as
+// the enum type on the object, serialize a typed enum value back through the
+// schema, and expose Boolean IsNil/NotNil WhereInput predicates.
+func (s *TodoSplitTestSuite) TestOptionalNillableEnumField() {
+	introspect := func(typeName, fieldName string) map[string]interface{} {
+		res := graphql.Do(graphql.Params{
+			Schema: s.schema,
+			RequestString: `query($t: String!) {
+				__type(name: $t) {
+					fields { name type { kind name } }
+					inputFields { name type { kind name } }
+				}
+			}`,
+			VariableValues: map[string]interface{}{"t": typeName},
+			Context:        s.ctx,
+		})
+		s.Require().Empty(res.Errors)
+		tp := res.Data.(map[string]interface{})["__type"].(map[string]interface{})
+		for _, key := range []string{"fields", "inputFields"} {
+			if tp[key] == nil {
+				continue
+			}
+			for _, raw := range tp[key].([]interface{}) {
+				fm := raw.(map[string]interface{})
+				if fm["name"] == fieldName {
+					return fm["type"].(map[string]interface{})
+				}
+			}
+		}
+		return nil
+	}
+
+	objType := introspect("Category", "configType")
+	s.Require().NotNil(objType)
+	require.Equal(s.T(), "ENUM", objType["kind"])
+	require.Equal(s.T(), "CategoryConfigType", objType["name"])
+
+	for _, p := range []string{"configTypeIsNil", "configTypeNotNil"} {
+		wt := introspect("CategoryWhereInput", p)
+		s.Require().NotNil(wt, "missing predicate %s", p)
+		require.Equal(s.T(), "Boolean", wt["name"], "%s must be Boolean", p)
+	}
+
+	// Serialize a typed enum value back through the object field.
+	cat, err := s.client.Category.Create().
+		SetName("Cfg").
+		SetConfigType(category.ConfigTypeExternal).
+		Save(s.ctx)
+	s.Require().NoError(err)
+
+	res := graphql.Do(graphql.Params{
+		Schema: s.schema,
+		RequestString: `query($id: ID!) {
+			node(id: $id) { ... on Category { configType } }
+		}`,
+		VariableValues: map[string]interface{}{"id": cat.ID},
+		Context:        s.ctx,
+	})
+	s.Require().Empty(res.Errors)
+	node := res.Data.(map[string]interface{})["node"].(map[string]interface{})
+	require.Equal(s.T(), "External", node["configType"])
 }
 
 // TestCreateMutationViaInput verifies that CreateTodoInput.Mutate populates the

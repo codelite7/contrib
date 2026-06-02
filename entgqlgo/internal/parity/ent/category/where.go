@@ -143,6 +143,46 @@ func StatusNotIn(vs ...Status) predicate.Category {
 	return predicate.Category(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// ConfigTypeEQ applies the EQ predicate on the "config_type" field.
+func ConfigTypeEQ(v ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldConfigType, v))
+}
+
+// ConfigTypeNEQ applies the NEQ predicate on the "config_type" field.
+func ConfigTypeNEQ(v ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldNEQ(FieldConfigType, v))
+}
+
+// ConfigTypeIn applies the In predicate on the "config_type" field.
+func ConfigTypeIn(vs ...ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldIn(FieldConfigType, vs...))
+}
+
+// ConfigTypeNotIn applies the NotIn predicate on the "config_type" field.
+func ConfigTypeNotIn(vs ...ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldNotIn(FieldConfigType, vs...))
+}
+
+// ConfigTypeIsNil applies the IsNil predicate on the "config_type" field.
+func ConfigTypeIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldConfigType))
+}
+
+// ConfigTypeNotNil applies the NotNil predicate on the "config_type" field.
+func ConfigTypeNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldConfigType))
+}
+
+// MetadataIsNil applies the IsNil predicate on the "metadata" field.
+func MetadataIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldMetadata))
+}
+
+// MetadataNotNil applies the NotNil predicate on the "metadata" field.
+func MetadataNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldMetadata))
+}
+
 // HasTodos applies the HasEdge predicate on the "todos" edge.
 func HasTodos() predicate.Category {
 	return predicate.Category(func(s *sql.Selector) {
@@ -158,6 +198,52 @@ func HasTodos() predicate.Category {
 func HasTodosWith(preds ...predicate.Todo) predicate.Category {
 	return predicate.Category(func(s *sql.Selector) {
 		step := newTodosStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasOwnerC applies the HasEdge predicate on the "owner_c" edge.
+func HasOwnerC() predicate.Category {
+	return predicate.Category(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, OwnerCTable, OwnerCColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOwnerCWith applies the HasEdge predicate on the "owner_c" edge with a given conditions (other predicates).
+func HasOwnerCWith(preds ...predicate.Todo) predicate.Category {
+	return predicate.Category(func(s *sql.Selector) {
+		step := newOwnerCStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSubStatuses applies the HasEdge predicate on the "sub_statuses" edge.
+func HasSubStatuses() predicate.Category {
+	return predicate.Category(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SubStatusesTable, SubStatusesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubStatusesWith applies the HasEdge predicate on the "sub_statuses" edge with a given conditions (other predicates).
+func HasSubStatusesWith(preds ...predicate.Todo) predicate.Category {
+	return predicate.Category(func(s *sql.Selector) {
+		step := newSubStatusesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

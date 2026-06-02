@@ -3,6 +3,8 @@
 package gqlgo
 
 import (
+	"entgo.io/contrib/entgqlgo/internal/parity/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/parity/ent/todo"
 	"github.com/graphql-go/graphql"
 )
 
@@ -15,10 +17,31 @@ var CategoryStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 	Description: "CategoryStatus is enum for the field status",
 	Values: graphql.EnumValueConfigMap{
 		"ENABLED": &graphql.EnumValueConfig{
-			Value: "ENABLED",
+			Value: category.Status("ENABLED"),
 		},
 		"DISABLED": &graphql.EnumValueConfig{
-			Value: "DISABLED",
+			Value: category.Status("DISABLED"),
+		},
+	},
+})
+
+// CategoryConfigTypeEnum is the GraphQL enum for Category.config_type.
+var CategoryConfigTypeEnum = graphql.NewEnum(graphql.EnumConfig{
+	Name:        "CategoryConfigType",
+	Description: "CategoryConfigType is enum for the field config_type",
+	Values: graphql.EnumValueConfigMap{
+		"Primary": &graphql.EnumValueConfig{
+			Value:       category.ConfigType("PRIMARY"),
+			Description: "Database value: PRIMARY",
+		},
+		"Secondary": &graphql.EnumValueConfig{
+			Value:       category.ConfigType("SECONDARY"),
+			Description: "Database value: SECONDARY",
+		},
+		"Legacy": &graphql.EnumValueConfig{
+			Value:             category.ConfigType("LEGACY"),
+			Description:       "Database value: LEGACY",
+			DeprecationReason: "No longer supported",
 		},
 	},
 })
@@ -29,13 +52,13 @@ var TodoStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 	Description: "TodoStatus is enum for the field status",
 	Values: graphql.EnumValueConfigMap{
 		"IN_PROGRESS": &graphql.EnumValueConfig{
-			Value: "IN_PROGRESS",
+			Value: todo.Status("IN_PROGRESS"),
 		},
 		"COMPLETED": &graphql.EnumValueConfig{
-			Value: "COMPLETED",
+			Value: todo.Status("COMPLETED"),
 		},
 		"PENDING": &graphql.EnumValueConfig{
-			Value: "PENDING",
+			Value: todo.Status("PENDING"),
 		},
 	},
 })

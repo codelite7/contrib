@@ -137,6 +137,36 @@ func NameContainsFold(v string) predicate.Category {
 	return predicate.Category(sql.FieldContainsFold(FieldName, v))
 }
 
+// ConfigTypeEQ applies the EQ predicate on the "config_type" field.
+func ConfigTypeEQ(v ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldEQ(FieldConfigType, v))
+}
+
+// ConfigTypeNEQ applies the NEQ predicate on the "config_type" field.
+func ConfigTypeNEQ(v ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldNEQ(FieldConfigType, v))
+}
+
+// ConfigTypeIn applies the In predicate on the "config_type" field.
+func ConfigTypeIn(vs ...ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldIn(FieldConfigType, vs...))
+}
+
+// ConfigTypeNotIn applies the NotIn predicate on the "config_type" field.
+func ConfigTypeNotIn(vs ...ConfigType) predicate.Category {
+	return predicate.Category(sql.FieldNotIn(FieldConfigType, vs...))
+}
+
+// ConfigTypeIsNil applies the IsNil predicate on the "config_type" field.
+func ConfigTypeIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldConfigType))
+}
+
+// ConfigTypeNotNil applies the NotNil predicate on the "config_type" field.
+func ConfigTypeNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldConfigType))
+}
+
 // HasTodos applies the HasEdge predicate on the "todos" edge.
 func HasTodos() predicate.Category {
 	return predicate.Category(func(s *sql.Selector) {

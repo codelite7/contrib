@@ -51,6 +51,11 @@ func (Todo) Fields() []ent.Field {
 		field.Text("text").
 			NotEmpty().
 			Annotations(entgql.OrderField("TEXT")),
+		// Nillable but NOT Optional: a Go pointer field that is still required in
+		// the GraphQL schema (String!). entgql keys nullability off Optional only,
+		// so this must render NonNull despite being Nillable.
+		field.String("note").
+			Nillable(),
 	}
 }
 
@@ -63,6 +68,10 @@ func (Todo) Edges() []ent.Edge {
 		edge.From("category", Category.Type).
 			Ref("todos").
 			Unique(),
+		// Required unique edge — its create-input ID field must be ID! (A5a).
+		edge.To("owner", Category.Type).
+			Unique().
+			Required(),
 	}
 }
 

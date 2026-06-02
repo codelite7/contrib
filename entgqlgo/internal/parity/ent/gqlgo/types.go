@@ -57,14 +57,20 @@ func init() {
 					Type: graphql.NewNonNull(graphql.String),
 				},
 				"status": &graphql.Field{
-					Type: graphql.NewNonNull(graphql.String),
+					Type: graphql.NewNonNull(CategoryStatusEnum),
+				},
+				"configType": &graphql.Field{
+					Type: CategoryConfigTypeEnum,
+				},
+				"metadata": &graphql.Field{
+					Type: customTypeOr("Map", graphql.String),
 				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Category.",
 				},
 				"todos": &graphql.Field{
-					Type: TodoConnectionType,
+					Type: graphql.NewNonNull(TodoConnectionType),
 					Args: graphql.FieldConfigArgument{
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
@@ -93,6 +99,14 @@ func init() {
 					},
 					Resolve: resolveCategoryTodos,
 				},
+				"ownerC": &graphql.Field{
+					Type:    TodoType,
+					Resolve: resolveCategoryOwnerC,
+				},
+				"subStatuses": &graphql.Field{
+					Type:    graphql.NewList(graphql.NewNonNull(TodoType)),
+					Resolve: resolveCategorySubStatuses,
+				},
 			}
 		}),
 	})
@@ -108,12 +122,15 @@ func init() {
 					Type: graphql.NewNonNull(TimeScalar),
 				},
 				"status": &graphql.Field{
-					Type: graphql.NewNonNull(graphql.String),
+					Type: graphql.NewNonNull(TodoStatusEnum),
 				},
 				"priority": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.Int),
 				},
 				"text": &graphql.Field{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"note": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.String),
 				},
 				"id": &graphql.Field{
@@ -125,7 +142,7 @@ func init() {
 					Resolve: resolveTodoParent,
 				},
 				"children": &graphql.Field{
-					Type: TodoConnectionType,
+					Type: graphql.NewNonNull(TodoConnectionType),
 					Args: graphql.FieldConfigArgument{
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
@@ -157,6 +174,10 @@ func init() {
 				"category": &graphql.Field{
 					Type:    CategoryType,
 					Resolve: resolveTodoCategory,
+				},
+				"owner": &graphql.Field{
+					Type:    graphql.NewNonNull(CategoryType),
+					Resolve: resolveTodoOwner,
 				},
 			}
 		}),
@@ -196,6 +217,44 @@ func resolveCategoryTodos(p graphql.ResolveParams) (interface{}, error) {
 		}
 	}
 	return paginateTodoQuery(p.Context, query, args.After, args.Before, args.First, args.Last, orders)
+}
+
+// resolveCategoryOwnerC resolves the owner_c edge for Category.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
+func resolveCategoryOwnerC(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Category)
+	if !ok {
+		return nil, nil
+	}
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.OwnerC; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := source.QueryOwnerC().Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
+}
+
+// resolveCategorySubStatuses resolves the sub_statuses edge for Category.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
+func resolveCategorySubStatuses(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Category)
+	if !ok {
+		return nil, nil
+	}
+	// Check if edge was already loaded via eager loading
+	if edges := source.Edges.SubStatuses; edges != nil {
+		return edges, nil
+	}
+	// Fall back to query
+	return source.QuerySubStatuses().All(p.Context)
 }
 
 // resolveTodoParent resolves the parent edge for Todo.
@@ -269,6 +328,29 @@ func resolveTodoCategory(p graphql.ResolveParams) (interface{}, error) {
 	}
 	// Fall back to query
 	edge, err := source.QueryCategory().Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
+}
+
+// resolveTodoOwner resolves the owner edge for Todo.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
+func resolveTodoOwner(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Todo)
+	if !ok {
+		return nil, nil
+	}
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Owner; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := source.QueryOwner().Only(p.Context)
 	if err != nil {
 		// For optional edges, not found is not an error - return nil
 		if ent.IsNotFound(err) {

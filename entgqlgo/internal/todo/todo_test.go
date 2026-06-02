@@ -17,10 +17,12 @@ package todo
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"entgo.io/contrib/entgqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/enttest"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/gqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
@@ -3201,9 +3203,10 @@ func TestNodeDescriptorClient(t *testing.T) {
 		t.Errorf("expected ID %d, got %d", category.ID, node.ID)
 	}
 
-	// Verify fields (text, status, kind, tags, config).
-	if len(node.Fields) != 5 {
-		t.Errorf("expected 5 fields, got %d", len(node.Fields))
+	// Verify fields (text, status, kind, configType, tags, config, externalID,
+	// attributes, payload).
+	if len(node.Fields) != 9 {
+		t.Errorf("expected 9 fields, got %d", len(node.Fields))
 	}
 }
 
@@ -3636,4 +3639,98 @@ func TestDeprecatedEnumValueUseEnumNames(t *testing.T) {
 	require.False(t, byName["Primary"]["isDeprecated"].(bool))
 	require.True(t, byName["Secondary"]["isDeprecated"].(bool))
 	require.Equal(t, "No longer supported", byName["Secondary"]["deprecationReason"])
+}
+
+// TestScalarRouting asserts the generated code routes UUID, map[string]any JSON,
+// and Type("Upload") Bytes fields through the CustomTypes registry (customTypeOr)
+// so downstream consumers can register UUID / Map / Upload scalars, matching
+// entgql. Defaults preserve prior behaviour (ID / String) when unregistered.
+func TestScalarRouting(t *testing.T) {
+	src, err := os.ReadFile("ent/gqlgo/types.go")
+	require.NoError(t, err)
+	code := string(src)
+	require.Contains(t, code, `customTypeOr("UUID", graphql.ID)`)
+	require.Contains(t, code, `customTypeOr("Map", graphql.String)`)
+	require.Contains(t, code, `customTypeOr("Upload", graphql.String)`)
+}
+
+// TestOptionalNillableEnumField is the regression test for bug A2: an
+// Optional+Nillable enum field annotated with UseEnumNames (mirroring gemini's
+// ContactPhoneNumber.phone_type) must (1) render as the generated enum type on
+// the object, (2) round-trip a typed enum value through create-mutation input
+// and object-field serialization, and (3) expose Boolean (not enum) IsNil/NotNil
+// WhereInput predicates.
+func TestOptionalNillableEnumField(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := newTestSchema(client)
+	require.NoError(t, err)
+
+	// The object field type must be the enum CategoryConfigType, not String.
+	introspect := func(typeName, fieldName string) map[string]interface{} {
+		res := graphql.Do(graphql.Params{
+			Schema: schema,
+			RequestString: `query($t: String!) {
+				__type(name: $t) {
+					fields { name type { kind name ofType { kind name } } }
+					inputFields { name type { kind name ofType { kind name } } }
+				}
+			}`,
+			VariableValues: map[string]interface{}{"t": typeName},
+			Context:        ctx,
+		})
+		require.Empty(t, res.Errors)
+		tp := res.Data.(map[string]interface{})["__type"].(map[string]interface{})
+		for _, key := range []string{"fields", "inputFields"} {
+			if tp[key] == nil {
+				continue
+			}
+			for _, raw := range tp[key].([]interface{}) {
+				fm := raw.(map[string]interface{})
+				if fm["name"] == fieldName {
+					return fm["type"].(map[string]interface{})
+				}
+			}
+		}
+		return nil
+	}
+
+	objType := introspect("Category", "configType")
+	require.NotNil(t, objType)
+	require.Equal(t, "ENUM", objType["kind"])
+	require.Equal(t, "CategoryConfigType", objType["name"])
+
+	// IsNil / NotNil existence predicates must be Boolean, not the enum type.
+	for _, p := range []string{"configTypeIsNil", "configTypeNotNil"} {
+		wt := introspect("CategoryWhereInput", p)
+		require.NotNil(t, wt, "missing predicate %s", p)
+		require.Equal(t, "SCALAR", wt["kind"], "%s should be a scalar", p)
+		require.Equal(t, "Boolean", wt["name"], "%s must be Boolean", p)
+	}
+
+	// Round-trip a typed enum value: the create input accepts the enum literal,
+	// and the object field serializes the typed Go enum back to its name. Before
+	// the fix the enum value lookup failed and returned null for a non-null field.
+	create := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `mutation {
+			createCategory(input: { text: "Cfg", configType: External }) {
+				id
+				configType
+			}
+		}`,
+		Context: ctx,
+	})
+	require.Empty(t, create.Errors)
+	created := create.Data.(map[string]interface{})["createCategory"].(map[string]interface{})
+	// UseEnumNames: serialized value is the GraphQL name (Go name), not the DB value.
+	require.Equal(t, "External", created["configType"])
+
+	// The stored DB value is the underlying enum constant.
+	cat, err := client.Category.Query().Where(category.TextEQ("Cfg")).Only(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, cat.ConfigType)
+	require.Equal(t, category.ConfigTypeExternal, *cat.ConfigType)
 }

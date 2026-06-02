@@ -42,6 +42,11 @@ var categoryDescriptor = &entbuilder.Descriptor{
 			Type:   reflect.TypeFor[string](),
 			GoName: "Name",
 		},
+		"config_type": {
+			Type:     reflect.TypeFor[CategoryConfigType](),
+			GoName:   "ConfigType",
+			Nillable: true,
+		},
 	},
 	Edges: map[string]entbuilder.EdgeSpec{
 		"todos": {

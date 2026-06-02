@@ -467,112 +467,182 @@ var (
 	// CreateCategoryInputType is the GraphQL input type for creating a Category.
 	CreateCategoryInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "CreateCategoryInput",
-		Fields: graphql.InputObjectConfigFieldMap{
-			"text": &graphql.InputObjectFieldConfig{
-				Type: graphql.NewNonNull(graphql.String),
-			},
-			"status": &graphql.InputObjectFieldConfig{
-				Type: CategoryStatusEnum,
-			},
-			"todoIDs": &graphql.InputObjectFieldConfig{
-				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
-				Description: "IDs of the todos edges.",
-			},
-		},
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"text": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"status": &graphql.InputObjectFieldConfig{
+					Type: CategoryStatusEnum,
+				},
+				"configType": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"metadata": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("Map", graphql.String),
+				},
+				"todoIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs of the todos edges.",
+				},
+				"ownerCID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the owner_c edge.",
+				},
+				"subStatusIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs of the sub_statuses edges.",
+				},
+			}
+		}),
 	})
 	// UpdateCategoryInputType is the GraphQL input type for updating a Category.
 	UpdateCategoryInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "UpdateCategoryInput",
-		Fields: graphql.InputObjectConfigFieldMap{
-			"text": &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
-			"status": &graphql.InputObjectFieldConfig{
-				Type: CategoryStatusEnum,
-			},
-			"addTodoIDs": &graphql.InputObjectFieldConfig{
-				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
-				Description: "IDs to add to the todos edges.",
-			},
-			"removeTodoIDs": &graphql.InputObjectFieldConfig{
-				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
-				Description: "IDs to remove from the todos edges.",
-			},
-			"clearTodos": &graphql.InputObjectFieldConfig{
-				Type:        graphql.Boolean,
-				Description: "Clear all todos edges.",
-			},
-		},
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"text": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"status": &graphql.InputObjectFieldConfig{
+					Type: CategoryStatusEnum,
+				},
+				"configType": &graphql.InputObjectFieldConfig{
+					Type: CategoryConfigTypeEnum,
+				},
+				"clearConfigType": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the configType field.",
+				},
+				"metadata": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("Map", graphql.String),
+				},
+				"clearMetadata": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the metadata field.",
+				},
+				"addTodoIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs to add to the todos edges.",
+				},
+				"removeTodoIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs to remove from the todos edges.",
+				},
+				"clearTodos": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear all todos edges.",
+				},
+				"ownerCID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the owner_c edge.",
+				},
+				"clearOwnerc": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the ownerC edge.",
+				},
+				"addSubStatusIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs to add to the sub_statuses edges.",
+				},
+				"removeSubStatusIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs to remove from the sub_statuses edges.",
+				},
+				"clearSubStatuses": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear all sub_statuses edges.",
+				},
+			}
+		}),
 	})
 	// CreateTodoInputType is the GraphQL input type for creating a Todo.
 	CreateTodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "CreateTodoInput",
-		Fields: graphql.InputObjectConfigFieldMap{
-			"status": &graphql.InputObjectFieldConfig{
-				Type: graphql.NewNonNull(TodoStatusEnum),
-			},
-			"priority": &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			"text": &graphql.InputObjectFieldConfig{
-				Type: graphql.NewNonNull(graphql.String),
-			},
-			"parentID": &graphql.InputObjectFieldConfig{
-				Type:        graphql.ID,
-				Description: "ID of the parent edge.",
-			},
-			"childIDs": &graphql.InputObjectFieldConfig{
-				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
-				Description: "IDs of the children edges.",
-			},
-			"categoryID": &graphql.InputObjectFieldConfig{
-				Type:        graphql.ID,
-				Description: "ID of the category edge.",
-			},
-		},
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"status": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewNonNull(TodoStatusEnum),
+				},
+				"priority": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"text": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"note": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"parentID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the parent edge.",
+				},
+				"childIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs of the children edges.",
+				},
+				"categoryID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the category edge.",
+				},
+				"ownerID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewNonNull(graphql.ID),
+					Description: "ID of the owner edge.",
+				},
+			}
+		}),
 	})
 	// UpdateTodoInputType is the GraphQL input type for updating a Todo.
 	UpdateTodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "UpdateTodoInput",
-		Fields: graphql.InputObjectConfigFieldMap{
-			"status": &graphql.InputObjectFieldConfig{
-				Type: TodoStatusEnum,
-			},
-			"priority": &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			"text": &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
-			"parentID": &graphql.InputObjectFieldConfig{
-				Type:        graphql.ID,
-				Description: "ID of the parent edge.",
-			},
-			"clearParent": &graphql.InputObjectFieldConfig{
-				Type:        graphql.Boolean,
-				Description: "Clear the parent edge.",
-			},
-			"addChildIDs": &graphql.InputObjectFieldConfig{
-				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
-				Description: "IDs to add to the children edges.",
-			},
-			"removeChildIDs": &graphql.InputObjectFieldConfig{
-				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
-				Description: "IDs to remove from the children edges.",
-			},
-			"clearChildren": &graphql.InputObjectFieldConfig{
-				Type:        graphql.Boolean,
-				Description: "Clear all children edges.",
-			},
-			"categoryID": &graphql.InputObjectFieldConfig{
-				Type:        graphql.ID,
-				Description: "ID of the category edge.",
-			},
-			"clearCategory": &graphql.InputObjectFieldConfig{
-				Type:        graphql.Boolean,
-				Description: "Clear the category edge.",
-			},
-		},
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"status": &graphql.InputObjectFieldConfig{
+					Type: TodoStatusEnum,
+				},
+				"priority": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"text": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"note": &graphql.InputObjectFieldConfig{
+					Type: graphql.String,
+				},
+				"parentID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the parent edge.",
+				},
+				"clearParent": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the parent edge.",
+				},
+				"addChildIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs to add to the children edges.",
+				},
+				"removeChildIDs": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
+					Description: "IDs to remove from the children edges.",
+				},
+				"clearChildren": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear all children edges.",
+				},
+				"categoryID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the category edge.",
+				},
+				"clearCategory": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the category edge.",
+				},
+				"ownerID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.ID,
+					Description: "ID of the owner edge.",
+				},
+			}
+		}),
 	})
 )
 
@@ -585,10 +655,21 @@ func ParseCreateCategoryInput(input map[string]interface{}) (*CreateCategoryInpu
 		}
 	}
 	if v, ok := input["status"]; ok && v != nil {
-		if str, ok := v.(string); ok {
-			val := category.Status(str)
-			result.Status = &val
-		}
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		str := fmt.Sprint(v)
+		val := category.Status(str)
+		result.Status = &val
+	}
+	if v, ok := input["configType"]; ok && v != nil {
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		str := fmt.Sprint(v)
+		val := category.ConfigType(str)
+		result.ConfigType = &val
+	}
+	if v, ok := input["metadata"]; ok && v != nil {
+		// Handle map[string]interface {} type
 	}
 	if v, ok := input["todoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
@@ -598,6 +679,24 @@ func ParseCreateCategoryInput(input map[string]interface{}) (*CreateCategoryInpu
 					return nil, fmt.Errorf("invalid todoID: %w", err)
 				}
 				result.TodoIDs = append(result.TodoIDs, id)
+			}
+		}
+	}
+	if v, ok := input["ownerCID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid ownerCID: %w", err)
+		}
+		result.OwnerCID = &id
+	}
+	if v, ok := input["subStatusIDs"]; ok && v != nil {
+		if ids, ok := v.([]interface{}); ok {
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
+				if err != nil {
+					return nil, fmt.Errorf("invalid subStatusID: %w", err)
+				}
+				result.SubStatusIDs = append(result.SubStatusIDs, id)
 			}
 		}
 	}
@@ -614,9 +713,28 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*UpdateCategoryInpu
 		}
 	}
 	if v, ok := input["status"]; ok && v != nil {
-		if str, ok := v.(string); ok {
-			val := category.Status(str)
-			result.Status = &val
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		val := category.Status(fmt.Sprint(v))
+		result.Status = &val
+	}
+	if v, ok := input["configType"]; ok && v != nil {
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		val := category.ConfigType(fmt.Sprint(v))
+		result.ConfigType = &val
+	}
+	if v, ok := input["clearConfigType"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearConfigType = b
+		}
+	}
+	if v, ok := input["metadata"]; ok && v != nil {
+		// Handle map[string]interface {} type
+	}
+	if v, ok := input["clearMetadata"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearMetadata = b
 		}
 	}
 	if v, ok := input["addTodoIDs"]; ok && v != nil {
@@ -646,6 +764,45 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*UpdateCategoryInpu
 			result.ClearTodos = b
 		}
 	}
+	if v, ok := input["ownerCID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid ownerCID: %w", err)
+		}
+		result.OwnerCID = &id
+	}
+	if v, ok := input["clearOwnerc"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearOwnerC = b
+		}
+	}
+	if v, ok := input["addSubStatusIDs"]; ok && v != nil {
+		if ids, ok := v.([]interface{}); ok {
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
+				if err != nil {
+					return nil, fmt.Errorf("invalid addSubStatusID: %w", err)
+				}
+				result.AddSubStatusIDs = append(result.AddSubStatusIDs, id)
+			}
+		}
+	}
+	if v, ok := input["removeSubStatusIDs"]; ok && v != nil {
+		if ids, ok := v.([]interface{}); ok {
+			for _, idVal := range ids {
+				id, err := strconv.Atoi(fmt.Sprint(idVal))
+				if err != nil {
+					return nil, fmt.Errorf("invalid removeSubStatusID: %w", err)
+				}
+				result.RemoveSubStatusIDs = append(result.RemoveSubStatusIDs, id)
+			}
+		}
+	}
+	if v, ok := input["clearSubStatuses"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearSubStatuses = b
+		}
+	}
 	return result, nil
 }
 
@@ -653,9 +810,10 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*UpdateCategoryInpu
 func ParseCreateTodoInput(input map[string]interface{}) (*CreateTodoInput, error) {
 	result := &CreateTodoInput{}
 	if v, ok := input["status"]; ok && v != nil {
-		if str, ok := v.(string); ok {
-			result.Status = todo.Status(str)
-		}
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		str := fmt.Sprint(v)
+		result.Status = todo.Status(str)
 	}
 	if v, ok := input["priority"]; ok && v != nil {
 		switch val := v.(type) {
@@ -669,6 +827,11 @@ func ParseCreateTodoInput(input map[string]interface{}) (*CreateTodoInput, error
 	if v, ok := input["text"]; ok && v != nil {
 		if str, ok := v.(string); ok {
 			result.Text = str
+		}
+	}
+	if v, ok := input["note"]; ok && v != nil {
+		if str, ok := v.(string); ok {
+			result.Note = str
 		}
 	}
 	if v, ok := input["parentID"]; ok && v != nil {
@@ -696,6 +859,13 @@ func ParseCreateTodoInput(input map[string]interface{}) (*CreateTodoInput, error
 		}
 		result.CategoryID = &id
 	}
+	if v, ok := input["ownerID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid ownerID: %w", err)
+		}
+		result.OwnerID = id
+	}
 	return result, nil
 }
 
@@ -703,10 +873,10 @@ func ParseCreateTodoInput(input map[string]interface{}) (*CreateTodoInput, error
 func ParseUpdateTodoInput(input map[string]interface{}) (*UpdateTodoInput, error) {
 	result := &UpdateTodoInput{}
 	if v, ok := input["status"]; ok && v != nil {
-		if str, ok := v.(string); ok {
-			val := todo.Status(str)
-			result.Status = &val
-		}
+		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
+		// normalizes both the typed enum and a raw string to its string form.
+		val := todo.Status(fmt.Sprint(v))
+		result.Status = &val
 	}
 	if v, ok := input["priority"]; ok && v != nil {
 		switch val := v.(type) {
@@ -722,6 +892,12 @@ func ParseUpdateTodoInput(input map[string]interface{}) (*UpdateTodoInput, error
 		if str, ok := v.(string); ok {
 			s := str
 			result.Text = &s
+		}
+	}
+	if v, ok := input["note"]; ok && v != nil {
+		if str, ok := v.(string); ok {
+			s := str
+			result.Note = &s
 		}
 	}
 	if v, ok := input["parentID"]; ok && v != nil {
@@ -774,6 +950,13 @@ func ParseUpdateTodoInput(input map[string]interface{}) (*UpdateTodoInput, error
 		if b, ok := v.(bool); ok {
 			result.ClearCategory = b
 		}
+	}
+	if v, ok := input["ownerID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid ownerID: %w", err)
+		}
+		result.OwnerID = &id
 	}
 	return result, nil
 }

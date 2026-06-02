@@ -79,6 +79,20 @@ func (_u *TodoUpdate) SetNillableText(v *string) *TodoUpdate {
 	return _u
 }
 
+// SetNote sets the "note" field.
+func (_u *TodoUpdate) SetNote(v string) *TodoUpdate {
+	_u.mutation.SetNote(v)
+	return _u
+}
+
+// SetNillableNote sets the "note" field if the given value is not nil.
+func (_u *TodoUpdate) SetNillableNote(v *string) *TodoUpdate {
+	if v != nil {
+		_u.SetNote(*v)
+	}
+	return _u
+}
+
 // SetParentID sets the "parent" edge to the Todo entity by ID.
 func (_u *TodoUpdate) SetParentID(id int) *TodoUpdate {
 	_u.mutation.SetParentID(id)
@@ -132,6 +146,17 @@ func (_u *TodoUpdate) SetCategory(v *Category) *TodoUpdate {
 	return _u.SetCategoryID(v.ID)
 }
 
+// SetOwnerID sets the "owner" edge to the Category entity by ID.
+func (_u *TodoUpdate) SetOwnerID(id int) *TodoUpdate {
+	_u.mutation.SetOwnerID(id)
+	return _u
+}
+
+// SetOwner sets the "owner" edge to the Category entity.
+func (_u *TodoUpdate) SetOwner(v *Category) *TodoUpdate {
+	return _u.SetOwnerID(v.ID)
+}
+
 // Mutation returns the TodoMutation object of the builder.
 func (_u *TodoUpdate) Mutation() *TodoMutation {
 	return _u.mutation
@@ -167,6 +192,12 @@ func (_u *TodoUpdate) RemoveChildren(v ...*Todo) *TodoUpdate {
 // ClearCategory clears the "category" edge to the Category entity.
 func (_u *TodoUpdate) ClearCategory() *TodoUpdate {
 	_u.mutation.ClearCategory()
+	return _u
+}
+
+// ClearOwner clears the "owner" edge to the Category entity.
+func (_u *TodoUpdate) ClearOwner() *TodoUpdate {
+	_u.mutation.ClearOwner()
 	return _u
 }
 
@@ -209,6 +240,9 @@ func (_u *TodoUpdate) check() error {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Todo.text": %w`, err)}
 		}
 	}
+	if _u.mutation.OwnerCleared() && len(_u.mutation.OwnerIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Todo.owner"`)
+	}
 	return nil
 }
 
@@ -247,6 +281,17 @@ var todoUpdateDescriptor = entbuilder.UpdateDescriptor[config, *TodoMutation]{
 			Type:   field.TypeString,
 			Set: func(m *TodoMutation) (driver.Value, bool, error) {
 				if value, ok := m.Text(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+		},
+
+		{
+			Column: todo.FieldNote,
+			Type:   field.TypeString,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Note(); ok {
 					return value, true, nil
 				}
 				return nil, false, nil
@@ -383,6 +428,43 @@ var todoUpdateDescriptor = entbuilder.UpdateDescriptor[config, *TodoMutation]{
 				return []*sqlgraph.EdgeSpec{edge}, nil
 			},
 		},
+
+		{
+			Clear: func(cfg config, m *TodoMutation) (*sqlgraph.EdgeSpec, bool, error) {
+				if m.OwnerCleared() {
+					edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+						Rel:          sqlgraph.M2O,
+						Inverse:      false,
+						Table:        todo.OwnerTable,
+						Columns:      todo.OwnerColumn,
+						Bidi:         false,
+						TargetColumn: category.FieldID,
+						TargetType:   field.TypeInt,
+					})
+					return edge, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(cfg config, m *TodoMutation) ([]*sqlgraph.EdgeSpec, error) {
+				nodes := m.OwnerIDs()
+				if len(nodes) == 0 {
+					return nil, nil
+				}
+				edge := entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+					Rel:          sqlgraph.M2O,
+					Inverse:      false,
+					Table:        todo.OwnerTable,
+					Columns:      todo.OwnerColumn,
+					Bidi:         false,
+					TargetColumn: category.FieldID,
+					TargetType:   field.TypeInt,
+				})
+				for _, id := range nodes {
+					edge.Target.Nodes = append(edge.Target.Nodes, id)
+				}
+				return []*sqlgraph.EdgeSpec{edge}, nil
+			},
+		},
 	},
 }
 
@@ -470,6 +552,20 @@ func (_u *TodoUpdateOne) SetNillableText(v *string) *TodoUpdateOne {
 	return _u
 }
 
+// SetNote sets the "note" field.
+func (_u *TodoUpdateOne) SetNote(v string) *TodoUpdateOne {
+	_u.mutation.SetNote(v)
+	return _u
+}
+
+// SetNillableNote sets the "note" field if the given value is not nil.
+func (_u *TodoUpdateOne) SetNillableNote(v *string) *TodoUpdateOne {
+	if v != nil {
+		_u.SetNote(*v)
+	}
+	return _u
+}
+
 // SetParentID sets the "parent" edge to the Todo entity by ID.
 func (_u *TodoUpdateOne) SetParentID(id int) *TodoUpdateOne {
 	_u.mutation.SetParentID(id)
@@ -523,6 +619,17 @@ func (_u *TodoUpdateOne) SetCategory(v *Category) *TodoUpdateOne {
 	return _u.SetCategoryID(v.ID)
 }
 
+// SetOwnerID sets the "owner" edge to the Category entity by ID.
+func (_u *TodoUpdateOne) SetOwnerID(id int) *TodoUpdateOne {
+	_u.mutation.SetOwnerID(id)
+	return _u
+}
+
+// SetOwner sets the "owner" edge to the Category entity.
+func (_u *TodoUpdateOne) SetOwner(v *Category) *TodoUpdateOne {
+	return _u.SetOwnerID(v.ID)
+}
+
 // Mutation returns the TodoMutation object of the builder.
 func (_u *TodoUpdateOne) Mutation() *TodoMutation {
 	return _u.mutation
@@ -558,6 +665,12 @@ func (_u *TodoUpdateOne) RemoveChildren(v ...*Todo) *TodoUpdateOne {
 // ClearCategory clears the "category" edge to the Category entity.
 func (_u *TodoUpdateOne) ClearCategory() *TodoUpdateOne {
 	_u.mutation.ClearCategory()
+	return _u
+}
+
+// ClearOwner clears the "owner" edge to the Category entity.
+func (_u *TodoUpdateOne) ClearOwner() *TodoUpdateOne {
+	_u.mutation.ClearOwner()
 	return _u
 }
 
@@ -612,6 +725,9 @@ func (_u *TodoUpdateOne) check() error {
 		if err := todo.TextValidator(v); err != nil {
 			return &ValidationError{Name: "text", err: fmt.Errorf(`ent: validator failed for field "Todo.text": %w`, err)}
 		}
+	}
+	if _u.mutation.OwnerCleared() && len(_u.mutation.OwnerIDs()) > 0 {
+		return errors.New(`ent: clearing a required unique edge "Todo.owner"`)
 	}
 	return nil
 }

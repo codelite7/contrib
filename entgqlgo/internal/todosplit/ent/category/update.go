@@ -60,6 +60,26 @@ func (_u *CategoryUpdate) SetNillableName(v *string) *CategoryUpdate {
 	return _u
 }
 
+// SetConfigType sets the "config_type" field.
+func (_u *CategoryUpdate) SetConfigType(v ConfigType) *CategoryUpdate {
+	_ = _u.mutation.SetField("config_type", v)
+	return _u
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_u *CategoryUpdate) SetNillableConfigType(v *ConfigType) *CategoryUpdate {
+	if v != nil {
+		_u.SetConfigType(*v)
+	}
+	return _u
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (_u *CategoryUpdate) ClearConfigType() *CategoryUpdate {
+	_ = _u.mutation.ClearField("config_type")
+	return _u
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_u *CategoryUpdate) AddTodoIDs(ids ...int) *CategoryUpdate {
 	_ = _u.mutation.AddEdgeIDs("todos", entbuilder.ToAny(ids)...)
@@ -117,6 +137,11 @@ func (_u *CategoryUpdate) check() error {
 			return &ValidationError{Name: "name", Err: fmt.Errorf(`ent: validator failed for field "Category.name": %w`, err)}
 		}
 	}
+	if v, ok := entbuilder.GetField[ConfigType](_u.mutation, "config_type"); ok {
+		if err := ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", Err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -134,6 +159,12 @@ func (_u *CategoryUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := entbuilder.GetField[string](_u.mutation, "name"); ok {
 		_spec.SetField(FieldName, field.TypeString, value)
+	}
+	if value, ok := entbuilder.GetField[ConfigType](_u.mutation, "config_type"); ok {
+		_spec.SetField(FieldConfigType, field.TypeEnum, value)
+	}
+	if _u.mutation.FieldCleared("config_type") {
+		_spec.ClearField(FieldConfigType, field.TypeEnum)
 	}
 	if _u.mutation.EdgeCleared("todos") {
 		edge := &sqlgraph.EdgeSpec{
@@ -219,6 +250,26 @@ func (_u *CategoryUpdateOne) SetNillableName(v *string) *CategoryUpdateOne {
 	return _u
 }
 
+// SetConfigType sets the "config_type" field.
+func (_u *CategoryUpdateOne) SetConfigType(v ConfigType) *CategoryUpdateOne {
+	_ = _u.mutation.SetField("config_type", v)
+	return _u
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_u *CategoryUpdateOne) SetNillableConfigType(v *ConfigType) *CategoryUpdateOne {
+	if v != nil {
+		_u.SetConfigType(*v)
+	}
+	return _u
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (_u *CategoryUpdateOne) ClearConfigType() *CategoryUpdateOne {
+	_ = _u.mutation.ClearField("config_type")
+	return _u
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_u *CategoryUpdateOne) AddTodoIDs(ids ...int) *CategoryUpdateOne {
 	_ = _u.mutation.AddEdgeIDs("todos", entbuilder.ToAny(ids)...)
@@ -289,6 +340,11 @@ func (_u *CategoryUpdateOne) check() error {
 			return &ValidationError{Name: "name", Err: fmt.Errorf(`ent: validator failed for field "Category.name": %w`, err)}
 		}
 	}
+	if v, ok := entbuilder.GetField[ConfigType](_u.mutation, "config_type"); ok {
+		if err := ConfigTypeValidator(v); err != nil {
+			return &ValidationError{Name: "config_type", Err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -323,6 +379,12 @@ func (_u *CategoryUpdateOne) sqlSave(ctx context.Context) (_node *Category, err 
 	}
 	if value, ok := entbuilder.GetField[string](_u.mutation, "name"); ok {
 		_spec.SetField(FieldName, field.TypeString, value)
+	}
+	if value, ok := entbuilder.GetField[ConfigType](_u.mutation, "config_type"); ok {
+		_spec.SetField(FieldConfigType, field.TypeEnum, value)
+	}
+	if _u.mutation.FieldCleared("config_type") {
+		_spec.ClearField(FieldConfigType, field.TypeEnum)
 	}
 	if _u.mutation.EdgeCleared("todos") {
 		edge := &sqlgraph.EdgeSpec{

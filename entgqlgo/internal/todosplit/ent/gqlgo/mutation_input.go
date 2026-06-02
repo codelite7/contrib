@@ -18,19 +18,24 @@ package gqlgo
 
 import (
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent"
+	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/todo"
 	"entgo.io/ent/runtime/entbuilder"
 )
 
 // CreateCategoryInput represents a mutation input for creating categories.
 type CreateCategoryInput struct {
-	Name    string
-	TodoIDs []int
+	Name       string
+	ConfigType *category.ConfigType
+	TodoIDs    []int
 }
 
 // Mutate applies the CreateCategoryInput on the CategoryMutation builder.
 func (i *CreateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	_ = m.SetField("name", i.Name)
+	if v := i.ConfigType; v != nil {
+		_ = m.SetField("config_type", *v)
+	}
 	if v := i.TodoIDs; len(v) > 0 {
 		_ = m.AddEdgeIDs("todos", entbuilder.ToAny(v)...)
 	}
@@ -38,16 +43,24 @@ func (i *CreateCategoryInput) Mutate(m *ent.CategoryMutation) {
 
 // UpdateCategoryInput represents a mutation input for updating categories.
 type UpdateCategoryInput struct {
-	Name          *string
-	ClearTodos    bool
-	AddTodoIDs    []int
-	RemoveTodoIDs []int
+	Name            *string
+	ClearConfigType bool
+	ConfigType      *category.ConfigType
+	ClearTodos      bool
+	AddTodoIDs      []int
+	RemoveTodoIDs   []int
 }
 
 // Mutate applies the UpdateCategoryInput on the CategoryMutation builder.
 func (i *UpdateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	if v := i.Name; v != nil {
 		_ = m.SetField("name", *v)
+	}
+	if i.ClearConfigType {
+		_ = m.ClearField("config_type")
+	}
+	if v := i.ConfigType; v != nil {
+		_ = m.SetField("config_type", *v)
 	}
 	if i.ClearTodos {
 		_ = m.ClearEdge("todos")

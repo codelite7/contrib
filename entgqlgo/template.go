@@ -18,6 +18,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"text/template"
@@ -895,6 +896,19 @@ func fieldMapping(f *gen.Field) ([]string, error) {
 // silently-wrong schema. An unknown but well-formed named type (e.g. "Upload")
 // is NOT an error: it resolves via the generated CustomTypes registry.
 func gqlgoType(f *gen.Field) (string, error) {
+	// A custom Type annotation takes precedence over the field's Go type for
+	// every field kind (mirrors entgql's mapScalar, which returns ant.Type
+	// before any built-in mapping). This is what lets a Bytes field annotated
+	// with entgqlgo.Type("Upload") resolve to the Upload scalar instead of the
+	// Bytes default. The annotation value is a GraphQL SDL type expression
+	// (e.g. "Upload", "[String!]") translated into a graphql-go Go expression.
+	if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
+		expr, err := sdlTypeToGo(ant.Type)
+		if err != nil {
+			return "", fmt.Errorf("entgqlgo: field %q has invalid Type annotation %q: %w", f.Name, ant.Type, err)
+		}
+		return expr, nil
+	}
 	switch t := f.Type.Type; {
 	case f.Name == "id":
 		return "graphql.ID", nil
@@ -911,19 +925,20 @@ func gqlgoType(f *gen.Field) (string, error) {
 	case t == field.TypeTime:
 		return "TimeScalar", nil
 	case t == field.TypeUUID:
-		return "graphql.ID", nil // UUID maps to ID to match gqlgen convention
+		// entgql maps a UUID field to the "UUID" scalar (its Go type carries a
+		// package path, so mapScalar falls through to the bare type name). Route
+		// through the CustomTypes registry so consumers can register a real UUID
+		// scalar; fall back to graphql.ID to preserve prior behaviour when
+		// unregistered.
+		return `customTypeOr("UUID", graphql.ID)`, nil
 	case t == field.TypeBytes:
-		return "graphql.String", nil // Bytes serialized as base64 string
+		return "graphql.String", nil // Bytes serialized as base64 string (override with entgqlgo.Type())
 	case t == field.TypeJSON:
-		// Check for custom type annotation first. The annotation value is a
-		// GraphQL SDL type expression (e.g. "[String!]") that must be translated
-		// into a graphql-go Go expression before being emitted into source.
-		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
-			expr, err := sdlTypeToGo(ant.Type)
-			if err != nil {
-				return "", fmt.Errorf("entgqlgo: field %q has invalid Type annotation %q: %w", f.Name, ant.Type, err)
-			}
-			return expr, nil
+		// A map[string]interface{} JSON field maps to entgql's "Map" scalar.
+		// Route through the CustomTypes registry so consumers can register a Map
+		// scalar; fall back to graphql.String when unregistered.
+		if isJSONMap(f) {
+			return `customTypeOr("Map", graphql.String)`, nil
 		}
 		// Check if the underlying Go type is a slice (e.g. []string, []int).
 		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
@@ -933,23 +948,30 @@ func gqlgoType(f *gen.Field) (string, error) {
 	case t == field.TypeEnum:
 		return "graphql.String", nil // Enums handled separately in templates
 	case t == field.TypeOther:
-		// Check for custom type annotation first. The annotation value is a
-		// GraphQL SDL type expression (e.g. "[String!]") that must be translated
-		// into a graphql-go Go expression before being emitted into source.
-		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
-			expr, err := sdlTypeToGo(ant.Type)
-			if err != nil {
-				return "", fmt.Errorf("entgqlgo: field %q has invalid Type annotation %q: %w", f.Name, ant.Type, err)
-			}
-			return expr, nil
-		}
-		// Check if the underlying Go type is a slice (e.g. []string, []int).
+		// The Type annotation was already handled at the top of the function. An
+		// Other field without one falls back to a slice element type or String.
 		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
 			return "graphql.NewList(graphql.NewNonNull(" + inner + "))", nil
 		}
 		return "graphql.String", nil // Other types require entgqlgo.Type() annotation
 	default:
 		return "graphql.String", nil
+	}
+}
+
+// isJSONMap reports whether a JSON field's underlying Go type is
+// map[string]interface{} — the shape entgql maps to its "Map" scalar.
+// It matches on both the reflect kind/ident (when RType is populated) and the
+// field's Go type string, so it works whether or not the field carries RType.
+func isJSONMap(f *gen.Field) bool {
+	if rt := f.Type.RType; rt != nil && rt.Kind == reflect.Map && rt.Ident == "map[string]interface {}" {
+		return true
+	}
+	switch f.Type.String() {
+	case "map[string]interface{}", "map[string]interface {}":
+		return true
+	default:
+		return false
 	}
 }
 

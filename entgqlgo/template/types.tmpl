@@ -93,10 +93,13 @@ func init() {
 				{{- range $f := $fields }}
 				{{- if not $f.Sensitive }}
 				"{{ camel $f.Name }}": &graphql.Field{
-					{{- if or $f.Optional $f.Nillable }}
-					Type: {{ gqlgoType $f }},
+					{{- /* GraphQL nullability follows ent's Optional flag only — a
+					     Nillable-but-required field (e.g. String().Nillable()) is a Go
+					     pointer but still NonNull in the schema, matching entgql. */ -}}
+					{{- if $f.Optional }}
+					Type: {{ if $f.IsEnum }}{{ $n.Name }}{{ $f.StructField }}Enum{{ else }}{{ gqlgoType $f }}{{ end }},
 					{{- else }}
-					Type: graphql.NewNonNull({{ gqlgoType $f }}),
+					Type: graphql.NewNonNull({{ if $f.IsEnum }}{{ $n.Name }}{{ $f.StructField }}Enum{{ else }}{{ gqlgoType $f }}{{ end }}),
 					{{- end }}
 					{{- if $f.Comment }}
 					Description: "{{ $f.Comment }}",
@@ -117,7 +120,7 @@ func init() {
 				"{{ camel $e.Name }}": &graphql.Field{
 					{{- if $isRC }}
 					{{- $edgeNames := gqlgoNodePaginationNames $e.Type }}
-					Type: {{ $edgeNames.Connection }}Type,
+					Type: graphql.NewNonNull({{ $edgeNames.Connection }}Type),
 					Args: graphql.FieldConfigArgument{
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,

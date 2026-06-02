@@ -34,6 +34,8 @@ type Category struct {
 	ID int `json:"id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// ConfigType holds the value of the "config_type" field.
+	ConfigType *CategoryConfigType `json:"config_type,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CategoryQuery when eager-loading is set.
 	Edges        CategoryEdges `json:"edges"`
@@ -69,6 +71,13 @@ func (e CategoryEdges) TodosOrErr() ([]*Todo, error) {
 	return nil, &NotLoadedError{Edge: "todos"}
 }
 
+// CategoryConfigType defines the type for the "config_type" enum field.
+type CategoryConfigType string
+
+func (s CategoryConfigType) String() string {
+	return string(s)
+}
+
 // ScanValues returns the types for scanning values from sql.Rows.
 func (*Category) ScanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -76,7 +85,7 @@ func (*Category) ScanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case "id":
 			values[i] = new(sql.NullInt64)
-		case "name":
+		case "name", "config_type":
 			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -104,6 +113,13 @@ func (_m *Category) AssignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case "config_type":
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field config_type", values[i])
+			} else if value.Valid {
+				enumValue := CategoryConfigType(value.String)
+				_m.ConfigType = &enumValue
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -136,6 +152,11 @@ func (_m *Category) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	if v := _m.ConfigType; v != nil {
+		builder.WriteString("config_type=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

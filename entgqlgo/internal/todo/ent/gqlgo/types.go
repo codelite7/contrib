@@ -102,10 +102,13 @@ func init() {
 					Type: graphql.NewNonNull(graphql.String),
 				},
 				"status": &graphql.Field{
-					Type: graphql.NewNonNull(graphql.String),
+					Type: graphql.NewNonNull(CategoryStatusEnum),
 				},
 				"kind": &graphql.Field{
-					Type: graphql.NewNonNull(graphql.String),
+					Type: graphql.NewNonNull(CategoryKindEnum),
+				},
+				"configType": &graphql.Field{
+					Type: CategoryConfigTypeEnum,
 				},
 				"tags": &graphql.Field{
 					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
@@ -113,12 +116,21 @@ func init() {
 				"config": &graphql.Field{
 					Type: customTypeOr("CustomScalarXYZ", graphql.String),
 				},
+				"externalID": &graphql.Field{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"attributes": &graphql.Field{
+					Type: customTypeOr("Map", graphql.String),
+				},
+				"payload": &graphql.Field{
+					Type: customTypeOr("Upload", graphql.String),
+				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Category.",
 				},
 				"todos": &graphql.Field{
-					Type: TodoConnectionType,
+					Type: graphql.NewNonNull(TodoConnectionType),
 					Args: graphql.FieldConfigArgument{
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,
@@ -185,7 +197,7 @@ func init() {
 					Type: graphql.NewNonNull(TimeScalar),
 				},
 				"status": &graphql.Field{
-					Type: graphql.NewNonNull(graphql.String),
+					Type: graphql.NewNonNull(TodoStatusEnum),
 				},
 				"priority": &graphql.Field{
 					Type: graphql.NewNonNull(graphql.Int),
@@ -202,7 +214,7 @@ func init() {
 					Resolve: resolveTodoParent,
 				},
 				"children": &graphql.Field{
-					Type: TodoConnectionType,
+					Type: graphql.NewNonNull(TodoConnectionType),
 					Args: graphql.FieldConfigArgument{
 						"after": &graphql.ArgumentConfig{
 							Type:        CursorScalar,

@@ -32,18 +32,25 @@ const (
 // CategoryMutation represents an operation that mutates the Category nodes in the graph.
 type CategoryMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	text          *string
-	status        *category.Status
-	clearedFields map[string]struct{}
-	todos         map[int]struct{}
-	removedtodos  map[int]struct{}
-	clearedtodos  bool
-	done          bool
-	oldValue      func(context.Context) (*Category, error)
-	predicates    []predicate.Category
+	op                  Op
+	typ                 string
+	id                  *int
+	text                *string
+	status              *category.Status
+	config_type         *category.ConfigType
+	metadata            *map[string]interface{}
+	clearedFields       map[string]struct{}
+	todos               map[int]struct{}
+	removedtodos        map[int]struct{}
+	clearedtodos        bool
+	owner_c             *int
+	clearedowner_c      bool
+	sub_statuses        map[int]struct{}
+	removedsub_statuses map[int]struct{}
+	clearedsub_statuses bool
+	done                bool
+	oldValue            func(context.Context) (*Category, error)
+	predicates          []predicate.Category
 }
 
 var _ ent.Mutation = (*CategoryMutation)(nil)
@@ -216,6 +223,104 @@ func (m *CategoryMutation) ResetStatus() {
 	m.status = nil
 }
 
+// SetConfigType sets the "config_type" field.
+func (m *CategoryMutation) SetConfigType(ct category.ConfigType) {
+	m.config_type = &ct
+}
+
+// ConfigType returns the value of the "config_type" field in the mutation.
+func (m *CategoryMutation) ConfigType() (r category.ConfigType, exists bool) {
+	v := m.config_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfigType returns the old "config_type" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldConfigType(ctx context.Context) (v *category.ConfigType, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfigType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfigType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfigType: %w", err)
+	}
+	return oldValue.ConfigType, nil
+}
+
+// ClearConfigType clears the value of the "config_type" field.
+func (m *CategoryMutation) ClearConfigType() {
+	m.config_type = nil
+	m.clearedFields[category.FieldConfigType] = struct{}{}
+}
+
+// ConfigTypeCleared returns if the "config_type" field was cleared in this mutation.
+func (m *CategoryMutation) ConfigTypeCleared() bool {
+	_, ok := m.clearedFields[category.FieldConfigType]
+	return ok
+}
+
+// ResetConfigType resets all changes to the "config_type" field.
+func (m *CategoryMutation) ResetConfigType() {
+	m.config_type = nil
+	delete(m.clearedFields, category.FieldConfigType)
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *CategoryMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *CategoryMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *CategoryMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[category.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *CategoryMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[category.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *CategoryMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, category.FieldMetadata)
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by ids.
 func (m *CategoryMutation) AddTodoIDs(ids ...int) {
 	if m.todos == nil {
@@ -270,6 +375,99 @@ func (m *CategoryMutation) ResetTodos() {
 	m.removedtodos = nil
 }
 
+// SetOwnerCID sets the "owner_c" edge to the Todo entity by id.
+func (m *CategoryMutation) SetOwnerCID(id int) {
+	m.owner_c = &id
+}
+
+// ClearOwnerC clears the "owner_c" edge to the Todo entity.
+func (m *CategoryMutation) ClearOwnerC() {
+	m.clearedowner_c = true
+}
+
+// OwnerCCleared reports if the "owner_c" edge to the Todo entity was cleared.
+func (m *CategoryMutation) OwnerCCleared() bool {
+	return m.clearedowner_c
+}
+
+// OwnerCID returns the "owner_c" edge ID in the mutation.
+func (m *CategoryMutation) OwnerCID() (id int, exists bool) {
+	if m.owner_c != nil {
+		return *m.owner_c, true
+	}
+	return
+}
+
+// OwnerCIDs returns the "owner_c" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OwnerCID instead. It exists only for internal usage by the builders.
+func (m *CategoryMutation) OwnerCIDs() (ids []int) {
+	if id := m.owner_c; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOwnerC resets all changes to the "owner_c" edge.
+func (m *CategoryMutation) ResetOwnerC() {
+	m.owner_c = nil
+	m.clearedowner_c = false
+}
+
+// AddSubStatusIDs adds the "sub_statuses" edge to the Todo entity by ids.
+func (m *CategoryMutation) AddSubStatusIDs(ids ...int) {
+	if m.sub_statuses == nil {
+		m.sub_statuses = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.sub_statuses[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSubStatuses clears the "sub_statuses" edge to the Todo entity.
+func (m *CategoryMutation) ClearSubStatuses() {
+	m.clearedsub_statuses = true
+}
+
+// SubStatusesCleared reports if the "sub_statuses" edge to the Todo entity was cleared.
+func (m *CategoryMutation) SubStatusesCleared() bool {
+	return m.clearedsub_statuses
+}
+
+// RemoveSubStatusIDs removes the "sub_statuses" edge to the Todo entity by IDs.
+func (m *CategoryMutation) RemoveSubStatusIDs(ids ...int) {
+	if m.removedsub_statuses == nil {
+		m.removedsub_statuses = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.sub_statuses, ids[i])
+		m.removedsub_statuses[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSubStatuses returns the removed IDs of the "sub_statuses" edge to the Todo entity.
+func (m *CategoryMutation) RemovedSubStatusesIDs() (ids []int) {
+	for id := range m.removedsub_statuses {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SubStatusesIDs returns the "sub_statuses" edge IDs in the mutation.
+func (m *CategoryMutation) SubStatusesIDs() (ids []int) {
+	for id := range m.sub_statuses {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSubStatuses resets all changes to the "sub_statuses" edge.
+func (m *CategoryMutation) ResetSubStatuses() {
+	m.sub_statuses = nil
+	m.clearedsub_statuses = false
+	m.removedsub_statuses = nil
+}
+
 // Where appends a list predicates to the CategoryMutation builder.
 func (m *CategoryMutation) Where(ps ...predicate.Category) {
 	m.predicates = append(m.predicates, ps...)
@@ -304,12 +502,18 @@ func (m *CategoryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CategoryMutation) Fields() []string {
-	fields := make([]string, 0, 2)
+	fields := make([]string, 0, 4)
 	if m.text != nil {
 		fields = append(fields, category.FieldText)
 	}
 	if m.status != nil {
 		fields = append(fields, category.FieldStatus)
+	}
+	if m.config_type != nil {
+		fields = append(fields, category.FieldConfigType)
+	}
+	if m.metadata != nil {
+		fields = append(fields, category.FieldMetadata)
 	}
 	return fields
 }
@@ -323,6 +527,10 @@ func (m *CategoryMutation) Field(name string) (ent.Value, bool) {
 		return m.Text()
 	case category.FieldStatus:
 		return m.Status()
+	case category.FieldConfigType:
+		return m.ConfigType()
+	case category.FieldMetadata:
+		return m.Metadata()
 	}
 	return nil, false
 }
@@ -336,6 +544,10 @@ func (m *CategoryMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldText(ctx)
 	case category.FieldStatus:
 		return m.OldStatus(ctx)
+	case category.FieldConfigType:
+		return m.OldConfigType(ctx)
+	case category.FieldMetadata:
+		return m.OldMetadata(ctx)
 	}
 	return nil, fmt.Errorf("unknown Category field %s", name)
 }
@@ -358,6 +570,20 @@ func (m *CategoryMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case category.FieldConfigType:
+		v, ok := value.(category.ConfigType)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfigType(v)
+		return nil
+	case category.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)
@@ -388,7 +614,14 @@ func (m *CategoryMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *CategoryMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(category.FieldConfigType) {
+		fields = append(fields, category.FieldConfigType)
+	}
+	if m.FieldCleared(category.FieldMetadata) {
+		fields = append(fields, category.FieldMetadata)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -401,6 +634,14 @@ func (m *CategoryMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *CategoryMutation) ClearField(name string) error {
+	switch name {
+	case category.FieldConfigType:
+		m.ClearConfigType()
+		return nil
+	case category.FieldMetadata:
+		m.ClearMetadata()
+		return nil
+	}
 	return fmt.Errorf("unknown Category nullable field %s", name)
 }
 
@@ -414,15 +655,27 @@ func (m *CategoryMutation) ResetField(name string) error {
 	case category.FieldStatus:
 		m.ResetStatus()
 		return nil
+	case category.FieldConfigType:
+		m.ResetConfigType()
+		return nil
+	case category.FieldMetadata:
+		m.ResetMetadata()
+		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *CategoryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.todos != nil {
 		edges = append(edges, category.EdgeTodos)
+	}
+	if m.owner_c != nil {
+		edges = append(edges, category.EdgeOwnerC)
+	}
+	if m.sub_statuses != nil {
+		edges = append(edges, category.EdgeSubStatuses)
 	}
 	return edges
 }
@@ -437,15 +690,28 @@ func (m *CategoryMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case category.EdgeOwnerC:
+		if id := m.owner_c; id != nil {
+			return []ent.Value{*id}
+		}
+	case category.EdgeSubStatuses:
+		ids := make([]ent.Value, 0, len(m.sub_statuses))
+		for id := range m.sub_statuses {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *CategoryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.removedtodos != nil {
 		edges = append(edges, category.EdgeTodos)
+	}
+	if m.removedsub_statuses != nil {
+		edges = append(edges, category.EdgeSubStatuses)
 	}
 	return edges
 }
@@ -460,15 +726,27 @@ func (m *CategoryMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case category.EdgeSubStatuses:
+		ids := make([]ent.Value, 0, len(m.removedsub_statuses))
+		for id := range m.removedsub_statuses {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *CategoryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 3)
 	if m.clearedtodos {
 		edges = append(edges, category.EdgeTodos)
+	}
+	if m.clearedowner_c {
+		edges = append(edges, category.EdgeOwnerC)
+	}
+	if m.clearedsub_statuses {
+		edges = append(edges, category.EdgeSubStatuses)
 	}
 	return edges
 }
@@ -479,6 +757,10 @@ func (m *CategoryMutation) EdgeCleared(name string) bool {
 	switch name {
 	case category.EdgeTodos:
 		return m.clearedtodos
+	case category.EdgeOwnerC:
+		return m.clearedowner_c
+	case category.EdgeSubStatuses:
+		return m.clearedsub_statuses
 	}
 	return false
 }
@@ -487,6 +769,9 @@ func (m *CategoryMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *CategoryMutation) ClearEdge(name string) error {
 	switch name {
+	case category.EdgeOwnerC:
+		m.ClearOwnerC()
+		return nil
 	}
 	return fmt.Errorf("unknown Category unique edge %s", name)
 }
@@ -497,6 +782,12 @@ func (m *CategoryMutation) ResetEdge(name string) error {
 	switch name {
 	case category.EdgeTodos:
 		m.ResetTodos()
+		return nil
+	case category.EdgeOwnerC:
+		m.ResetOwnerC()
+		return nil
+	case category.EdgeSubStatuses:
+		m.ResetSubStatuses()
 		return nil
 	}
 	return fmt.Errorf("unknown Category edge %s", name)
@@ -513,6 +804,7 @@ type TodoMutation struct {
 	priority        *int
 	addpriority     *int
 	text            *string
+	note            *string
 	clearedFields   map[string]struct{}
 	parent          *int
 	clearedparent   bool
@@ -521,6 +813,8 @@ type TodoMutation struct {
 	clearedchildren bool
 	category        *int
 	clearedcategory bool
+	owner           *int
+	clearedowner    bool
 	done            bool
 	oldValue        func(context.Context) (*Todo, error)
 	predicates      []predicate.Todo
@@ -788,6 +1082,42 @@ func (m *TodoMutation) ResetText() {
 	m.text = nil
 }
 
+// SetNote sets the "note" field.
+func (m *TodoMutation) SetNote(s string) {
+	m.note = &s
+}
+
+// Note returns the value of the "note" field in the mutation.
+func (m *TodoMutation) Note() (r string, exists bool) {
+	v := m.note
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNote returns the old "note" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldNote(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNote is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNote requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNote: %w", err)
+	}
+	return oldValue.Note, nil
+}
+
+// ResetNote resets all changes to the "note" field.
+func (m *TodoMutation) ResetNote() {
+	m.note = nil
+}
+
 // SetParentID sets the "parent" edge to the Todo entity by id.
 func (m *TodoMutation) SetParentID(id int) {
 	m.parent = &id
@@ -920,6 +1250,45 @@ func (m *TodoMutation) ResetCategory() {
 	m.clearedcategory = false
 }
 
+// SetOwnerID sets the "owner" edge to the Category entity by id.
+func (m *TodoMutation) SetOwnerID(id int) {
+	m.owner = &id
+}
+
+// ClearOwner clears the "owner" edge to the Category entity.
+func (m *TodoMutation) ClearOwner() {
+	m.clearedowner = true
+}
+
+// OwnerCleared reports if the "owner" edge to the Category entity was cleared.
+func (m *TodoMutation) OwnerCleared() bool {
+	return m.clearedowner
+}
+
+// OwnerID returns the "owner" edge ID in the mutation.
+func (m *TodoMutation) OwnerID() (id int, exists bool) {
+	if m.owner != nil {
+		return *m.owner, true
+	}
+	return
+}
+
+// OwnerIDs returns the "owner" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OwnerID instead. It exists only for internal usage by the builders.
+func (m *TodoMutation) OwnerIDs() (ids []int) {
+	if id := m.owner; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOwner resets all changes to the "owner" edge.
+func (m *TodoMutation) ResetOwner() {
+	m.owner = nil
+	m.clearedowner = false
+}
+
 // Where appends a list predicates to the TodoMutation builder.
 func (m *TodoMutation) Where(ps ...predicate.Todo) {
 	m.predicates = append(m.predicates, ps...)
@@ -954,7 +1323,7 @@ func (m *TodoMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TodoMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.created_at != nil {
 		fields = append(fields, todo.FieldCreatedAt)
 	}
@@ -966,6 +1335,9 @@ func (m *TodoMutation) Fields() []string {
 	}
 	if m.text != nil {
 		fields = append(fields, todo.FieldText)
+	}
+	if m.note != nil {
+		fields = append(fields, todo.FieldNote)
 	}
 	return fields
 }
@@ -983,6 +1355,8 @@ func (m *TodoMutation) Field(name string) (ent.Value, bool) {
 		return m.Priority()
 	case todo.FieldText:
 		return m.Text()
+	case todo.FieldNote:
+		return m.Note()
 	}
 	return nil, false
 }
@@ -1000,6 +1374,8 @@ func (m *TodoMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldPriority(ctx)
 	case todo.FieldText:
 		return m.OldText(ctx)
+	case todo.FieldNote:
+		return m.OldNote(ctx)
 	}
 	return nil, fmt.Errorf("unknown Todo field %s", name)
 }
@@ -1036,6 +1412,13 @@ func (m *TodoMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetText(v)
+		return nil
+	case todo.FieldNote:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNote(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Todo field %s", name)
@@ -1113,13 +1496,16 @@ func (m *TodoMutation) ResetField(name string) error {
 	case todo.FieldText:
 		m.ResetText()
 		return nil
+	case todo.FieldNote:
+		m.ResetNote()
+		return nil
 	}
 	return fmt.Errorf("unknown Todo field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TodoMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.parent != nil {
 		edges = append(edges, todo.EdgeParent)
 	}
@@ -1128,6 +1514,9 @@ func (m *TodoMutation) AddedEdges() []string {
 	}
 	if m.category != nil {
 		edges = append(edges, todo.EdgeCategory)
+	}
+	if m.owner != nil {
+		edges = append(edges, todo.EdgeOwner)
 	}
 	return edges
 }
@@ -1150,13 +1539,17 @@ func (m *TodoMutation) AddedIDs(name string) []ent.Value {
 		if id := m.category; id != nil {
 			return []ent.Value{*id}
 		}
+	case todo.EdgeOwner:
+		if id := m.owner; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TodoMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedchildren != nil {
 		edges = append(edges, todo.EdgeChildren)
 	}
@@ -1179,7 +1572,7 @@ func (m *TodoMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TodoMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedparent {
 		edges = append(edges, todo.EdgeParent)
 	}
@@ -1188,6 +1581,9 @@ func (m *TodoMutation) ClearedEdges() []string {
 	}
 	if m.clearedcategory {
 		edges = append(edges, todo.EdgeCategory)
+	}
+	if m.clearedowner {
+		edges = append(edges, todo.EdgeOwner)
 	}
 	return edges
 }
@@ -1202,6 +1598,8 @@ func (m *TodoMutation) EdgeCleared(name string) bool {
 		return m.clearedchildren
 	case todo.EdgeCategory:
 		return m.clearedcategory
+	case todo.EdgeOwner:
+		return m.clearedowner
 	}
 	return false
 }
@@ -1215,6 +1613,9 @@ func (m *TodoMutation) ClearEdge(name string) error {
 		return nil
 	case todo.EdgeCategory:
 		m.ClearCategory()
+		return nil
+	case todo.EdgeOwner:
+		m.ClearOwner()
 		return nil
 	}
 	return fmt.Errorf("unknown Todo unique edge %s", name)
@@ -1232,6 +1633,9 @@ func (m *TodoMutation) ResetEdge(name string) error {
 		return nil
 	case todo.EdgeCategory:
 		m.ResetCategory()
+		return nil
+	case todo.EdgeOwner:
+		m.ResetOwner()
 		return nil
 	}
 	return fmt.Errorf("unknown Todo edge %s", name)

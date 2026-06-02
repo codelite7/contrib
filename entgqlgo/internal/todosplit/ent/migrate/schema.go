@@ -26,6 +26,7 @@ var (
 	CategoriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
 		{Name: "name", Type: field.TypeString},
+		{Name: "config_type", Type: field.TypeEnum, Nullable: true, Enums: []string{"INTERNAL", "EXTERNAL", "LEGACY"}},
 	}
 	// CategoriesTable holds the schema information for the "categories" table.
 	CategoriesTable = &schema.Table{

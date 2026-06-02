@@ -20,12 +20,16 @@ import (
 // CategoryQuery is the builder for querying Category entities.
 type CategoryQuery struct {
 	config
-	ctx            *QueryContext
-	order          []category.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.Category
-	withTodos      *TodoQuery
-	withNamedTodos map[string]*TodoQuery
+	ctx                  *QueryContext
+	order                []category.OrderOption
+	inters               []Interceptor
+	predicates           []predicate.Category
+	withTodos            *TodoQuery
+	withOwnerC           *TodoQuery
+	withSubStatuses      *TodoQuery
+	withFKs              bool
+	withNamedTodos       map[string]*TodoQuery
+	withNamedSubStatuses map[string]*TodoQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -77,6 +81,50 @@ func (_q *CategoryQuery) QueryTodos() *TodoQuery {
 			sqlgraph.From(category.Table, category.FieldID, selector),
 			sqlgraph.To(todo.Table, todo.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, category.TodosTable, category.TodosColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOwnerC chains the current query on the "owner_c" edge.
+func (_q *CategoryQuery) QueryOwnerC() *TodoQuery {
+	query := (&TodoClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(category.Table, category.FieldID, selector),
+			sqlgraph.To(todo.Table, todo.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, category.OwnerCTable, category.OwnerCColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySubStatuses chains the current query on the "sub_statuses" edge.
+func (_q *CategoryQuery) QuerySubStatuses() *TodoQuery {
+	query := (&TodoClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(category.Table, category.FieldID, selector),
+			sqlgraph.To(todo.Table, todo.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, category.SubStatusesTable, category.SubStatusesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -271,12 +319,14 @@ func (_q *CategoryQuery) Clone() *CategoryQuery {
 		return nil
 	}
 	return &CategoryQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]category.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.Category{}, _q.predicates...),
-		withTodos:  _q.withTodos.Clone(),
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]category.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.Category{}, _q.predicates...),
+		withTodos:       _q.withTodos.Clone(),
+		withOwnerC:      _q.withOwnerC.Clone(),
+		withSubStatuses: _q.withSubStatuses.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -291,6 +341,28 @@ func (_q *CategoryQuery) WithTodos(opts ...func(*TodoQuery)) *CategoryQuery {
 		opt(query)
 	}
 	_q.withTodos = query
+	return _q
+}
+
+// WithOwnerC tells the query-builder to eager-load the nodes that are connected to
+// the "owner_c" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CategoryQuery) WithOwnerC(opts ...func(*TodoQuery)) *CategoryQuery {
+	query := (&TodoClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withOwnerC = query
+	return _q
+}
+
+// WithSubStatuses tells the query-builder to eager-load the nodes that are connected to
+// the "sub_statuses" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CategoryQuery) WithSubStatuses(opts ...func(*TodoQuery)) *CategoryQuery {
+	query := (&TodoClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSubStatuses = query
 	return _q
 }
 
@@ -371,11 +443,20 @@ func (_q *CategoryQuery) prepareQuery(ctx context.Context) error {
 func (_q *CategoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Category, error) {
 	var (
 		nodes       = []*Category{}
+		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			_q.withTodos != nil,
+			_q.withOwnerC != nil,
+			_q.withSubStatuses != nil,
 		}
 	)
+	if _q.withOwnerC != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, category.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Category).scanValues(nil, columns)
 	}
@@ -401,10 +482,30 @@ func (_q *CategoryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Cat
 			return nil, err
 		}
 	}
+	if query := _q.withOwnerC; query != nil {
+		if err := _q.loadOwnerC(ctx, query, nodes, nil,
+			func(n *Category, e *Todo) { n.Edges.OwnerC = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSubStatuses; query != nil {
+		if err := _q.loadSubStatuses(ctx, query, nodes,
+			func(n *Category) { n.Edges.SubStatuses = []*Todo{} },
+			func(n *Category, e *Todo) { n.Edges.SubStatuses = append(n.Edges.SubStatuses, e) }); err != nil {
+			return nil, err
+		}
+	}
 	for name, query := range _q.withNamedTodos {
 		if err := _q.loadTodos(ctx, query, nodes,
 			func(n *Category) { n.appendNamedTodos(name) },
 			func(n *Category, e *Todo) { n.appendNamedTodos(name, e) }); err != nil {
+			return nil, err
+		}
+	}
+	for name, query := range _q.withNamedSubStatuses {
+		if err := _q.loadSubStatuses(ctx, query, nodes,
+			func(n *Category) { n.appendNamedSubStatuses(name) },
+			func(n *Category, e *Todo) { n.appendNamedSubStatuses(name, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -429,10 +530,62 @@ var categoryTodosEdgeLoadDescriptor = entbuilder.EdgeLoadDescriptor[Category, To
 		return e.category_todos
 	},
 }
+var categoryOwnerCEdgeLoadDescriptor = entbuilder.EdgeLoadDescriptor[Category, Todo, int, int]{
+	EdgeSpec: func() *sqlgraph.EdgeSpec {
+		return entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+			Rel:          sqlgraph.M2O,
+			Inverse:      false,
+			Table:        category.OwnerCTable,
+			Columns:      category.OwnerCColumn,
+			Bidi:         false,
+			TargetColumn: todo.FieldID,
+			TargetType:   field.TypeInt,
+		})
+	},
+	ExtractNodeID: func(n *Category) int { return n.ID },
+	ExtractEdgeID: func(e *Todo) int { return e.ID },
+	ExtractNodeFK: func(n *Category) *int {
+		return n.category_owner_c
+	},
+}
+var categorySubStatusesEdgeLoadDescriptor = entbuilder.EdgeLoadDescriptor[Category, Todo, int, int]{
+	EdgeSpec: func() *sqlgraph.EdgeSpec {
+		return entbuilder.NewEdgeSpec(entbuilder.EdgeSpecParams{
+			Rel:          sqlgraph.O2M,
+			Inverse:      false,
+			Table:        category.SubStatusesTable,
+			Columns:      category.SubStatusesColumn,
+			Bidi:         false,
+			TargetColumn: todo.FieldID,
+			TargetType:   field.TypeInt,
+		})
+	},
+	ExtractNodeID: func(n *Category) int { return n.ID },
+	ExtractEdgeID: func(e *Todo) int { return e.ID },
+	ExtractEdgeFK: func(e *Todo) *int {
+		return e.category_sub_statuses
+	},
+}
 
 func (_q *CategoryQuery) loadTodos(ctx context.Context, query *TodoQuery, nodes []*Category, init func(*Category), assign func(*Category, *Todo)) error {
 	query.withFKs = true
 	return entbuilder.LoadEdgeO2M(ctx, &categoryTodosEdgeLoadDescriptor, nodes, init, assign,
+		func(bool) {},
+		func(fn func(*sql.Selector)) { query.Where(fn) },
+		query.All)
+	return nil
+}
+func (_q *CategoryQuery) loadOwnerC(ctx context.Context, query *TodoQuery, nodes []*Category, init func(*Category), assign func(*Category, *Todo)) error {
+	return entbuilder.LoadEdgeM2O(ctx, &categoryOwnerCEdgeLoadDescriptor, nodes, assign,
+		func(ids []int) {
+			query.Where(todo.IDIn(ids...))
+		},
+		query.All)
+	return nil
+}
+func (_q *CategoryQuery) loadSubStatuses(ctx context.Context, query *TodoQuery, nodes []*Category, init func(*Category), assign func(*Category, *Todo)) error {
+	query.withFKs = true
+	return entbuilder.LoadEdgeO2M(ctx, &categorySubStatusesEdgeLoadDescriptor, nodes, init, assign,
 		func(bool) {},
 		func(fn func(*sql.Selector)) { query.Where(fn) },
 		query.All)
@@ -531,6 +684,20 @@ func (_q *CategoryQuery) WithNamedTodos(name string, opts ...func(*TodoQuery)) *
 		_q.withNamedTodos = make(map[string]*TodoQuery)
 	}
 	_q.withNamedTodos[name] = query
+	return _q
+}
+
+// WithNamedSubStatuses tells the query-builder to eager-load the nodes that are connected to the "sub_statuses"
+// edge with the given name. The optional arguments are used to configure the query builder of the edge.
+func (_q *CategoryQuery) WithNamedSubStatuses(name string, opts ...func(*TodoQuery)) *CategoryQuery {
+	query := (&TodoClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	if _q.withNamedSubStatuses == nil {
+		_q.withNamedSubStatuses = make(map[string]*TodoQuery)
+	}
+	_q.withNamedSubStatuses[name] = query
 	return _q
 }
 

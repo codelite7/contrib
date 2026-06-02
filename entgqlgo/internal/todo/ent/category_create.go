@@ -28,6 +28,7 @@ import (
 	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/runtime/entgen"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // CategoryCreate is the builder for creating a Category entity.
@@ -71,6 +72,20 @@ func (_c *CategoryCreate) SetNillableKind(v *category.Kind) *CategoryCreate {
 	return _c
 }
 
+// SetConfigType sets the "config_type" field.
+func (_c *CategoryCreate) SetConfigType(v category.ConfigType) *CategoryCreate {
+	_c.mutation.SetConfigType(v)
+	return _c
+}
+
+// SetNillableConfigType sets the "config_type" field if the given value is not nil.
+func (_c *CategoryCreate) SetNillableConfigType(v *category.ConfigType) *CategoryCreate {
+	if v != nil {
+		_c.SetConfigType(*v)
+	}
+	return _c
+}
+
 // SetTags sets the "tags" field.
 func (_c *CategoryCreate) SetTags(v []string) *CategoryCreate {
 	_c.mutation.SetTags(v)
@@ -80,6 +95,32 @@ func (_c *CategoryCreate) SetTags(v []string) *CategoryCreate {
 // SetConfig sets the "config" field.
 func (_c *CategoryCreate) SetConfig(v map[string]string) *CategoryCreate {
 	_c.mutation.SetConfig(v)
+	return _c
+}
+
+// SetExternalID sets the "external_id" field.
+func (_c *CategoryCreate) SetExternalID(v uuid.UUID) *CategoryCreate {
+	_c.mutation.SetExternalID(v)
+	return _c
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_c *CategoryCreate) SetNillableExternalID(v *uuid.UUID) *CategoryCreate {
+	if v != nil {
+		_c.SetExternalID(*v)
+	}
+	return _c
+}
+
+// SetAttributes sets the "attributes" field.
+func (_c *CategoryCreate) SetAttributes(v map[string]interface{}) *CategoryCreate {
+	_c.mutation.SetAttributes(v)
+	return _c
+}
+
+// SetPayload sets the "payload" field.
+func (_c *CategoryCreate) SetPayload(v []byte) *CategoryCreate {
+	_c.mutation.SetPayload(v)
 	return _c
 }
 
@@ -219,10 +260,32 @@ var categoryCreateSpec = entgen.CreateSpec[*CategoryMutation]{
 			},
 		},
 		{
+			Name: "config_type",
+			Validators: []func(*CategoryMutation) error{
+				func(m *CategoryMutation) error {
+					if v, ok := m.ConfigType(); ok {
+						if err := category.ConfigTypeValidator(v); err != nil {
+							return &ValidationError{Name: "config_type", err: fmt.Errorf(`ent: validator failed for field "Category.config_type": %w`, err)}
+						}
+					}
+					return nil
+				},
+			},
+		},
+		{
 			Name: "tags",
 		},
 		{
 			Name: "config",
+		},
+		{
+			Name: "external_id",
+		},
+		{
+			Name: "attributes",
+		},
+		{
+			Name: "payload",
 		},
 	},
 	Edges: []entgen.EdgeSpec[*CategoryMutation]{},
@@ -293,6 +356,13 @@ var categoryCreateDescriptor = entbuilder.CreateDescriptor[config, Category, *Ca
 			func(n *Category, v category.Kind) { n.Kind = v },
 		),
 
+		entbuilder.NillableField[config, Category, *CategoryMutation, category.ConfigType](
+			category.FieldConfigType,
+			field.TypeEnum,
+			(*CategoryMutation).ConfigType,
+			func(n *Category, v *category.ConfigType) { n.ConfigType = v },
+		),
+
 		entbuilder.SimpleField[config, Category, *CategoryMutation, []string](
 			category.FieldTags,
 			field.TypeJSON,
@@ -305,6 +375,27 @@ var categoryCreateDescriptor = entbuilder.CreateDescriptor[config, Category, *Ca
 			field.TypeJSON,
 			(*CategoryMutation).Config,
 			func(n *Category, v map[string]string) { n.Config = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, uuid.UUID](
+			category.FieldExternalID,
+			field.TypeUUID,
+			(*CategoryMutation).ExternalID,
+			func(n *Category, v uuid.UUID) { n.ExternalID = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, map[string]interface{}](
+			category.FieldAttributes,
+			field.TypeJSON,
+			(*CategoryMutation).Attributes,
+			func(n *Category, v map[string]interface{}) { n.Attributes = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, []byte](
+			category.FieldPayload,
+			field.TypeBytes,
+			(*CategoryMutation).Payload,
+			func(n *Category, v []byte) { n.Payload = v },
 		),
 	},
 	Edges: []entbuilder.EdgeDescriptor[config, Category, *CategoryMutation]{

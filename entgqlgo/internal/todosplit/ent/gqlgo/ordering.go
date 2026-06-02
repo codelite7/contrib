@@ -45,7 +45,7 @@ var TodoOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			Description: "The field to order by.",
 		},
 		"direction": &graphql.InputObjectFieldConfig{
-			Type:         OrderDirectionEnum,
+			Type:         graphql.NewNonNull(OrderDirectionEnum),
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},

@@ -41,8 +41,12 @@ var (
 		{Name: "text", Type: field.TypeString},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"ENABLED", "DISABLED"}, Default: "ENABLED"},
 		{Name: "kind", Type: field.TypeEnum, Enums: []string{"PRIMARY", "SECONDARY"}, Default: "PRIMARY"},
+		{Name: "config_type", Type: field.TypeEnum, Nullable: true, Enums: []string{"INTERNAL", "EXTERNAL", "LEGACY"}},
 		{Name: "tags", Type: field.TypeJSON, Nullable: true},
 		{Name: "config", Type: field.TypeJSON, Nullable: true},
+		{Name: "external_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "attributes", Type: field.TypeJSON, Nullable: true},
+		{Name: "payload", Type: field.TypeBytes, Nullable: true},
 	}
 	// CategoriesTable holds the schema information for the "categories" table.
 	CategoriesTable = &schema.Table{
