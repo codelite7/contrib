@@ -524,6 +524,9 @@ type CategoryMutation struct {
 	text          *string
 	status        *category.Status
 	kind          *category.Kind
+	tags          *[]string
+	appendtags    []string
+	_config       *map[string]string
 	clearedFields map[string]struct{}
 	todos         map[int]struct{}
 	removedtodos  map[int]struct{}
@@ -739,6 +742,120 @@ func (m *CategoryMutation) ResetKind() {
 	m.kind = nil
 }
 
+// SetTags sets the "tags" field.
+func (m *CategoryMutation) SetTags(s []string) {
+	m.tags = &s
+	m.appendtags = nil
+}
+
+// Tags returns the value of the "tags" field in the mutation.
+func (m *CategoryMutation) Tags() (r []string, exists bool) {
+	v := m.tags
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTags returns the old "tags" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldTags(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTags is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTags requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTags: %w", err)
+	}
+	return oldValue.Tags, nil
+}
+
+// AppendTags adds s to the "tags" field.
+func (m *CategoryMutation) AppendTags(s []string) {
+	m.appendtags = append(m.appendtags, s...)
+}
+
+// AppendedTags returns the list of values that were appended to the "tags" field in this mutation.
+func (m *CategoryMutation) AppendedTags() ([]string, bool) {
+	if len(m.appendtags) == 0 {
+		return nil, false
+	}
+	return m.appendtags, true
+}
+
+// ClearTags clears the value of the "tags" field.
+func (m *CategoryMutation) ClearTags() {
+	m.tags = nil
+	m.appendtags = nil
+	m.clearedFields[category.FieldTags] = struct{}{}
+}
+
+// TagsCleared returns if the "tags" field was cleared in this mutation.
+func (m *CategoryMutation) TagsCleared() bool {
+	_, ok := m.clearedFields[category.FieldTags]
+	return ok
+}
+
+// ResetTags resets all changes to the "tags" field.
+func (m *CategoryMutation) ResetTags() {
+	m.tags = nil
+	m.appendtags = nil
+	delete(m.clearedFields, category.FieldTags)
+}
+
+// SetConfig sets the "config" field.
+func (m *CategoryMutation) SetConfig(value map[string]string) {
+	m._config = &value
+}
+
+// Config returns the value of the "config" field in the mutation.
+func (m *CategoryMutation) Config() (r map[string]string, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old "config" field's value of the Category entity.
+// If the Category object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CategoryMutation) OldConfig(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ClearConfig clears the value of the "config" field.
+func (m *CategoryMutation) ClearConfig() {
+	m._config = nil
+	m.clearedFields[category.FieldConfig] = struct{}{}
+}
+
+// ConfigCleared returns if the "config" field was cleared in this mutation.
+func (m *CategoryMutation) ConfigCleared() bool {
+	_, ok := m.clearedFields[category.FieldConfig]
+	return ok
+}
+
+// ResetConfig resets all changes to the "config" field.
+func (m *CategoryMutation) ResetConfig() {
+	m._config = nil
+	delete(m.clearedFields, category.FieldConfig)
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by ids.
 func (m *CategoryMutation) AddTodoIDs(ids ...int) {
 	if m.todos == nil {
@@ -827,7 +944,7 @@ func (m *CategoryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CategoryMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 5)
 	if m.text != nil {
 		fields = append(fields, category.FieldText)
 	}
@@ -836,6 +953,12 @@ func (m *CategoryMutation) Fields() []string {
 	}
 	if m.kind != nil {
 		fields = append(fields, category.FieldKind)
+	}
+	if m.tags != nil {
+		fields = append(fields, category.FieldTags)
+	}
+	if m._config != nil {
+		fields = append(fields, category.FieldConfig)
 	}
 	return fields
 }
@@ -851,6 +974,10 @@ func (m *CategoryMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case category.FieldKind:
 		return m.Kind()
+	case category.FieldTags:
+		return m.Tags()
+	case category.FieldConfig:
+		return m.Config()
 	}
 	return nil, false
 }
@@ -866,6 +993,10 @@ func (m *CategoryMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldStatus(ctx)
 	case category.FieldKind:
 		return m.OldKind(ctx)
+	case category.FieldTags:
+		return m.OldTags(ctx)
+	case category.FieldConfig:
+		return m.OldConfig(ctx)
 	}
 	return nil, fmt.Errorf("unknown Category field %s", name)
 }
@@ -896,6 +1027,20 @@ func (m *CategoryMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetKind(v)
 		return nil
+	case category.FieldTags:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTags(v)
+		return nil
+	case category.FieldConfig:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)
 }
@@ -925,7 +1070,14 @@ func (m *CategoryMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *CategoryMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(category.FieldTags) {
+		fields = append(fields, category.FieldTags)
+	}
+	if m.FieldCleared(category.FieldConfig) {
+		fields = append(fields, category.FieldConfig)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -938,6 +1090,14 @@ func (m *CategoryMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *CategoryMutation) ClearField(name string) error {
+	switch name {
+	case category.FieldTags:
+		m.ClearTags()
+		return nil
+	case category.FieldConfig:
+		m.ClearConfig()
+		return nil
+	}
 	return fmt.Errorf("unknown Category nullable field %s", name)
 }
 
@@ -953,6 +1113,12 @@ func (m *CategoryMutation) ResetField(name string) error {
 		return nil
 	case category.FieldKind:
 		m.ResetKind()
+		return nil
+	case category.FieldTags:
+		m.ResetTags()
+		return nil
+	case category.FieldConfig:
+		m.ResetConfig()
 		return nil
 	}
 	return fmt.Errorf("unknown Category field %s", name)

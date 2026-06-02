@@ -3121,9 +3121,9 @@ func TestNodeDescriptorClient(t *testing.T) {
 		t.Errorf("expected ID %d, got %d", category.ID, node.ID)
 	}
 
-	// Verify fields
-	if len(node.Fields) != 3 {
-		t.Errorf("expected 3 fields, got %d", len(node.Fields))
+	// Verify fields (text, status, kind, tags, config).
+	if len(node.Fields) != 5 {
+		t.Errorf("expected 5 fields, got %d", len(node.Fields))
 	}
 }
 

@@ -177,6 +177,26 @@ func KindNotIn(vs ...Kind) predicate.Category {
 	return predicate.Category(sql.FieldNotIn(FieldKind, vs...))
 }
 
+// TagsIsNil applies the IsNil predicate on the "tags" field.
+func TagsIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldTags))
+}
+
+// TagsNotNil applies the NotNil predicate on the "tags" field.
+func TagsNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldTags))
+}
+
+// ConfigIsNil applies the IsNil predicate on the "config" field.
+func ConfigIsNil() predicate.Category {
+	return predicate.Category(sql.FieldIsNull(FieldConfig))
+}
+
+// ConfigNotNil applies the NotNil predicate on the "config" field.
+func ConfigNotNil() predicate.Category {
+	return predicate.Category(sql.FieldNotNull(FieldConfig))
+}
+
 // HasTodos applies the HasEdge predicate on the "todos" edge.
 func HasTodos() predicate.Category {
 	return predicate.Category(func(s *sql.Selector) {

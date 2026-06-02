@@ -54,6 +54,22 @@ func (Category) Fields() []ent.Field {
 				entgqlgo.UseEnumNames(),
 				entgqlgo.DeprecatedEnumValues("Secondary"),
 			),
+		// String-list field annotated with a GraphQL SDL list type. Exercises the
+		// SDL-type translator: "[String!]" must render as
+		// graphql.NewList(graphql.NewNonNull(graphql.String)), not raw SDL.
+		field.Strings("tags").
+			Optional().
+			Annotations(
+				entgqlgo.Type("[String!]"),
+			),
+		// Field annotated with an unknown named type. Exercises the CustomTypes
+		// registry fallback: "CustomScalarXYZ" must render as
+		// customTypeOr("CustomScalarXYZ", graphql.String).
+		field.JSON("config", map[string]string{}).
+			Optional().
+			Annotations(
+				entgqlgo.Type("CustomScalarXYZ"),
+			),
 	}
 }
 

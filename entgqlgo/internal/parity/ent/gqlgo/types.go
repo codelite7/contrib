@@ -19,6 +19,24 @@ import (
 // this map are silently omitted from the type's interface list.
 var CustomInterfaces = map[string]*graphql.Interface{}
 
+// CustomTypes maps type names referenced by entgqlgo.Type annotations (for
+// types that are not built-in GraphQL scalars, e.g. custom enums or scalars
+// defined outside ent) to their graphql.Type definitions. Populate this map
+// before building the schema. Names referenced by Type annotations but not
+// present here fall back to graphql.String (see customTypeOr).
+var CustomTypes = map[string]graphql.Type{}
+
+// customTypeOr returns the registered custom type for name, or fallback if no
+// such type has been registered in CustomTypes. graphql.Type satisfies both the
+// graphql.Input and graphql.Output interfaces, so the result is usable for both
+// input-object and output-object field configs.
+func customTypeOr(name string, fallback graphql.Type) graphql.Type {
+	if t, ok := CustomTypes[name]; ok && t != nil {
+		return t
+	}
+	return fallback
+}
+
 var (
 	// CategoryType is the GraphQL type for Category.
 	CategoryType *graphql.Object

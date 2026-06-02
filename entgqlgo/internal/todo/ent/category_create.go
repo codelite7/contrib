@@ -71,6 +71,18 @@ func (_c *CategoryCreate) SetNillableKind(v *category.Kind) *CategoryCreate {
 	return _c
 }
 
+// SetTags sets the "tags" field.
+func (_c *CategoryCreate) SetTags(v []string) *CategoryCreate {
+	_c.mutation.SetTags(v)
+	return _c
+}
+
+// SetConfig sets the "config" field.
+func (_c *CategoryCreate) SetConfig(v map[string]string) *CategoryCreate {
+	_c.mutation.SetConfig(v)
+	return _c
+}
+
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
 func (_c *CategoryCreate) AddTodoIDs(ids ...int) *CategoryCreate {
 	_c.mutation.AddTodoIDs(ids...)
@@ -206,6 +218,12 @@ var categoryCreateSpec = entgen.CreateSpec[*CategoryMutation]{
 				},
 			},
 		},
+		{
+			Name: "tags",
+		},
+		{
+			Name: "config",
+		},
 	},
 	Edges: []entgen.EdgeSpec[*CategoryMutation]{},
 }
@@ -273,6 +291,20 @@ var categoryCreateDescriptor = entbuilder.CreateDescriptor[config, Category, *Ca
 			field.TypeEnum,
 			(*CategoryMutation).Kind,
 			func(n *Category, v category.Kind) { n.Kind = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, []string](
+			category.FieldTags,
+			field.TypeJSON,
+			(*CategoryMutation).Tags,
+			func(n *Category, v []string) { n.Tags = v },
+		),
+
+		entbuilder.SimpleField[config, Category, *CategoryMutation, map[string]string](
+			category.FieldConfig,
+			field.TypeJSON,
+			(*CategoryMutation).Config,
+			func(n *Category, v map[string]string) { n.Config = v },
 		),
 	},
 	Edges: []entbuilder.EdgeDescriptor[config, Category, *CategoryMutation]{

@@ -712,9 +712,13 @@ func gqlgoType(f *gen.Field) string {
 	case t == field.TypeBytes:
 		return "graphql.String" // Bytes serialized as base64 string
 	case t == field.TypeJSON:
-		// Check for custom type annotation first.
+		// Check for custom type annotation first. The annotation value is a
+		// GraphQL SDL type expression (e.g. "[String!]") that must be translated
+		// into a graphql-go Go expression before being emitted into source.
 		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
-			return ant.Type
+			if expr, err := sdlTypeToGo(ant.Type); err == nil {
+				return expr
+			}
 		}
 		// Check if the underlying Go type is a slice (e.g. []string, []int).
 		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
@@ -724,9 +728,13 @@ func gqlgoType(f *gen.Field) string {
 	case t == field.TypeEnum:
 		return "graphql.String" // Enums handled separately in templates
 	case t == field.TypeOther:
-		// Check for custom type annotation first.
+		// Check for custom type annotation first. The annotation value is a
+		// GraphQL SDL type expression (e.g. "[String!]") that must be translated
+		// into a graphql-go Go expression before being emitted into source.
 		if ant, err := annotation(f.Annotations); err == nil && ant.Type != "" {
-			return ant.Type
+			if expr, err := sdlTypeToGo(ant.Type); err == nil {
+				return expr
+			}
 		}
 		// Check if the underlying Go type is a slice (e.g. []string, []int).
 		if inner, ok := sliceElementGraphQLType(f.Type.String()); ok {
@@ -736,6 +744,90 @@ func gqlgoType(f *gen.Field) string {
 	default:
 		return "graphql.String"
 	}
+}
+
+// sdlBuiltinScalars maps GraphQL built-in scalar names to their graphql-go
+// expression. Names not present here are treated as custom types and resolved
+// at runtime via the generated CustomTypes registry.
+var sdlBuiltinScalars = map[string]string{
+	"String":  "graphql.String",
+	"Int":     "graphql.Int",
+	"Float":   "graphql.Float",
+	"Boolean": "graphql.Boolean",
+	"ID":      "graphql.ID",
+	"Time":    "TimeScalar",
+}
+
+// sdlTypeToGo translates a GraphQL SDL type expression (as supplied via an
+// entgqlgo.Type annotation) into a graphql-go Go expression suitable for
+// emitting directly into generated source.
+//
+// Supported grammar (named type with optional list/non-null wrappers):
+//
+//	Type    := List | NonNull | Named
+//	List    := "[" Type "]"
+//	NonNull := (List | Named) "!"
+//	Named   := identifier
+//
+// Built-in scalars (String, Int, Float, Boolean, ID, Time) map to the
+// corresponding graphql-go value. Any other named type is emitted as a lookup
+// into the generated CustomTypes registry with a graphql.String fallback, e.g.
+// customTypeOr("AppAuthMethod", graphql.String).
+func sdlTypeToGo(sdl string) (string, error) {
+	expr := strings.TrimSpace(sdl)
+	if expr == "" {
+		return "", fmt.Errorf("entgqlgo: empty SDL type expression")
+	}
+	// Trailing "!" makes the (list or named) type non-null.
+	if strings.HasSuffix(expr, "!") {
+		inner, err := sdlTypeToGo(expr[:len(expr)-1])
+		if err != nil {
+			return "", err
+		}
+		return "graphql.NewNonNull(" + inner + ")", nil
+	}
+	// "[X]" is a list of X.
+	if strings.HasPrefix(expr, "[") {
+		if !strings.HasSuffix(expr, "]") {
+			return "", fmt.Errorf("entgqlgo: unbalanced list brackets in SDL type %q", sdl)
+		}
+		inner, err := sdlTypeToGo(expr[1 : len(expr)-1])
+		if err != nil {
+			return "", err
+		}
+		return "graphql.NewList(" + inner + ")", nil
+	}
+	if strings.ContainsAny(expr, "[]!") {
+		return "", fmt.Errorf("entgqlgo: malformed SDL type %q", sdl)
+	}
+	// Bare named type.
+	if !isSDLName(expr) {
+		return "", fmt.Errorf("entgqlgo: invalid SDL type name %q", sdl)
+	}
+	if builtin, ok := sdlBuiltinScalars[expr]; ok {
+		return builtin, nil
+	}
+	// Unknown named type: resolve via the generated CustomTypes registry with a
+	// graphql.String fallback so generation never produces invalid Go.
+	return "customTypeOr(\"" + expr + "\", graphql.String)", nil
+}
+
+// isSDLName reports whether s is a valid GraphQL name: /[_A-Za-z][_0-9A-Za-z]*/.
+func isSDLName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r == '_':
+		case r >= 'A' && r <= 'Z':
+		case r >= 'a' && r <= 'z':
+		case i > 0 && r >= '0' && r <= '9':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // isDeprecatedEnumValue reports whether the given enum value is listed in the

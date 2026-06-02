@@ -26,6 +26,8 @@ type CreateCategoryInput struct {
 	Text    string
 	Status  *category.Status
 	Kind    *category.Kind
+	Tags    []string
+	Config  map[string]string
 	TodoIDs []int
 }
 
@@ -37,6 +39,12 @@ func (i *CreateCategoryInput) Mutate(m *CategoryMutation) {
 	}
 	if v := i.Kind; v != nil {
 		m.SetKind(*v)
+	}
+	if v := i.Tags; v != nil {
+		m.SetTags(v)
+	}
+	if v := i.Config; v != nil {
+		m.SetConfig(v)
 	}
 	if v := i.TodoIDs; len(v) > 0 {
 		m.AddTodoIDs(v...)
@@ -54,6 +62,11 @@ type UpdateCategoryInput struct {
 	Text          *string
 	Status        *category.Status
 	Kind          *category.Kind
+	ClearTags     bool
+	Tags          []string
+	AppendTags    []string
+	ClearConfig   bool
+	Config        map[string]string
 	ClearTodos    bool
 	AddTodoIDs    []int
 	RemoveTodoIDs []int
@@ -69,6 +82,21 @@ func (i *UpdateCategoryInput) Mutate(m *CategoryMutation) {
 	}
 	if v := i.Kind; v != nil {
 		m.SetKind(*v)
+	}
+	if i.ClearTags {
+		m.ClearTags()
+	}
+	if v := i.Tags; v != nil {
+		m.SetTags(v)
+	}
+	if i.AppendTags != nil {
+		m.AppendTags(i.Tags)
+	}
+	if i.ClearConfig {
+		m.ClearConfig()
+	}
+	if v := i.Config; v != nil {
+		m.SetConfig(v)
 	}
 	if i.ClearTodos {
 		m.ClearTodos()

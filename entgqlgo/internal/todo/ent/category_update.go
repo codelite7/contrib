@@ -27,6 +27,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
 )
@@ -83,6 +84,36 @@ func (_u *CategoryUpdate) SetNillableKind(v *category.Kind) *CategoryUpdate {
 	if v != nil {
 		_u.SetKind(*v)
 	}
+	return _u
+}
+
+// SetTags sets the "tags" field.
+func (_u *CategoryUpdate) SetTags(v []string) *CategoryUpdate {
+	_u.mutation.SetTags(v)
+	return _u
+}
+
+// AppendTags appends value to the "tags" field.
+func (_u *CategoryUpdate) AppendTags(v []string) *CategoryUpdate {
+	_u.mutation.AppendTags(v)
+	return _u
+}
+
+// ClearTags clears the value of the "tags" field.
+func (_u *CategoryUpdate) ClearTags() *CategoryUpdate {
+	_u.mutation.ClearTags()
+	return _u
+}
+
+// SetConfig sets the "config" field.
+func (_u *CategoryUpdate) SetConfig(v map[string]string) *CategoryUpdate {
+	_u.mutation.SetConfig(v)
+	return _u
+}
+
+// ClearConfig clears the value of the "config" field.
+func (_u *CategoryUpdate) ClearConfig() *CategoryUpdate {
+	_u.mutation.ClearConfig()
 	return _u
 }
 
@@ -206,6 +237,42 @@ var categoryUpdateDescriptor = entbuilder.UpdateDescriptor[config, *CategoryMuta
 					return value, true, nil
 				}
 				return nil, false, nil
+			},
+		},
+
+		{
+			Column: category.FieldTags,
+			Type:   field.TypeJSON,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Tags(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Append: func(m *CategoryMutation) (func(*sql.UpdateBuilder), bool, error) {
+				if value, ok := m.AppendedTags(); ok {
+					return func(u *sql.UpdateBuilder) {
+						sqljson.Append(u, category.FieldTags, value)
+					}, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.TagsCleared()
+			},
+		},
+
+		{
+			Column: category.FieldConfig,
+			Type:   field.TypeJSON,
+			Set: func(m *CategoryMutation) (driver.Value, bool, error) {
+				if value, ok := m.Config(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *CategoryMutation) bool {
+				return m.ConfigCleared()
 			},
 		},
 	},
@@ -342,6 +409,36 @@ func (_u *CategoryUpdateOne) SetNillableKind(v *category.Kind) *CategoryUpdateOn
 	if v != nil {
 		_u.SetKind(*v)
 	}
+	return _u
+}
+
+// SetTags sets the "tags" field.
+func (_u *CategoryUpdateOne) SetTags(v []string) *CategoryUpdateOne {
+	_u.mutation.SetTags(v)
+	return _u
+}
+
+// AppendTags appends value to the "tags" field.
+func (_u *CategoryUpdateOne) AppendTags(v []string) *CategoryUpdateOne {
+	_u.mutation.AppendTags(v)
+	return _u
+}
+
+// ClearTags clears the value of the "tags" field.
+func (_u *CategoryUpdateOne) ClearTags() *CategoryUpdateOne {
+	_u.mutation.ClearTags()
+	return _u
+}
+
+// SetConfig sets the "config" field.
+func (_u *CategoryUpdateOne) SetConfig(v map[string]string) *CategoryUpdateOne {
+	_u.mutation.SetConfig(v)
+	return _u
+}
+
+// ClearConfig clears the value of the "config" field.
+func (_u *CategoryUpdateOne) ClearConfig() *CategoryUpdateOne {
+	_u.mutation.ClearConfig()
 	return _u
 }
 

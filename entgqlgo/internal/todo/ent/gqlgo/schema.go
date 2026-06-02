@@ -493,6 +493,12 @@ var (
 			"kind": &graphql.InputObjectFieldConfig{
 				Type: CategoryKindEnum,
 			},
+			"tags": &graphql.InputObjectFieldConfig{
+				Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+			},
+			"config": &graphql.InputObjectFieldConfig{
+				Type: customTypeOr("CustomScalarXYZ", graphql.String),
+			},
 			"todoIDs": &graphql.InputObjectFieldConfig{
 				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs of the todos edges.",
@@ -511,6 +517,20 @@ var (
 			},
 			"kind": &graphql.InputObjectFieldConfig{
 				Type: CategoryKindEnum,
+			},
+			"tags": &graphql.InputObjectFieldConfig{
+				Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+			},
+			"clearTags": &graphql.InputObjectFieldConfig{
+				Type:        graphql.Boolean,
+				Description: "Clear the tags field.",
+			},
+			"config": &graphql.InputObjectFieldConfig{
+				Type: customTypeOr("CustomScalarXYZ", graphql.String),
+			},
+			"clearConfig": &graphql.InputObjectFieldConfig{
+				Type:        graphql.Boolean,
+				Description: "Clear the config field.",
 			},
 			"addTodoIDs": &graphql.InputObjectFieldConfig{
 				Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
@@ -618,6 +638,12 @@ func ParseCreateCategoryInput(input map[string]interface{}) (*ent.CreateCategory
 			result.Kind = &val
 		}
 	}
+	if v, ok := input["tags"]; ok && v != nil {
+		// Handle []string type
+	}
+	if v, ok := input["config"]; ok && v != nil {
+		// Handle map[string]string type
+	}
 	if v, ok := input["todoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
 			for _, idVal := range ids {
@@ -651,6 +677,22 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*ent.UpdateCategory
 		if str, ok := v.(string); ok {
 			val := category.Kind(str)
 			result.Kind = &val
+		}
+	}
+	if v, ok := input["tags"]; ok && v != nil {
+		// Handle []string type
+	}
+	if v, ok := input["clearTags"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearTags = b
+		}
+	}
+	if v, ok := input["config"]; ok && v != nil {
+		// Handle map[string]string type
+	}
+	if v, ok := input["clearConfig"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearConfig = b
 		}
 	}
 	if v, ok := input["addTodoIDs"]; ok && v != nil {
