@@ -415,6 +415,7 @@ var (
 			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
+			{{- if not $f.IsEdgeField }}
 			{{- $createOptional := or $f.Optional $f.Default (not (not $f.DefaultFunc)) }}
 			"{{ camel $f.Name }}": &graphql.InputObjectFieldConfig{
 				Type: {{ if not $createOptional }}graphql.NewNonNull({{ end }}{{ if $f.IsEnum }}{{ $n.Name }}{{ $f.StructField }}Enum{{ else }}{{ gqlgoType $f }}{{ end }}{{ if not $createOptional }}){{ end }},
@@ -425,22 +426,19 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- end }}
-			{{- /* Edge fields for create - skip if field with same name exists */ -}}
+			{{- end }}
+			{{- /* Edge fields for create */ -}}
 			{{- range $e := $inputEdges }}
 			{{- if $e.Unique }}
-			{{- if not (gqlgoHasFieldNamed $n (printf "%sID" (camel $e.Name))) }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
 				Type: graphql.ID,
 				Description: "ID of the {{ $e.Name }} edge.",
 			},
-			{{- end }}
 			{{- else }}
-			{{- if not (gqlgoHasFieldNamed $n (printf "%sIDs" (singular (camel $e.Name)))) }}
 			"{{ singular (camel $e.Name) }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs of the {{ $e.Name }} edges.",
 			},
-			{{- end }}
 			{{- end }}
 			{{- end }}
 		},
@@ -453,6 +451,7 @@ var (
 			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
+			{{- if not $f.IsEdgeField }}
 			"{{ camel $f.Name }}": &graphql.InputObjectFieldConfig{
 				Type: {{ if $f.IsEnum }}{{ $n.Name }}{{ $f.StructField }}Enum{{ else }}{{ gqlgoType $f }}{{ end }},
 				{{- if $f.Comment }}
@@ -468,15 +467,14 @@ var (
 			{{- end }}
 			{{- end }}
 			{{- end }}
-			{{- /* Edge fields for update - skip if field with same name exists */ -}}
+			{{- end }}
+			{{- /* Edge fields for update */ -}}
 			{{- range $e := $inputEdges }}
 			{{- if $e.Unique }}
-			{{- if not (gqlgoHasFieldNamed $n (printf "%sID" (camel $e.Name))) }}
 			"{{ camel $e.Name }}ID": &graphql.InputObjectFieldConfig{
 				Type: graphql.ID,
 				Description: "ID of the {{ $e.Name }} edge.",
 			},
-			{{- end }}
 			{{- if $e.Optional }}
 			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
@@ -484,18 +482,14 @@ var (
 			},
 			{{- end }}
 			{{- else }}
-			{{- if not (gqlgoHasFieldNamed $n (printf "add%sIDs" (singular $e.Name | pascal))) }}
 			"add{{ singular $e.Name | pascal }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs to add to the {{ $e.Name }} edges.",
 			},
-			{{- end }}
-			{{- if not (gqlgoHasFieldNamed $n (printf "remove%sIDs" (singular $e.Name | pascal))) }}
 			"remove{{ singular $e.Name | pascal }}IDs": &graphql.InputObjectFieldConfig{
 				Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
 				Description: "IDs to remove from the {{ $e.Name }} edges.",
 			},
-			{{- end }}
 			"clear{{ $e.StructField }}": &graphql.InputObjectFieldConfig{
 				Type: graphql.Boolean,
 				Description: "Clear all {{ $e.Name }} edges.",

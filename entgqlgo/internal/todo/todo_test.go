@@ -1792,6 +1792,84 @@ func TestCreateWithEdge(t *testing.T) {
 	}
 }
 
+// TestCreateFriendship tests creating a join entity whose only fields are
+// edge-bound, GraphQL-skipped foreign keys. The create input must expose the
+// two edge ID fields (todoID/categoryID) — regression for the empty-input bug
+// that made graphql.NewSchema reject CreateFriendshipInput entirely.
+func TestCreateFriendship(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := newTestSchema(client)
+	if err != nil {
+		t.Fatalf("failed to create schema: %v", err)
+	}
+
+	// Create the two entities the friendship joins.
+	td, err := client.Todo.Create().
+		SetText("Joined todo").
+		SetStatus(todo.StatusPending).
+		SetPriority(1).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create todo: %v", err)
+	}
+	cat, err := client.Category.Create().
+		SetText("Joined category").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("failed to create category: %v", err)
+	}
+
+	// Create the friendship via mutation, supplying both edge IDs.
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: fmt.Sprintf(`mutation {
+			createFriendship(input: {
+				todoID: "%d"
+				categoryID: "%d"
+			}) {
+				id
+				todo { id text }
+				category { id text }
+			}
+		}`, td.ID, cat.ID),
+		Context: ctx,
+	})
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("GraphQL mutation had errors: %v", result.Errors)
+	}
+
+	data := result.Data.(map[string]interface{})
+	created := data["createFriendship"].(map[string]interface{})
+
+	gotTodo := created["todo"].(map[string]interface{})
+	if gotTodo["id"] != fmt.Sprintf("%d", td.ID) {
+		t.Errorf("expected todo id %d, got %v", td.ID, gotTodo["id"])
+	}
+	gotCat := created["category"].(map[string]interface{})
+	if gotCat["id"] != fmt.Sprintf("%d", cat.ID) {
+		t.Errorf("expected category id %d, got %v", cat.ID, gotCat["id"])
+	}
+
+	// Verify both edges were persisted.
+	fs, err := client.Friendship.Query().WithTodo().WithCategory().All(ctx)
+	if err != nil {
+		t.Fatalf("failed to query friendships: %v", err)
+	}
+	if len(fs) != 1 {
+		t.Fatalf("expected 1 friendship in database, got %d", len(fs))
+	}
+	if fs[0].Edges.Todo == nil || fs[0].Edges.Todo.ID != td.ID {
+		t.Errorf("expected friendship todo edge to be set to %d, got %v", td.ID, fs[0].Edges.Todo)
+	}
+	if fs[0].Edges.Category == nil || fs[0].Edges.Category.ID != cat.ID {
+		t.Errorf("expected friendship category edge to be set to %d, got %v", cat.ID, fs[0].Edges.Category)
+	}
+}
+
 // ========== Relay Node interface tests ==========
 
 // TestNodeQuery tests fetching a single node by global ID.

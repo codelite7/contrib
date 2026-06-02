@@ -24,6 +24,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/friendship"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent/dialect/sql"
 	"github.com/graphql-go/graphql"
@@ -353,6 +354,132 @@ func paginateCategoryQuery(
 	conn.Edges = make([]*CategoryEdge, len(nodes))
 	for i, node := range nodes {
 		conn.Edges[i] = &CategoryEdge{
+			Node:   node,
+			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
+		}
+	}
+
+	if len(conn.Edges) > 0 {
+		conn.PageInfo.StartCursor = &conn.Edges[0].Cursor
+		conn.PageInfo.EndCursor = &conn.Edges[len(conn.Edges)-1].Cursor
+	}
+	conn.PageInfo.HasNextPage = (first != nil && hasMore) || before != nil
+	conn.PageInfo.HasPreviousPage = (last != nil && hasMore) || after != nil
+
+	return conn, nil
+}
+
+// FriendshipEdge represents an edge in a Friendship connection.
+type FriendshipEdge struct {
+	Node   *ent.Friendship      `json:"node,omitempty"`
+	Cursor entgqlgo.Cursor[int] `json:"cursor"`
+}
+
+// FriendshipConnection represents a connection to a list of Friendships.
+type FriendshipConnection struct {
+	Edges      []*FriendshipEdge      `json:"edges,omitempty"`
+	PageInfo   entgqlgo.PageInfo[int] `json:"pageInfo"`
+	TotalCount int                    `json:"totalCount"`
+}
+
+// FriendshipEdgeType is the GraphQL type for FriendshipEdge.
+var FriendshipEdgeType = graphql.NewObject(graphql.ObjectConfig{
+	Name:        "FriendshipEdge",
+	Description: "An edge in a Friendship connection.",
+	Fields: graphql.FieldsThunk(func() graphql.Fields {
+		return graphql.Fields{
+			"node": &graphql.Field{
+				Type:        FriendshipType,
+				Description: "The item at the end of the edge.",
+			},
+			"cursor": &graphql.Field{
+				Type:        graphql.NewNonNull(CursorScalar),
+				Description: "A cursor for use in pagination.",
+			},
+		}
+	}),
+})
+
+// FriendshipConnectionType is the GraphQL type for FriendshipConnection.
+var FriendshipConnectionType = graphql.NewObject(graphql.ObjectConfig{
+	Name:        "FriendshipConnection",
+	Description: "A connection to a list of Friendships.",
+	Fields: graphql.Fields{
+		"edges": &graphql.Field{
+			Type:        graphql.NewList(FriendshipEdgeType),
+			Description: "A list of edges.",
+		},
+		"pageInfo": &graphql.Field{
+			Type:        graphql.NewNonNull(PageInfoType),
+			Description: "Information to aid in pagination.",
+		},
+		"totalCount": &graphql.Field{
+			Type:        graphql.NewNonNull(graphql.Int),
+			Description: "Identifies the total count of items in the connection.",
+		},
+	},
+})
+
+// paginateFriendshipQuery applies Relay-style cursor pagination to the given query.
+// The query may already have filters and eager-loading applied; ent executes all queries.
+func paginateFriendshipQuery(
+	ctx context.Context,
+	query *ent.FriendshipQuery,
+	after, before *entgqlgo.Cursor[int],
+	first, last *int,
+) (*FriendshipConnection, error) {
+	// Total count before cursor/limit constraints.
+	totalCount, err := query.Clone().Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply cursor predicates.
+	if after != nil {
+		query = query.Where(friendship.IDGT(after.ID))
+	}
+	if before != nil {
+		query = query.Where(friendship.IDLT(before.ID))
+	}
+
+	// Apply ordering and limit. Ordering must be applied together with the
+	// pagination direction to avoid conflicting orders.
+	limit := 0
+	if first != nil {
+		limit = *first + 1 // +1 to detect whether more items exist
+		query = query.Order(friendship.ByID())
+		query = query.Limit(limit)
+	} else if last != nil {
+		limit = *last + 1
+		query = query.Order(friendship.ByID(sql.OrderDesc()))
+		query = query.Limit(limit)
+	} else {
+		query = query.Order(friendship.ByID())
+	}
+
+	nodes, err := query.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := &FriendshipConnection{TotalCount: totalCount}
+
+	// Trim the +1 lookahead row.
+	hasMore := len(nodes) > 0 && limit > 0 && len(nodes) == limit
+	if hasMore {
+		nodes = nodes[:len(nodes)-1]
+	}
+
+	// Restore requested order for backward pagination.
+	if last != nil {
+		for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+			nodes[i], nodes[j] = nodes[j], nodes[i]
+		}
+	}
+
+	conn.Edges = make([]*FriendshipEdge, len(nodes))
+	for i, node := range nodes {
+		conn.Edges[i] = &FriendshipEdge{
 			Node:   node,
 			Cursor: entgqlgo.Cursor[int]{ID: node.ID},
 		}

@@ -111,12 +111,14 @@ func Driver(driver dialect.Driver) Option {
 // Hooks and Inters hold per-entity hooks and interceptors for fast access.
 type (
 	Hooks struct {
-		Category []Hook
-		Todo     []Hook
+		Category   []Hook
+		Friendship []Hook
+		Todo       []Hook
 	}
 	Inters struct {
-		Category []Interceptor
-		Todo     []Interceptor
+		Category   []Interceptor
+		Friendship []Interceptor
+		Todo       []Interceptor
 	}
 )
 
@@ -536,6 +538,7 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeCategory = "Category"
-	TypeTodo     = "Todo"
+	TypeCategory   = "Category"
+	TypeFriendship = "Friendship"
+	TypeTodo       = "Todo"
 )

@@ -436,7 +436,35 @@ func (m *MutationDescriptor) skip(immutable bool, skip SkipMode) bool {
 	return immutable || skip.Is(SkipMutationUpdateInput)
 }
 
+// HasInput reports whether the mutation input would expose at least one
+// GraphQL input field (a scalar/enum field or an edge ID field). graphql-go
+// rejects an InputObject with zero fields at schema-construction time, so an
+// input that filters down to nothing must be omitted entirely — along with its
+// Parse function, Go struct, and create/update mutation field. This mirrors the
+// set of fields the schema/mutation_input templates actually emit.
+func (m *MutationDescriptor) HasInput() (bool, error) {
+	fields, err := m.InputFields()
+	if err != nil {
+		return false, err
+	}
+	if len(fields) > 0 {
+		return true, nil
+	}
+	edges, err := m.InputEdges()
+	if err != nil {
+		return false, err
+	}
+	return len(edges) > 0, nil
+}
+
 // mutationInputs returns the list of input types for the mutation.
+//
+// Inputs that would render with zero GraphQL fields (e.g. a pure join entity
+// whose only fields are edge-bound foreign keys that are themselves skipped,
+// leaving no non-edge fields, combined with no eligible edges) are omitted:
+// emitting an empty graphql.InputObject makes graphql.NewSchema fail. Dropping
+// the descriptor here keeps the input type, its Parse function, the Go struct,
+// and the create/update mutation field consistent (all four iterate this list).
 func mutationInputs(nodes []*gen.Type) ([]*MutationDescriptor, error) {
 	filteredNodes := make([]*MutationDescriptor, 0, len(nodes))
 	for _, n := range nodes {
@@ -449,10 +477,18 @@ func mutationInputs(nodes []*gen.Type) ([]*MutationDescriptor, error) {
 				(!a.IsCreate && ant.Skip.Is(SkipMutationUpdateInput)) {
 				continue
 			}
-			filteredNodes = append(filteredNodes, &MutationDescriptor{
+			desc := &MutationDescriptor{
 				Type:     n,
 				IsCreate: a.IsCreate,
-			})
+			}
+			hasInput, err := desc.HasInput()
+			if err != nil {
+				return nil, err
+			}
+			if !hasInput {
+				continue
+			}
+			filteredNodes = append(filteredNodes, desc)
 		}
 	}
 	return filteredNodes, nil

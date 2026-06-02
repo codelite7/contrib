@@ -24,6 +24,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/friendship"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 
@@ -38,6 +39,9 @@ var (
 
 	// CategoryWhereInputType is the GraphQL InputObject for filtering Category queries.
 	CategoryWhereInputType *graphql.InputObject
+
+	// FriendshipWhereInputType is the GraphQL InputObject for filtering Friendship queries.
+	FriendshipWhereInputType *graphql.InputObject
 
 	// TodoWhereInputType is the GraphQL InputObject for filtering Todo queries.
 	TodoWhereInputType *graphql.InputObject
@@ -303,6 +307,67 @@ func init() {
 				"hasTodosWith": &graphql.InputObjectFieldConfig{
 					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
 					Description: "Filter by todos edge with conditions.",
+				},
+			}
+		}),
+	})
+
+	FriendshipWhereInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name:        "FriendshipWhereInput",
+		Description: "FriendshipWhereInput is used for filtering Friendship objects.",
+		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
+			return graphql.InputObjectConfigFieldMap{
+				"not": &graphql.InputObjectFieldConfig{
+					Type:        FriendshipWhereInputType,
+					Description: "Logical NOT of the condition.",
+				},
+				"and": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(FriendshipWhereInputType)),
+					Description: "Logical AND of conditions.",
+				},
+				"or": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(FriendshipWhereInputType)),
+					Description: "Logical OR of conditions.",
+				},
+				"id": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.ID)),
+				},
+				"idGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"idLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.ID,
+				},
+				"hasTodo": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if todo edge exists.",
+				},
+				"hasTodoWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(TodoWhereInputType)),
+					Description: "Filter by todo edge with conditions.",
+				},
+				"hasCategory": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Check if category edge exists.",
+				},
+				"hasCategoryWith": &graphql.InputObjectFieldConfig{
+					Type:        graphql.NewList(graphql.NewNonNull(CategoryWhereInputType)),
+					Description: "Filter by category edge with conditions.",
 				},
 			}
 		}),
@@ -1601,6 +1666,325 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 						return nil, fmt.Errorf("parsing 'hasTodosWith[%d]': %w", i, err)
 					}
 					input.HasTodosWith = append(input.HasTodosWith, withInput)
+				}
+			}
+		}
+	}
+
+	return input, nil
+}
+
+// FriendshipWhereInput represents a where input for filtering Friendship queries.
+type FriendshipWhereInput struct {
+	Predicates []predicate.Friendship  `json:"-"`
+	Not        *FriendshipWhereInput   `json:"not,omitempty"`
+	Or         []*FriendshipWhereInput `json:"or,omitempty"`
+	And        []*FriendshipWhereInput `json:"and,omitempty"`
+
+	// "id" field predicates.
+	ID      *int  `json:"id,omitempty"`
+	IDNEQ   *int  `json:"idNEQ,omitempty"`
+	IDIn    []int `json:"idIn,omitempty"`
+	IDNotIn []int `json:"idNotIn,omitempty"`
+	IDGT    *int  `json:"idGT,omitempty"`
+	IDGTE   *int  `json:"idGTE,omitempty"`
+	IDLT    *int  `json:"idLT,omitempty"`
+	IDLTE   *int  `json:"idLTE,omitempty"`
+
+	// "todo" edge predicates.
+	HasTodo     *bool             `json:"hasTodo,omitempty"`
+	HasTodoWith []*TodoWhereInput `json:"hasTodoWith,omitempty"`
+
+	// "category" edge predicates.
+	HasCategory     *bool                 `json:"hasCategory,omitempty"`
+	HasCategoryWith []*CategoryWhereInput `json:"hasCategoryWith,omitempty"`
+}
+
+// AddPredicates adds custom predicates to the where input to be used during the filtering phase.
+func (i *FriendshipWhereInput) AddPredicates(predicates ...predicate.Friendship) {
+	i.Predicates = append(i.Predicates, predicates...)
+}
+
+// Filter applies the FriendshipWhereInput filter on the FriendshipQuery builder.
+func (i *FriendshipWhereInput) Filter(q *ent.FriendshipQuery) (*ent.FriendshipQuery, error) {
+	if i == nil {
+		return q, nil
+	}
+	p, err := i.P()
+	if err != nil {
+		if err == ErrEmptyFriendshipWhereInput {
+			return q, nil
+		}
+		return nil, err
+	}
+	return q.Where(p), nil
+}
+
+// ErrEmptyFriendshipWhereInput is returned in case the FriendshipWhereInput is empty.
+var ErrEmptyFriendshipWhereInput = errors.New("gqlgo: empty predicate FriendshipWhereInput")
+
+// P returns a predicate for filtering friendships.
+// An error is returned if the input is empty or invalid.
+func (i *FriendshipWhereInput) P() (predicate.Friendship, error) {
+	var predicates []predicate.Friendship
+	if i.Not != nil {
+		p, err := i.Not.P()
+		if err != nil {
+			return nil, fmt.Errorf("%w: field 'not'", err)
+		}
+		predicates = append(predicates, friendship.Not(p))
+	}
+	switch n := len(i.Or); {
+	case n == 1:
+		p, err := i.Or[0].P()
+		if err != nil {
+			return nil, fmt.Errorf("%w: field 'or'", err)
+		}
+		predicates = append(predicates, p)
+	case n > 1:
+		or := make([]predicate.Friendship, 0, n)
+		for _, w := range i.Or {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'or'", err)
+			}
+			or = append(or, p)
+		}
+		predicates = append(predicates, friendship.Or(or...))
+	}
+	switch n := len(i.And); {
+	case n == 1:
+		p, err := i.And[0].P()
+		if err != nil {
+			return nil, fmt.Errorf("%w: field 'and'", err)
+		}
+		predicates = append(predicates, p)
+	case n > 1:
+		and := make([]predicate.Friendship, 0, n)
+		for _, w := range i.And {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'and'", err)
+			}
+			and = append(and, p)
+		}
+		predicates = append(predicates, friendship.And(and...))
+	}
+	predicates = append(predicates, i.Predicates...)
+	if i.ID != nil {
+		predicates = append(predicates, friendship.IDEQ(*i.ID))
+	}
+	if i.IDNEQ != nil {
+		predicates = append(predicates, friendship.IDNEQ(*i.IDNEQ))
+	}
+	if len(i.IDIn) > 0 {
+		predicates = append(predicates, friendship.IDIn(i.IDIn...))
+	}
+	if len(i.IDNotIn) > 0 {
+		predicates = append(predicates, friendship.IDNotIn(i.IDNotIn...))
+	}
+	if i.IDGT != nil {
+		predicates = append(predicates, friendship.IDGT(*i.IDGT))
+	}
+	if i.IDGTE != nil {
+		predicates = append(predicates, friendship.IDGTE(*i.IDGTE))
+	}
+	if i.IDLT != nil {
+		predicates = append(predicates, friendship.IDLT(*i.IDLT))
+	}
+	if i.IDLTE != nil {
+		predicates = append(predicates, friendship.IDLTE(*i.IDLTE))
+	}
+
+	if i.HasTodo != nil {
+		p := friendship.HasTodo()
+		if !*i.HasTodo {
+			p = friendship.Not(p)
+		}
+		predicates = append(predicates, p)
+	}
+	if len(i.HasTodoWith) > 0 {
+		with := make([]predicate.Todo, 0, len(i.HasTodoWith))
+		for _, w := range i.HasTodoWith {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'HasTodoWith'", err)
+			}
+			with = append(with, p)
+		}
+		predicates = append(predicates, friendship.HasTodoWith(with...))
+	}
+	if i.HasCategory != nil {
+		p := friendship.HasCategory()
+		if !*i.HasCategory {
+			p = friendship.Not(p)
+		}
+		predicates = append(predicates, p)
+	}
+	if len(i.HasCategoryWith) > 0 {
+		with := make([]predicate.Category, 0, len(i.HasCategoryWith))
+		for _, w := range i.HasCategoryWith {
+			p, err := w.P()
+			if err != nil {
+				return nil, fmt.Errorf("%w: field 'HasCategoryWith'", err)
+			}
+			with = append(with, p)
+		}
+		predicates = append(predicates, friendship.HasCategoryWith(with...))
+	}
+	switch len(predicates) {
+	case 1:
+		return predicates[0], nil
+	default:
+		return friendship.And(predicates...), nil
+	}
+}
+
+// ParseFriendshipWhereInput converts a map[string]interface{} from GraphQL into a typed FriendshipWhereInput.
+func ParseFriendshipWhereInput(m map[string]interface{}) (*FriendshipWhereInput, error) {
+	if m == nil {
+		return nil, nil
+	}
+	input := &FriendshipWhereInput{}
+
+	// Parse not
+	if v, ok := m["not"]; ok && v != nil {
+		if notMap, ok := v.(map[string]interface{}); ok {
+			notInput, err := ParseFriendshipWhereInput(notMap)
+			if err != nil {
+				return nil, fmt.Errorf("parsing 'not': %w", err)
+			}
+			input.Not = notInput
+		}
+	}
+
+	// Parse and
+	if v, ok := m["and"]; ok && v != nil {
+		if andSlice, ok := v.([]interface{}); ok {
+			for i, item := range andSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					andInput, err := ParseFriendshipWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'and[%d]': %w", i, err)
+					}
+					input.And = append(input.And, andInput)
+				}
+			}
+		}
+	}
+
+	// Parse or
+	if v, ok := m["or"]; ok && v != nil {
+		if orSlice, ok := v.([]interface{}); ok {
+			for i, item := range orSlice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					orInput, err := ParseFriendshipWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'or[%d]': %w", i, err)
+					}
+					input.Or = append(input.Or, orInput)
+				}
+			}
+		}
+	}
+	// Parse id
+	if v, ok := m["id"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.ID = &val
+		}
+	}
+	// Parse idNEQ
+	if v, ok := m["idNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDNEQ = &val
+		}
+	}
+	// Parse idIn
+	if v, ok := m["idIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDIn = append(input.IDIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idNotIn
+	if v, ok := m["idNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.IDNotIn = append(input.IDNotIn, int(i))
+				}
+			}
+		}
+	}
+	// Parse idGT
+	if v, ok := m["idGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGT = &val
+		}
+	}
+	// Parse idGTE
+	if v, ok := m["idGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDGTE = &val
+		}
+	}
+	// Parse idLT
+	if v, ok := m["idLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLT = &val
+		}
+	}
+	// Parse idLTE
+	if v, ok := m["idLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int(i)
+			input.IDLTE = &val
+		}
+	}
+	// Parse hasTodo
+	if v, ok := m["hasTodo"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasTodo = &b
+		}
+	}
+	// Parse hasTodoWith
+	if v, ok := m["hasTodoWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseTodoWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasTodoWith[%d]': %w", i, err)
+					}
+					input.HasTodoWith = append(input.HasTodoWith, withInput)
+				}
+			}
+		}
+	}
+	// Parse hasCategory
+	if v, ok := m["hasCategory"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.HasCategory = &b
+		}
+	}
+	// Parse hasCategoryWith
+	if v, ok := m["hasCategoryWith"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for i, item := range slice {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					withInput, err := ParseCategoryWhereInput(itemMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing 'hasCategoryWith[%d]': %w", i, err)
+					}
+					input.HasCategoryWith = append(input.HasCategoryWith, withInput)
 				}
 			}
 		}

@@ -50,6 +50,32 @@ var (
 		Columns:    CategoriesColumns,
 		PrimaryKey: []*schema.Column{CategoriesColumns[0]},
 	}
+	// FriendshipsColumns holds the columns for the "friendships" table.
+	FriendshipsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "todo_id", Type: field.TypeInt},
+		{Name: "category_id", Type: field.TypeInt},
+	}
+	// FriendshipsTable holds the schema information for the "friendships" table.
+	FriendshipsTable = &schema.Table{
+		Name:       "friendships",
+		Columns:    FriendshipsColumns,
+		PrimaryKey: []*schema.Column{FriendshipsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "friendships_todos_todo",
+				Columns:    []*schema.Column{FriendshipsColumns[1]},
+				RefColumns: []*schema.Column{TodosColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "friendships_categories_category",
+				Columns:    []*schema.Column{FriendshipsColumns[2]},
+				RefColumns: []*schema.Column{CategoriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// TodosColumns holds the columns for the "todos" table.
 	TodosColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -84,11 +110,14 @@ var (
 	Tables = []*schema.Table{
 		BillProductsTable,
 		CategoriesTable,
+		FriendshipsTable,
 		TodosTable,
 	}
 )
 
 func init() {
+	FriendshipsTable.ForeignKeys[0].RefTable = TodosTable
+	FriendshipsTable.ForeignKeys[1].RefTable = CategoriesTable
 	TodosTable.ForeignKeys[0].RefTable = CategoriesTable
 	TodosTable.ForeignKeys[1].RefTable = TodosTable
 }

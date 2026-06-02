@@ -52,6 +52,70 @@ func (r *CategoryTodosResolver) Resolve(p graphql.ResolveParams) (interface{}, e
 	return source.QueryTodos().All(p.Context)
 }
 
+// FriendshipTodoResolver resolves the todo edge for Friendship.
+// It first checks if the edge was already loaded via eager loading.
+// If not, it falls back to querying the database.
+type FriendshipTodoResolver struct {
+	client *ent.Client
+}
+
+// NewFriendshipTodoResolver creates a new resolver for the todo edge.
+func NewFriendshipTodoResolver(client *ent.Client) *FriendshipTodoResolver {
+	return &FriendshipTodoResolver{client: client}
+}
+
+// Resolve implements the edge resolution for Friendship.todo.
+func (r *FriendshipTodoResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Friendship)
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Todo; edge != nil {
+		return edge, nil
+	}
+
+	// Fall back to query
+	edge, err := source.QueryTodo().Only(p.Context)
+	if err != nil {
+		return nil, err
+	}
+	return edge, nil
+}
+
+// FriendshipCategoryResolver resolves the category edge for Friendship.
+// It first checks if the edge was already loaded via eager loading.
+// If not, it falls back to querying the database.
+type FriendshipCategoryResolver struct {
+	client *ent.Client
+}
+
+// NewFriendshipCategoryResolver creates a new resolver for the category edge.
+func NewFriendshipCategoryResolver(client *ent.Client) *FriendshipCategoryResolver {
+	return &FriendshipCategoryResolver{client: client}
+}
+
+// Resolve implements the edge resolution for Friendship.category.
+func (r *FriendshipCategoryResolver) Resolve(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Friendship)
+	if !ok {
+		return nil, nil
+	}
+
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Category; edge != nil {
+		return edge, nil
+	}
+
+	// Fall back to query
+	edge, err := source.QueryCategory().Only(p.Context)
+	if err != nil {
+		return nil, err
+	}
+	return edge, nil
+}
+
 // TodoParentResolver resolves the parent edge for Todo.
 // It first checks if the edge was already loaded via eager loading.
 // If not, it falls back to querying the database.
@@ -149,6 +213,16 @@ func NewEdgeResolverMap(client *ent.Client) *EdgeResolverMap {
 // CategoryTodos returns the resolver for Category.todos.
 func (m *EdgeResolverMap) CategoryTodos() graphql.FieldResolveFn {
 	return NewCategoryTodosResolver(m.client).Resolve
+}
+
+// FriendshipTodo returns the resolver for Friendship.todo.
+func (m *EdgeResolverMap) FriendshipTodo() graphql.FieldResolveFn {
+	return NewFriendshipTodoResolver(m.client).Resolve
+}
+
+// FriendshipCategory returns the resolver for Friendship.category.
+func (m *EdgeResolverMap) FriendshipCategory() graphql.FieldResolveFn {
+	return NewFriendshipCategoryResolver(m.client).Resolve
 }
 
 // TodoParent returns the resolver for Todo.parent.

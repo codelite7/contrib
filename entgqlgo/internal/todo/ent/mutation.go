@@ -25,6 +25,7 @@ import (
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/friendship"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent"
@@ -42,6 +43,7 @@ const (
 	// Node types.
 	TypeBillProduct = "BillProduct"
 	TypeCategory    = "Category"
+	TypeFriendship  = "Friendship"
 	TypeTodo        = "Todo"
 )
 
@@ -1206,6 +1208,489 @@ func (m *CategoryMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Category edge %s", name)
+}
+
+// FriendshipMutation represents an operation that mutates the Friendship nodes in the graph.
+type FriendshipMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int
+	clearedFields   map[string]struct{}
+	todo            *int
+	clearedtodo     bool
+	category        *int
+	clearedcategory bool
+	done            bool
+	oldValue        func(context.Context) (*Friendship, error)
+	predicates      []predicate.Friendship
+}
+
+var _ ent.Mutation = (*FriendshipMutation)(nil)
+
+// friendshipOption allows management of the mutation configuration using functional options.
+type friendshipOption func(*FriendshipMutation)
+
+// newFriendshipMutation creates new mutation for the Friendship entity.
+func newFriendshipMutation(c config, op Op, opts ...friendshipOption) *FriendshipMutation {
+	m := &FriendshipMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeFriendship,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withFriendshipID sets the ID field of the mutation.
+func withFriendshipID(id int) friendshipOption {
+	return func(m *FriendshipMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Friendship
+		)
+		m.oldValue = func(ctx context.Context) (*Friendship, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Friendship.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withFriendship sets the old Friendship of the mutation.
+func withFriendship(node *Friendship) friendshipOption {
+	return func(m *FriendshipMutation) {
+		m.oldValue = func(context.Context) (*Friendship, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m FriendshipMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m FriendshipMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *FriendshipMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *FriendshipMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Friendship.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTodoID sets the "todo_id" field.
+func (m *FriendshipMutation) SetTodoID(i int) {
+	m.todo = &i
+}
+
+// TodoID returns the value of the "todo_id" field in the mutation.
+func (m *FriendshipMutation) TodoID() (r int, exists bool) {
+	v := m.todo
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTodoID returns the old "todo_id" field's value of the Friendship entity.
+// If the Friendship object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FriendshipMutation) OldTodoID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTodoID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTodoID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTodoID: %w", err)
+	}
+	return oldValue.TodoID, nil
+}
+
+// ResetTodoID resets all changes to the "todo_id" field.
+func (m *FriendshipMutation) ResetTodoID() {
+	m.todo = nil
+}
+
+// SetCategoryID sets the "category_id" field.
+func (m *FriendshipMutation) SetCategoryID(i int) {
+	m.category = &i
+}
+
+// CategoryID returns the value of the "category_id" field in the mutation.
+func (m *FriendshipMutation) CategoryID() (r int, exists bool) {
+	v := m.category
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCategoryID returns the old "category_id" field's value of the Friendship entity.
+// If the Friendship object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FriendshipMutation) OldCategoryID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCategoryID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCategoryID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCategoryID: %w", err)
+	}
+	return oldValue.CategoryID, nil
+}
+
+// ResetCategoryID resets all changes to the "category_id" field.
+func (m *FriendshipMutation) ResetCategoryID() {
+	m.category = nil
+}
+
+// ClearTodo clears the "todo" edge to the Todo entity.
+func (m *FriendshipMutation) ClearTodo() {
+	m.clearedtodo = true
+	m.clearedFields[friendship.FieldTodoID] = struct{}{}
+}
+
+// TodoCleared reports if the "todo" edge to the Todo entity was cleared.
+func (m *FriendshipMutation) TodoCleared() bool {
+	return m.clearedtodo
+}
+
+// TodoIDs returns the "todo" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TodoID instead. It exists only for internal usage by the builders.
+func (m *FriendshipMutation) TodoIDs() (ids []int) {
+	if id := m.todo; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTodo resets all changes to the "todo" edge.
+func (m *FriendshipMutation) ResetTodo() {
+	m.todo = nil
+	m.clearedtodo = false
+}
+
+// ClearCategory clears the "category" edge to the Category entity.
+func (m *FriendshipMutation) ClearCategory() {
+	m.clearedcategory = true
+	m.clearedFields[friendship.FieldCategoryID] = struct{}{}
+}
+
+// CategoryCleared reports if the "category" edge to the Category entity was cleared.
+func (m *FriendshipMutation) CategoryCleared() bool {
+	return m.clearedcategory
+}
+
+// CategoryIDs returns the "category" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CategoryID instead. It exists only for internal usage by the builders.
+func (m *FriendshipMutation) CategoryIDs() (ids []int) {
+	if id := m.category; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCategory resets all changes to the "category" edge.
+func (m *FriendshipMutation) ResetCategory() {
+	m.category = nil
+	m.clearedcategory = false
+}
+
+// Where appends a list predicates to the FriendshipMutation builder.
+func (m *FriendshipMutation) Where(ps ...predicate.Friendship) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the FriendshipMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *FriendshipMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Friendship, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *FriendshipMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *FriendshipMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Friendship).
+func (m *FriendshipMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *FriendshipMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.todo != nil {
+		fields = append(fields, friendship.FieldTodoID)
+	}
+	if m.category != nil {
+		fields = append(fields, friendship.FieldCategoryID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *FriendshipMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case friendship.FieldTodoID:
+		return m.TodoID()
+	case friendship.FieldCategoryID:
+		return m.CategoryID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *FriendshipMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case friendship.FieldTodoID:
+		return m.OldTodoID(ctx)
+	case friendship.FieldCategoryID:
+		return m.OldCategoryID(ctx)
+	}
+	return nil, fmt.Errorf("unknown Friendship field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FriendshipMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case friendship.FieldTodoID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTodoID(v)
+		return nil
+	case friendship.FieldCategoryID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCategoryID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Friendship field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *FriendshipMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *FriendshipMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *FriendshipMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Friendship numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *FriendshipMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *FriendshipMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *FriendshipMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Friendship nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *FriendshipMutation) ResetField(name string) error {
+	switch name {
+	case friendship.FieldTodoID:
+		m.ResetTodoID()
+		return nil
+	case friendship.FieldCategoryID:
+		m.ResetCategoryID()
+		return nil
+	}
+	return fmt.Errorf("unknown Friendship field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *FriendshipMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.todo != nil {
+		edges = append(edges, friendship.EdgeTodo)
+	}
+	if m.category != nil {
+		edges = append(edges, friendship.EdgeCategory)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *FriendshipMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case friendship.EdgeTodo:
+		if id := m.todo; id != nil {
+			return []ent.Value{*id}
+		}
+	case friendship.EdgeCategory:
+		if id := m.category; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *FriendshipMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *FriendshipMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *FriendshipMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedtodo {
+		edges = append(edges, friendship.EdgeTodo)
+	}
+	if m.clearedcategory {
+		edges = append(edges, friendship.EdgeCategory)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *FriendshipMutation) EdgeCleared(name string) bool {
+	switch name {
+	case friendship.EdgeTodo:
+		return m.clearedtodo
+	case friendship.EdgeCategory:
+		return m.clearedcategory
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *FriendshipMutation) ClearEdge(name string) error {
+	switch name {
+	case friendship.EdgeTodo:
+		m.ClearTodo()
+		return nil
+	case friendship.EdgeCategory:
+		m.ClearCategory()
+		return nil
+	}
+	return fmt.Errorf("unknown Friendship unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *FriendshipMutation) ResetEdge(name string) error {
+	switch name {
+	case friendship.EdgeTodo:
+		m.ResetTodo()
+		return nil
+	case friendship.EdgeCategory:
+		m.ResetCategory()
+		return nil
+	}
+	return fmt.Errorf("unknown Friendship edge %s", name)
 }
 
 // TodoMutation represents an operation that mutates the Todo nodes in the graph.

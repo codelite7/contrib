@@ -25,6 +25,7 @@ import (
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/billproduct"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todo/ent/friendship"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
@@ -91,6 +92,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			billproduct.Table: billproduct.ValidColumn,
 			category.Table:    category.ValidColumn,
+			friendship.Table:  friendship.ValidColumn,
 			todo.Table:        todo.ValidColumn,
 		})
 	})

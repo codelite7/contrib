@@ -104,6 +104,18 @@ func (i *UpdateCategoryInput) Mutate(m *ent.CategoryMutation) {
 	}
 }
 
+// CreateFriendshipInput represents a mutation input for creating friendships.
+type CreateFriendshipInput struct {
+	TodoID     int
+	CategoryID int
+}
+
+// Mutate applies the CreateFriendshipInput on the FriendshipMutation builder.
+func (i *CreateFriendshipInput) Mutate(m *ent.FriendshipMutation) {
+	m.SetTodoID(i.TodoID)
+	m.SetCategoryID(i.CategoryID)
+}
+
 // CreateTodoInput represents a mutation input for creating todos.
 type CreateTodoInput struct {
 	Status     todo.Status

@@ -332,6 +332,34 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return err == nil, err
 				}),
 			},
+			"createFriendship": &graphql.Field{
+				Type: graphql.NewNonNull(FriendshipType),
+				Args: graphql.FieldConfigArgument{
+					"input": &graphql.ArgumentConfig{
+						Type:        graphql.NewNonNull(CreateFriendshipInputType),
+						Description: "Input for creating a Friendship.",
+					},
+				},
+				Description: "Create a new Friendship.",
+				Resolve: maybeWithTx(client, o, func(p graphql.ResolveParams) (interface{}, error) {
+					inputArg, ok := p.Args["input"]
+					if !ok {
+						return nil, fmt.Errorf("input is required")
+					}
+					inputMap, ok := inputArg.(map[string]interface{})
+					if !ok {
+						return nil, fmt.Errorf("input must be an object")
+					}
+					input, err := ParseCreateFriendshipInput(inputMap)
+					if err != nil {
+						return nil, fmt.Errorf("parsing input: %w", err)
+					}
+					c := clientFromContext(p.Context, client)
+					builder := c.Friendship.Create()
+					input.Mutate(builder.Mutation())
+					return builder.Save(p.Context)
+				}),
+			},
 			"createTodo": &graphql.Field{
 				Type: graphql.NewNonNull(TodoType),
 				Args: graphql.FieldConfigArgument{
@@ -459,6 +487,20 @@ var (
 			"clearTodos": &graphql.InputObjectFieldConfig{
 				Type:        graphql.Boolean,
 				Description: "Clear all todos edges.",
+			},
+		},
+	})
+	// CreateFriendshipInputType is the GraphQL input type for creating a Friendship.
+	CreateFriendshipInputType = graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: "CreateFriendshipInput",
+		Fields: graphql.InputObjectConfigFieldMap{
+			"todoID": &graphql.InputObjectFieldConfig{
+				Type:        graphql.ID,
+				Description: "ID of the todo edge.",
+			},
+			"categoryID": &graphql.InputObjectFieldConfig{
+				Type:        graphql.ID,
+				Description: "ID of the category edge.",
 			},
 		},
 	})
@@ -595,6 +637,26 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*UpdateCategoryInpu
 		if b, ok := v.(bool); ok {
 			result.ClearTodos = b
 		}
+	}
+	return result, nil
+}
+
+// ParseCreateFriendshipInput parses a map into CreateFriendshipInput.
+func ParseCreateFriendshipInput(input map[string]interface{}) (*CreateFriendshipInput, error) {
+	result := &CreateFriendshipInput{}
+	if v, ok := input["todoID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid todoID: %w", err)
+		}
+		result.TodoID = id
+	}
+	if v, ok := input["categoryID"]; ok && v != nil {
+		id, err := strconv.Atoi(fmt.Sprint(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid categoryID: %w", err)
+		}
+		result.CategoryID = id
 	}
 	return result, nil
 }

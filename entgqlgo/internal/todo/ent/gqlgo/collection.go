@@ -134,6 +134,77 @@ func CategoryQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*ent
 	return query
 }
 
+// FriendshipQueryCollectFields adds eager loading to a FriendshipQuery based on the
+// selected fields in the GraphQL query. This prevents N+1 query problems.
+func FriendshipQueryCollectFields(ctx context.Context, info graphql.ResolveInfo, query *ent.FriendshipQuery) *ent.FriendshipQuery {
+	fields := entgqlgo.CollectFields(info)
+	return FriendshipQueryCollectFieldsFromList(ctx, fields, query)
+}
+
+// FriendshipQueryCollectFieldsFromList adds eager loading for a list of field names.
+func FriendshipQueryCollectFieldsFromList(ctx context.Context, fields []string, query *ent.FriendshipQuery) *ent.FriendshipQuery {
+	for _, field := range fields {
+		switch field {
+		case "todo":
+			query = query.WithTodo()
+		case "category":
+			query = query.WithCategory()
+		}
+	}
+	return query
+}
+
+// FriendshipQueryCollectFieldsNested adds eager loading based on nested field selection.
+// This is useful for Relay connections where you want to eager load based on
+// the selection within edges -> node.
+func FriendshipQueryCollectFieldsNested(ctx context.Context, info graphql.ResolveInfo, query *ent.FriendshipQuery, path ...string) *ent.FriendshipQuery {
+	fields := entgqlgo.CollectNestedFields(info, path...)
+	return FriendshipQueryCollectFieldsFromList(ctx, fields, query)
+}
+
+// FriendshipQueryCollectFieldsConnection adds eager loading for Relay connection queries.
+// It looks at edges -> node -> <fields> to determine what to eager load.
+func FriendshipQueryCollectFieldsConnection(ctx context.Context, info graphql.ResolveInfo, query *ent.FriendshipQuery) *ent.FriendshipQuery {
+	// Check direct fields
+	query = FriendshipQueryCollectFields(ctx, info, query)
+
+	// Check nested fields in Relay connection pattern: edges -> node -> <fields>
+	query = FriendshipQueryCollectFieldsNested(ctx, info, query, "edges", "node")
+
+	return query
+}
+
+// FriendshipQueryCollectFieldsRecursive adds eager loading with support for nested edge selections.
+// It uses CollectFieldsWithArgs to recursively configure eager loading based on the full
+// GraphQL selection tree.
+func FriendshipQueryCollectFieldsRecursive(ctx context.Context, info graphql.ResolveInfo, query *ent.FriendshipQuery) *ent.FriendshipQuery {
+	fields := entgqlgo.CollectFieldsWithArgs(info)
+	return FriendshipQueryCollectFieldsFromFieldInfos(ctx, fields, query)
+}
+
+// FriendshipQueryCollectFieldsFromFieldInfos adds eager loading for nested field selections.
+func FriendshipQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlgo.FieldInfo, query *ent.FriendshipQuery) *ent.FriendshipQuery {
+	for _, field := range fields {
+		switch field.Name {
+		case "todo":
+			query = query.WithTodo(func(q *ent.TodoQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		case "category":
+			query = query.WithCategory(func(q *ent.CategoryQuery) {
+				// Recursively collect nested fields
+				if len(field.Children) > 0 {
+					CategoryQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
+				}
+			})
+		}
+	}
+	return query
+}
+
 // TodoQueryCollectFields adds eager loading to a TodoQuery based on the
 // selected fields in the GraphQL query. This prevents N+1 query problems.
 func TodoQueryCollectFields(ctx context.Context, info graphql.ResolveInfo, query *ent.TodoQuery) *ent.TodoQuery {

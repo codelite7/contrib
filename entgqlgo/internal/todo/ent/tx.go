@@ -30,6 +30,8 @@ type Tx struct {
 	BillProduct *BillProductClient
 	// Category is the client for interacting with the Category builders.
 	Category *CategoryClient
+	// Friendship is the client for interacting with the Friendship builders.
+	Friendship *FriendshipClient
 	// Todo is the client for interacting with the Todo builders.
 	Todo *TodoClient
 
@@ -165,6 +167,7 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.BillProduct = NewBillProductClient(tx.config)
 	tx.Category = NewCategoryClient(tx.config)
+	tx.Friendship = NewFriendshipClient(tx.config)
 	tx.Todo = NewTodoClient(tx.config)
 }
 

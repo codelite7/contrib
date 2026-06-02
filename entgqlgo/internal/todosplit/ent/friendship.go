@@ -20,16 +20,10 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/internal"
 )
 
-const (
-	// Operation types.
-	OpCreate    = internal.OpCreate
-	OpDelete    = internal.OpDelete
-	OpDeleteOne = internal.OpDeleteOne
-	OpUpdate    = internal.OpUpdate
-	OpUpdateOne = internal.OpUpdateOne
-
-	// Node types.
-	TypeCategory   = internal.TypeCategory
-	TypeFriendship = internal.TypeFriendship
-	TypeTodo       = internal.TypeTodo
-)
+// Model type aliases from internal.
+// Guardrail: aliasing is one-way (root -> internal), and methods belong to the type definition site.
+// Do not attach root-only methods to alias models; add model methods on internal types instead.
+// Keep the internal package free of root query/client imports to avoid import cycles.
+type Friendship = internal.Friendship
+type FriendshipEdges = internal.FriendshipEdges
+type Friendships = internal.Friendships

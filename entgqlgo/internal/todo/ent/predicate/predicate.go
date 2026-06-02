@@ -26,5 +26,8 @@ type BillProduct func(*sql.Selector)
 // Category is the predicate function for category builders.
 type Category func(*sql.Selector)
 
+// Friendship is the predicate function for friendship builders.
+type Friendship func(*sql.Selector)
+
 // Todo is the predicate function for todo builders.
 type Todo func(*sql.Selector)

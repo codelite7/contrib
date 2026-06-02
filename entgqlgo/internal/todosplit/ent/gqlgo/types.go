@@ -52,6 +52,8 @@ func customTypeOr(name string, fallback graphql.Type) graphql.Type {
 var (
 	// CategoryType is the GraphQL type for Category.
 	CategoryType *graphql.Object
+	// FriendshipType is the GraphQL type for Friendship.
+	FriendshipType *graphql.Object
 	// TodoType is the GraphQL type for Todo.
 	TodoType *graphql.Object
 )
@@ -75,6 +77,29 @@ func init() {
 				"todos": &graphql.Field{
 					Type:    graphql.NewList(graphql.NewNonNull(TodoType)),
 					Resolve: resolveCategoryTodos,
+				},
+			}
+		}),
+	})
+	FriendshipType = graphql.NewObject(graphql.ObjectConfig{
+		Name: "Friendship",
+		Interfaces: graphql.InterfacesThunk(func() []*graphql.Interface {
+			ifaces := []*graphql.Interface{NodeInterface}
+			return ifaces
+		}),
+		Fields: graphql.FieldsThunk(func() graphql.Fields {
+			return graphql.Fields{
+				"id": &graphql.Field{
+					Type:        graphql.NewNonNull(graphql.ID),
+					Description: "The unique identifier of the Friendship.",
+				},
+				"todo": &graphql.Field{
+					Type:    graphql.NewNonNull(TodoType),
+					Resolve: resolveFriendshipTodo,
+				},
+				"category": &graphql.Field{
+					Type:    graphql.NewNonNull(CategoryType),
+					Resolve: resolveFriendshipCategory,
 				},
 			}
 		}),
@@ -133,6 +158,52 @@ func resolveCategoryTodos(p graphql.ResolveParams) (interface{}, error) {
 	}
 	// Fall back to query
 	return ent.QueryCategoryTodos(ent.NewCategoryClient(source.Config), source).All(p.Context)
+}
+
+// resolveFriendshipTodo resolves the todo edge for Friendship.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
+func resolveFriendshipTodo(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Friendship)
+	if !ok {
+		return nil, nil
+	}
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Todo; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := ent.QueryFriendshipTodo(ent.NewFriendshipClient(source.Config), source).Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
+}
+
+// resolveFriendshipCategory resolves the category edge for Friendship.
+// It checks if the edge was already eager-loaded to avoid N+1 queries.
+func resolveFriendshipCategory(p graphql.ResolveParams) (interface{}, error) {
+	source, ok := p.Source.(*ent.Friendship)
+	if !ok {
+		return nil, nil
+	}
+	// Check if edge was already loaded via eager loading
+	if edge := source.Edges.Category; edge != nil {
+		return edge, nil
+	}
+	// Fall back to query
+	edge, err := ent.QueryFriendshipCategory(ent.NewFriendshipClient(source.Config), source).Only(p.Context)
+	if err != nil {
+		// For optional edges, not found is not an error - return nil
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return edge, nil
 }
 
 // resolveTodoParent resolves the parent edge for Todo.

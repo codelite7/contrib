@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/category"
+	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/friendship"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/internal"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/todo"
 	"entgo.io/ent"
@@ -88,8 +89,9 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			category.Table: category.ValidColumn,
-			todo.Table:     todo.ValidColumn,
+			category.Table:   category.ValidColumn,
+			friendship.Table: friendship.ValidColumn,
+			todo.Table:       todo.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

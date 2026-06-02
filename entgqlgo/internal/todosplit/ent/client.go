@@ -34,6 +34,8 @@ type Client struct {
 	Schema *migrate.Schema
 	// Category is the client for interacting with the Category builders.
 	Category *CategoryClient
+	// Friendship is the client for interacting with the Friendship builders.
+	Friendship *FriendshipClient
 	// Todo is the client for interacting with the Todo builders.
 	Todo *TodoClient
 }
@@ -48,6 +50,7 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.Drv)
 	c.Category = NewCategoryClient(c.Config)
+	c.Friendship = NewFriendshipClient(c.Config)
 	c.Todo = NewTodoClient(c.Config)
 }
 
@@ -83,10 +86,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.Config
 	cfg.Drv = tx
 	return &Tx{
-		ctx:      ctx,
-		Config:   cfg,
-		Category: NewCategoryClient(cfg),
-		Todo:     NewTodoClient(cfg),
+		ctx:        ctx,
+		Config:     cfg,
+		Category:   NewCategoryClient(cfg),
+		Friendship: NewFriendshipClient(cfg),
+		Todo:       NewTodoClient(cfg),
 	}, nil
 }
 
@@ -104,10 +108,11 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.Config
 	cfg.Drv = &txDriver{tx: tx, drv: c.Drv}
 	return &Tx{
-		ctx:      ctx,
-		Config:   cfg,
-		Category: NewCategoryClient(cfg),
-		Todo:     NewTodoClient(cfg),
+		ctx:        ctx,
+		Config:     cfg,
+		Category:   NewCategoryClient(cfg),
+		Friendship: NewFriendshipClient(cfg),
+		Todo:       NewTodoClient(cfg),
 	}, nil
 }
 
@@ -137,6 +142,7 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	c.Category.Use(hooks...)
+	c.Friendship.Use(hooks...)
 	c.Todo.Use(hooks...)
 }
 
@@ -144,6 +150,7 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Category.Intercept(interceptors...)
+	c.Friendship.Intercept(interceptors...)
 	c.Todo.Intercept(interceptors...)
 }
 
@@ -152,6 +159,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *CategoryMutation:
 		return c.Category.Mutate(ctx, m)
+	case *FriendshipMutation:
+		return c.Friendship.Mutate(ctx, m)
 	case *TodoMutation:
 		return c.Todo.Mutate(ctx, m)
 	default:

@@ -158,6 +158,47 @@ func (s *TodoSplitTestSuite) TestNonUniqueEdgeMutation() {
 	require.Equal(s.T(), t2.ID, todos[0].ID)
 }
 
+// TestCreateFriendship exercises the join-entity create path in the split
+// runtime: Friendship's only fields are edge-bound, GraphQL-skipped FKs, so the
+// create input must expose the two edge ID fields (todoID/categoryID) and apply
+// them via the generic SetEdgeID API. Regression for the empty-input bug that
+// made graphql.NewSchema reject CreateFriendshipInput.
+func (s *TodoSplitTestSuite) TestCreateFriendship() {
+	td, err := s.client.Todo.Create().SetText("joined").SetStatus(todo.StatusInProgress).Save(s.ctx)
+	s.Require().NoError(err)
+	cat, err := s.client.Category.Create().SetName("Joined").Save(s.ctx)
+	s.Require().NoError(err)
+
+	result := graphql.Do(graphql.Params{
+		Schema:  s.schema,
+		Context: s.ctx,
+		RequestString: `mutation ($todoID: ID!, $categoryID: ID!) {
+			createFriendship(input: {todoID: $todoID, categoryID: $categoryID}) {
+				id
+				todo { id }
+				category { id }
+			}
+		}`,
+		VariableValues: map[string]interface{}{
+			"todoID":     td.ID,
+			"categoryID": cat.ID,
+		},
+	})
+	s.Require().Empty(result.Errors, "GraphQL mutation should not have errors: %v", result.Errors)
+
+	fs, err := s.client.Friendship.Query().All(s.ctx)
+	s.Require().NoError(err)
+	require.Len(s.T(), fs, 1)
+
+	gotTodo, err := edges.QueryFriendshipTodo(s.client.Friendship, fs[0]).Only(s.ctx)
+	s.Require().NoError(err)
+	require.Equal(s.T(), td.ID, gotTodo.ID)
+
+	gotCat, err := edges.QueryFriendshipCategory(s.client.Friendship, fs[0]).Only(s.ctx)
+	s.Require().NoError(err)
+	require.Equal(s.T(), cat.ID, gotCat.ID)
+}
+
 // TestRelayQuery exercises the generated Relay connection query end-to-end
 // through the GraphQL schema, exercising the split-runtime edge/collection
 // support (hoisted Query/With edge functions).

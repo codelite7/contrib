@@ -78,6 +78,35 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 	return node, nil
 }
 
+// FriendshipNode returns the Node descriptor for a Friendship.
+func FriendshipNode(ctx context.Context, n *ent.Friendship) (*Node, error) {
+	node := &Node{
+		ID:     n.ID,
+		Type:   "Friendship",
+		Fields: make([]*Field, 0),
+		Edges:  make([]*Edge, 2),
+	}
+	node.Edges[0] = &Edge{
+		Type: "Todo",
+		Name: "todo",
+	}
+	if err := ent.QueryFriendshipTodo(ent.NewFriendshipClient(n.Config), n).
+		Select(todo.FieldID).
+		Scan(ctx, &node.Edges[0].IDs); err != nil {
+		return nil, err
+	}
+	node.Edges[1] = &Edge{
+		Type: "Category",
+		Name: "category",
+	}
+	if err := ent.QueryFriendshipCategory(ent.NewFriendshipClient(n.Config), n).
+		Select(category.FieldID).
+		Scan(ctx, &node.Edges[1].IDs); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
 // TodoNode returns the Node descriptor for a Todo.
 func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 	node := &Node{
@@ -162,6 +191,8 @@ func NodeWithDescriptor(client *ent.Client, ctx context.Context, id int) (*Node,
 	switch v := n.(type) {
 	case *ent.Category:
 		return CategoryNode(ctx, v)
+	case *ent.Friendship:
+		return FriendshipNode(ctx, v)
 	case *ent.Todo:
 		return TodoNode(ctx, v)
 	default:

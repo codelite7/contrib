@@ -55,6 +55,8 @@ var NodeInterface = graphql.NewInterface(graphql.InterfaceConfig{
 			return BillProductType
 		case *ent.Category:
 			return CategoryType
+		case *ent.Friendship:
+			return FriendshipType
 		case *ent.Todo:
 			return TodoType
 		default:
@@ -125,6 +127,12 @@ func Noder_(client *ent.Client, ctx context.Context, id interface{}) (interface{
 				return nil, fmt.Errorf("invalid Category ID: %w", err)
 			}
 			return client.Category.Get(ctx, idInt)
+		case "Friendship":
+			idInt, err := parseInt(localID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid Friendship ID: %w", err)
+			}
+			return client.Friendship.Get(ctx, idInt)
 		case "Todo":
 			idInt, err := parseInt(localID)
 			if err != nil {
@@ -145,6 +153,11 @@ func Noder_(client *ent.Client, ctx context.Context, id interface{}) (interface{
 	}
 	if idInt, err := parseInt(idStr); err == nil {
 		if node, err := client.Category.Get(ctx, idInt); err == nil {
+			return node, nil
+		}
+	}
+	if idInt, err := parseInt(idStr); err == nil {
+		if node, err := client.Friendship.Get(ctx, idInt); err == nil {
 			return node, nil
 		}
 	}
