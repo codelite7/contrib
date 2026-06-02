@@ -114,3 +114,28 @@ func TestGqlgoSplitRuntimeReadsGraphAnnotation(t *testing.T) {
 	assert.True(t, gqlgoSplitRuntime(graphWith(map[string]any{"SplitRuntime": true})))
 	assert.False(t, gqlgoSplitRuntime(graphWith(map[string]any{"SplitRuntime": false})))
 }
+
+func TestGqlgoPascalMutationsReadsGraphAnnotation(t *testing.T) {
+	name := ExtensionAnnotation{}.Name()
+
+	graphWith := func(ant any) *gen.Graph {
+		g := &gen.Graph{Config: &gen.Config{}}
+		if ant != nil {
+			g.Annotations = gen.Annotations{name: ant}
+		}
+		return g
+	}
+
+	// Nil graph / nil-config / nil annotations default to camelCase (false).
+	assert.False(t, gqlgoPascalMutations(nil))
+	assert.False(t, gqlgoPascalMutations(&gen.Graph{}))
+	assert.False(t, gqlgoPascalMutations(graphWith(nil)))
+
+	// Struct-valued annotation (in-process hook injection).
+	assert.False(t, gqlgoPascalMutations(graphWith(ExtensionAnnotation{PascalMutationNames: false})))
+	assert.True(t, gqlgoPascalMutations(graphWith(ExtensionAnnotation{PascalMutationNames: true})))
+
+	// Map-valued annotation (JSON round-tripped shape) is handled too.
+	assert.True(t, gqlgoPascalMutations(graphWith(map[string]any{"PascalMutationNames": true})))
+	assert.False(t, gqlgoPascalMutations(graphWith(map[string]any{"PascalMutationNames": false})))
+}

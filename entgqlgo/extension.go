@@ -27,10 +27,11 @@ type (
 		templates []*gen.Template
 
 		// Configuration
-		genWhereInput bool
-		relaySpec     bool
-		splitRuntime  bool
-		scalarFunc    func(*gen.Field, gen.Op) string
+		genWhereInput       bool
+		relaySpec           bool
+		splitRuntime        bool
+		pascalMutationNames bool
+		scalarFunc          func(*gen.Field, gen.Op) string
 	}
 
 	// ExtensionOption allows for managing the Extension configuration
@@ -46,6 +47,9 @@ type ExtensionAnnotation struct {
 	// SplitRuntime reports whether generation targets the MatthewsREIS/ent fork's
 	// split runtime layout. See WithSplitRuntime for details.
 	SplitRuntime bool
+	// PascalMutationNames reports whether root Mutation field names are emitted in
+	// PascalCase instead of the default camelCase. See WithPascalMutationNames.
+	PascalMutationNames bool
 }
 
 // Name implements the ent.Annotation interface.
@@ -94,6 +98,24 @@ func WithRelaySpec(enabled bool) ExtensionOption {
 func WithSplitRuntime(enabled bool) ExtensionOption {
 	return func(e *Extension) error {
 		e.splitRuntime = enabled
+		return nil
+	}
+}
+
+// WithPascalMutationNames generates root Mutation field names in PascalCase
+// (CreateTodo, UpdateTodo, DeleteTodo) instead of the default camelCase
+// (createTodo, updateTodo, deleteTodo). The default (camelCase) matches entgql's
+// convention; PascalCase matches consumers whose hand-written mutation layer
+// uses PascalCase names.
+//
+// The flag is stored on the Extension instance and threaded into templates via a
+// gen.Hook that injects an ExtensionAnnotation into the graph annotations before
+// rendering (see genAnnotationHook). Templates read it with the
+// gqlgoPascalMutations helper. Only the root Mutation field name strings change;
+// input type names, resolver logic, and query fields are unaffected.
+func WithPascalMutationNames(enabled bool) ExtensionOption {
+	return func(e *Extension) error {
+		e.pascalMutationNames = enabled
 		return nil
 	}
 }
@@ -149,7 +171,8 @@ func (e *Extension) genAnnotationHook() gen.Hook {
 				g.Annotations = make(gen.Annotations)
 			}
 			g.Annotations[ExtensionAnnotation{}.Name()] = ExtensionAnnotation{
-				SplitRuntime: e.splitRuntime,
+				SplitRuntime:        e.splitRuntime,
+				PascalMutationNames: e.pascalMutationNames,
 			}
 			return next.Generate(g)
 		})

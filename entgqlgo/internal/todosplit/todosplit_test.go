@@ -237,8 +237,11 @@ func (s *TodoSplitTestSuite) TestCreateFriendship() {
 	result := graphql.Do(graphql.Params{
 		Schema:  s.schema,
 		Context: s.ctx,
+		// PascalCase root mutation field name (CreateFriendship), enabled via
+		// WithPascalMutationNames(true) in ent/entc.go. The default camelCase name
+		// (createFriendship) would fail to resolve here.
 		RequestString: `mutation ($todoID: ID!, $categoryID: ID!) {
-			createFriendship(input: {todoID: $todoID, categoryID: $categoryID}) {
+			CreateFriendship(input: {todoID: $todoID, categoryID: $categoryID}) {
 				id
 				todo { id }
 				category { id }
@@ -302,4 +305,53 @@ func (s *TodoSplitTestSuite) TestRelayQuery() {
 	connEdges, ok := conn["edges"].([]interface{})
 	s.Require().True(ok)
 	require.Len(s.T(), connEdges, 3)
+}
+
+// TestPascalMutationNames is the end-to-end proof for WithPascalMutationNames(true):
+// the full Create/Update/Delete Todo lifecycle resolves through the root Mutation
+// using PascalCase field names (CreateTodo/UpdateTodo/DeleteTodo). It also asserts
+// the default camelCase names (createTodo) are absent, so the option is observably
+// in effect rather than coincidentally matching.
+func (s *TodoSplitTestSuite) TestPascalMutationNames() {
+	do := func(req string, vars map[string]interface{}) *graphql.Result {
+		return graphql.Do(graphql.Params{
+			Schema:         s.schema,
+			Context:        s.ctx,
+			RequestString:  req,
+			VariableValues: vars,
+		})
+	}
+
+	// Create via PascalCase CreateTodo.
+	created := do(`mutation {
+		CreateTodo(input: {text: "pascal", status: IN_PROGRESS}) { id text status }
+	}`, nil)
+	s.Require().Empty(created.Errors, "CreateTodo should resolve: %v", created.Errors)
+	todoData := created.Data.(map[string]interface{})["CreateTodo"].(map[string]interface{})
+	require.Equal(s.T(), "pascal", todoData["text"])
+	id := todoData["id"]
+
+	// camelCase createTodo must NOT exist (proves the option flipped the name).
+	rejected := do(`mutation {
+		createTodo(input: {text: "x", status: IN_PROGRESS}) { id }
+	}`, nil)
+	s.Require().NotEmpty(rejected.Errors, "default camelCase createTodo must not resolve when PascalCase is enabled")
+
+	// Update via PascalCase UpdateTodo.
+	updated := do(`mutation ($id: ID!) {
+		UpdateTodo(id: $id, input: {text: "pascal-updated"}) { id text }
+	}`, map[string]interface{}{"id": id})
+	s.Require().Empty(updated.Errors, "UpdateTodo should resolve: %v", updated.Errors)
+	require.Equal(s.T(), "pascal-updated",
+		updated.Data.(map[string]interface{})["UpdateTodo"].(map[string]interface{})["text"])
+
+	// Delete via PascalCase DeleteTodo.
+	deleted := do(`mutation ($id: ID!) { DeleteTodo(id: $id) }`,
+		map[string]interface{}{"id": id})
+	s.Require().Empty(deleted.Errors, "DeleteTodo should resolve: %v", deleted.Errors)
+	require.Equal(s.T(), true, deleted.Data.(map[string]interface{})["DeleteTodo"])
+
+	count, err := s.client.Todo.Query().Count(s.ctx)
+	s.Require().NoError(err)
+	require.Zero(s.T(), count, "todo should have been deleted")
 }

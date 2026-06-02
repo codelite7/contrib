@@ -433,7 +433,15 @@ query {
 | `WithRelaySpec(bool)` | `true` | Enable/disable generating the Relay `Node` interface and `node`/`nodes` query fields |
 | `WithMapScalarFunc(fn)` | built-in mapping | Custom function mapping an ent field + operator to a GraphQL scalar name |
 | `WithSplitRuntime(bool)` | `false` | Target the [MatthewsREIS/ent](https://github.com/MatthewsREIS/ent) fork's split runtime layout (see [Split-runtime mode](#split-runtime-mode)) |
+| `WithPascalMutationNames(bool)` | `false` | Emit root `Mutation` field names in PascalCase (`CreateTodo`, `UpdateTodo`, `DeleteTodo`) instead of the default camelCase (`createTodo`, …) |
 | `WithTemplates(...)` | all built-in templates | Replace the code generation templates entirely |
+
+Use `WithPascalMutationNames(true)` when a consumer's hand-written mutation layer
+(and its existing clients/tests) already uses PascalCase mutation names, so the
+generated CRUD mutations are callable under the names those clients expect. The
+default (camelCase) matches entgql's convention. Only the root `Mutation` field
+name strings change — input type names, resolver logic, and query fields are
+unaffected.
 
 ## Split-runtime mode
 

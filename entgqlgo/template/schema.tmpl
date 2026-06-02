@@ -282,10 +282,11 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
+			{{- $pascalMut := gqlgoPascalMutations $ }}
 			{{- range $m := gqlgoMutationInputs $.Nodes }}
 			{{- $n := $m.Type }}
 			{{- if $m.IsCreate }}
-			"create{{ $n.Name }}": &graphql.Field{
+			{{ if $pascalMut }}"Create{{ $n.Name }}"{{ else }}"create{{ $n.Name }}"{{ end }}: &graphql.Field{
 				Type: graphql.NewNonNull({{ $n.Name }}Type),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
@@ -314,7 +315,7 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 				}),
 			},
 			{{- else }}
-			"update{{ $n.Name }}": &graphql.Field{
+			{{ if $pascalMut }}"Update{{ $n.Name }}"{{ else }}"update{{ $n.Name }}"{{ end }}: &graphql.Field{
 				Type: graphql.NewNonNull({{ $n.Name }}Type),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -364,7 +365,7 @@ func newMutationType(client *{{ $entPkg }}.Client, o *schemaOptions) *graphql.Ob
 					{{- end }}
 				}),
 			},
-			"delete{{ $n.Name }}": &graphql.Field{
+			{{ if $pascalMut }}"Delete{{ $n.Name }}"{{ else }}"delete{{ $n.Name }}"{{ end }}: &graphql.Field{
 				Type: graphql.NewNonNull(graphql.Boolean),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{

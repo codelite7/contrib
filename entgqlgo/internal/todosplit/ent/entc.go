@@ -29,8 +29,13 @@ func main() {
 	// WithSplitRuntime(true) targets the MatthewsREIS/ent fork's split runtime
 	// layout (per-entity subpackages + entbuilder generic mutations). The fork
 	// generates the split layout unconditionally, so do NOT pass entc.Split().
+	//
+	// WithPascalMutationNames(true) emits root Mutation field names in PascalCase
+	// (CreateTodo, UpdateTodo, DeleteTodo) — matching gemini's hand-written
+	// mutation convention. This mirrors gemini's configuration of the extension.
 	ex, err := entgqlgo.NewExtension(
 		entgqlgo.WithSplitRuntime(true),
+		entgqlgo.WithPascalMutationNames(true),
 	)
 	if err != nil {
 		log.Fatalf("creating entgqlgo extension: %v", err)

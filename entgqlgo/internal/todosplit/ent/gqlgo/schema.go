@@ -242,7 +242,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: "Mutation",
 		Fields: graphql.Fields{
-			"createCategory": &graphql.Field{
+			"CreateCategory": &graphql.Field{
 				Type: graphql.NewNonNull(CategoryType),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
@@ -270,7 +270,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return builder.Save(p.Context)
 				}),
 			},
-			"updateCategory": &graphql.Field{
+			"UpdateCategory": &graphql.Field{
 				Type: graphql.NewNonNull(CategoryType),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -310,7 +310,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return builder.Save(p.Context)
 				}),
 			},
-			"deleteCategory": &graphql.Field{
+			"DeleteCategory": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.Boolean),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -333,7 +333,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return err == nil, err
 				}),
 			},
-			"createFriendship": &graphql.Field{
+			"CreateFriendship": &graphql.Field{
 				Type: graphql.NewNonNull(FriendshipType),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
@@ -361,7 +361,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return builder.Save(p.Context)
 				}),
 			},
-			"createTodo": &graphql.Field{
+			"CreateTodo": &graphql.Field{
 				Type: graphql.NewNonNull(TodoType),
 				Args: graphql.FieldConfigArgument{
 					"input": &graphql.ArgumentConfig{
@@ -389,7 +389,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return builder.Save(p.Context)
 				}),
 			},
-			"updateTodo": &graphql.Field{
+			"UpdateTodo": &graphql.Field{
 				Type: graphql.NewNonNull(TodoType),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
@@ -429,7 +429,7 @@ func newMutationType(client *ent.Client, o *schemaOptions) *graphql.Object {
 					return builder.Save(p.Context)
 				}),
 			},
-			"deleteTodo": &graphql.Field{
+			"DeleteTodo": &graphql.Field{
 				Type: graphql.NewNonNull(graphql.Boolean),
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{

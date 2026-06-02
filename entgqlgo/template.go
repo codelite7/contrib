@@ -90,6 +90,7 @@ var (
 		"gqlgoQueryFieldDescription": queryFieldDescription,
 		"gqlgoIsRelayConnNode":       isRelayConnNode,
 		"gqlgoSplitRuntime":          gqlgoSplitRuntime,
+		"gqlgoPascalMutations":       gqlgoPascalMutations,
 		"gqlgoNeedsEntbuilder":       gqlgoNeedsEntbuilder,
 		"gqlgoDeref":                 gqlgoDeref,
 		"gqlgoMutationSetField":      mutationSetField,
@@ -302,6 +303,34 @@ func gqlgoSplitRuntime(g *gen.Graph) bool {
 		return ant.SplitRuntime
 	case map[string]any:
 		v, _ := ant["SplitRuntime"].(bool)
+		return v
+	default:
+		return false
+	}
+}
+
+// gqlgoPascalMutations reports whether root Mutation field names should be
+// emitted in PascalCase (CreateTodo) instead of the default camelCase
+// (createTodo), as configured by WithPascalMutationNames(true).
+//
+// It reads the flag from the Graph's annotations, where NewExtension's
+// annotation hook injects an ExtensionAnnotation before rendering. The schema
+// template calls it once as {{ $pascalMut := gqlgoPascalMutations $ }} and
+// branches the root Mutation field name strings on it.
+//
+// As with gqlgoSplitRuntime, the annotation value may arrive either as the
+// original ExtensionAnnotation struct (in-process injection) or, if it
+// round-trips through ent's JSON annotation encoding, as a map[string]any with a
+// "PascalMutationNames" key. Both shapes are handled here.
+func gqlgoPascalMutations(g *gen.Graph) bool {
+	if g == nil || g.Config == nil || g.Annotations == nil {
+		return false
+	}
+	switch ant := g.Annotations[ExtensionAnnotation{}.Name()].(type) {
+	case ExtensionAnnotation:
+		return ant.PascalMutationNames
+	case map[string]any:
+		v, _ := ant["PascalMutationNames"].(bool)
 		return v
 	default:
 		return false
