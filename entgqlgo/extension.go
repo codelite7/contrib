@@ -29,6 +29,7 @@ type (
 		// Configuration
 		genWhereInput bool
 		relaySpec     bool
+		splitRuntime  bool
 		scalarFunc    func(*gen.Field, gen.Op) string
 	}
 
@@ -64,6 +65,24 @@ func WithWhereInputs(b bool) ExtensionOption {
 func WithRelaySpec(enabled bool) ExtensionOption {
 	return func(e *Extension) error {
 		e.relaySpec = enabled
+		return nil
+	}
+}
+
+// WithSplitRuntime configures the generated code for consumers whose ent codegen
+// uses the MatthewsREIS/ent fork's split runtime layout (per-entity subpackages +
+// entbuilder generic mutations). In this mode, generated mutation-input code uses
+// ent's generic mutation API (SetField/SetEdgeID/...) instead of typed setters.
+//
+// The flag is consulted by template FuncMap helpers (which are package-level
+// functions and cannot reach the Extension instance), so it is stored in a
+// package-level variable. Codegen is single-pass and single-threaded, so a
+// package global is safe here and mirrors how ent itself threads global codegen
+// config into template functions.
+func WithSplitRuntime(enabled bool) ExtensionOption {
+	return func(e *Extension) error {
+		e.splitRuntime = enabled
+		splitRuntime = enabled
 		return nil
 	}
 }
@@ -127,6 +146,11 @@ func (e *Extension) hasTemplate(tem *gen.Template) (int, bool) {
 	}
 	return -1, false
 }
+
+// splitRuntime mirrors the most recently configured WithSplitRuntime value so
+// that package-level template FuncMap helpers (e.g. gqlgoSplitRuntime) can read
+// it. See WithSplitRuntime for why a package global is used.
+var splitRuntime bool
 
 var (
 	_ entc.Extension = (*Extension)(nil)

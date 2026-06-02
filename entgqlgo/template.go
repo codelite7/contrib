@@ -88,26 +88,36 @@ var (
 		"gqlgoQueryFieldName":        queryFieldName,
 		"gqlgoQueryFieldDescription": queryFieldDescription,
 		"gqlgoIsRelayConnNode":       isRelayConnNode,
-		"gqlgoFieldCollections":    fieldCollections,
-		"gqlgoFieldMapping":        fieldMapping,
-		"gqlgoFilterEdges":         filterEdges,
-		"gqlgoFilterFields":        filterFields,
-		"gqlgoFilterNodes":         filterNodes,
-		"gqlgoIDType":              gqlIDType,
-		"gqlgoHasWhereInput":       hasWhereInput,
-		"gqlgoIsRelayConn":         isRelayConn,
-		"gqlgoIsSkipMode":          isSkipMode,
-		"gqlgoMutationInputs":      mutationInputs,
-		"gqlgoNodeImplementors":    nodeImplementors,
-		"gqlgoNodeImplementorsVar": nodeImplementorsVar,
-		"gqlgoNodePaginationNames": nodePaginationNames,
-		"gqlgoOrderFields":         orderFields,
-		"gqlgoSkipMode":            skipModeFromString,
-		"gqlgoTrimPrefix":          trimPrefix,
-		"gqlgoType":                gqlgoType,
-		"gqlgoScalar":              gqlgoScalar,
-		"gqlgoHasFieldNamed":       hasFieldNamed,
-		"gqlgoImplements":          gqlgoImplements,
+		"gqlgoSplitRuntime":          gqlgoSplitRuntime,
+		"gqlgoNeedsEntbuilder":       gqlgoNeedsEntbuilder,
+		"gqlgoDeref":                 gqlgoDeref,
+		"gqlgoMutationSetField":      mutationSetFieldStmt,
+		"gqlgoMutationClearField":    mutationClearFieldStmt,
+		"gqlgoMutationAppendField":   mutationAppendFieldStmt,
+		"gqlgoMutationSetEdgeID":     mutationSetEdgeIDStmt,
+		"gqlgoMutationAddEdgeIDs":    mutationAddEdgeIDsStmt,
+		"gqlgoMutationRemoveEdgeIDs": mutationRemoveEdgeIDsStmt,
+		"gqlgoMutationClearEdge":     mutationClearEdgeStmt,
+		"gqlgoFieldCollections":      fieldCollections,
+		"gqlgoFieldMapping":          fieldMapping,
+		"gqlgoFilterEdges":           filterEdges,
+		"gqlgoFilterFields":          filterFields,
+		"gqlgoFilterNodes":           filterNodes,
+		"gqlgoIDType":                gqlIDType,
+		"gqlgoHasWhereInput":         hasWhereInput,
+		"gqlgoIsRelayConn":           isRelayConn,
+		"gqlgoIsSkipMode":            isSkipMode,
+		"gqlgoMutationInputs":        mutationInputs,
+		"gqlgoNodeImplementors":      nodeImplementors,
+		"gqlgoNodeImplementorsVar":   nodeImplementorsVar,
+		"gqlgoNodePaginationNames":   nodePaginationNames,
+		"gqlgoOrderFields":           orderFields,
+		"gqlgoSkipMode":              skipModeFromString,
+		"gqlgoTrimPrefix":            trimPrefix,
+		"gqlgoType":                  gqlgoType,
+		"gqlgoScalar":                gqlgoScalar,
+		"gqlgoHasFieldNamed":         hasFieldNamed,
+		"gqlgoImplements":            gqlgoImplements,
 		"gqlgoIsDeprecatedEnumValue": isDeprecatedEnumValue,
 	}
 
@@ -265,6 +275,135 @@ func (m *MutationDescriptor) InputEdges() ([]*gen.Edge, error) {
 		edges = append(edges, e)
 	}
 	return edges, nil
+}
+
+// gqlgoSplitRuntime reports whether the extension was configured for the
+// MatthewsREIS/ent fork's split runtime layout via WithSplitRuntime(true).
+// Templates branch on it to emit generic-mutation calls instead of typed setters.
+func gqlgoSplitRuntime() bool {
+	return splitRuntime
+}
+
+// gqlgoDeref returns "*" when ptr is true, else "". Used by the mutation-input
+// template to prefix a pointer dereference onto a value expression.
+func gqlgoDeref(ptr bool) string {
+	if ptr {
+		return "*"
+	}
+	return ""
+}
+
+// gqlgoNeedsEntbuilder reports whether the mutation-input template needs to
+// import entgo.io/ent/runtime/entbuilder, i.e. split-runtime mode is on AND at
+// least one mutation input has a non-unique edge (the only place that emits
+// entbuilder.ToAny). Avoids an unused-import compile error when every edge is
+// unique. Mirrors gqlgoMutationInputs/InputEdges filtering so it stays in sync.
+func gqlgoNeedsEntbuilder(nodes []*gen.Type) (bool, error) {
+	if !splitRuntime {
+		return false, nil
+	}
+	inputs, err := mutationInputs(nodes)
+	if err != nil {
+		return false, err
+	}
+	for _, n := range inputs {
+		edges, err := n.InputEdges()
+		if err != nil {
+			return false, err
+		}
+		for _, e := range edges {
+			if !e.Unique {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// The mutation*Stmt helpers below return a complete Go statement applying one
+// field/edge operation to a mutation builder. In classic mode they emit the
+// typed setter (e.g. m.SetStatus(*v)); in split-runtime mode they emit the
+// generic entbuilder.Mutation API (e.g. _ = m.SetField("status", *v)) keyed by
+// the schema (snake_case) field/edge name. They take the already-formed Go value
+// expression so the template controls *v vs v vs i.Field. Splitting the FuncMap
+// wrapper (reads the package global) from the pure implementation keeps the
+// behaviour table-testable without mutating global state in tests.
+
+func mutationSetFieldStmt(f *InputFieldDescriptor, valueExpr string) string {
+	return mutationSetField(splitRuntime, f, valueExpr)
+}
+
+func mutationSetField(split bool, f *InputFieldDescriptor, valueExpr string) string {
+	if split {
+		return fmt.Sprintf("_ = m.SetField(%q, %s)", f.Name, valueExpr)
+	}
+	return fmt.Sprintf("m.%s(%s)", f.MutationSet(), valueExpr)
+}
+
+func mutationClearFieldStmt(f *InputFieldDescriptor) string {
+	return mutationClearField(splitRuntime, f)
+}
+
+func mutationClearField(split bool, f *InputFieldDescriptor) string {
+	if split {
+		return fmt.Sprintf("_ = m.ClearField(%q)", f.Name)
+	}
+	return fmt.Sprintf("m.%s()", "Clear"+f.StructField())
+}
+
+func mutationAppendFieldStmt(f *InputFieldDescriptor, valueExpr string) string {
+	return mutationAppendField(splitRuntime, f, valueExpr)
+}
+
+func mutationAppendField(split bool, f *InputFieldDescriptor, valueExpr string) string {
+	if split {
+		return fmt.Sprintf("_ = m.AppendField(%q, %s)", f.Name, valueExpr)
+	}
+	return fmt.Sprintf("m.%s(%s)", f.MutationAppend(), valueExpr)
+}
+
+func mutationSetEdgeIDStmt(e *gen.Edge, valueExpr string) string {
+	return mutationSetEdgeID(splitRuntime, e, valueExpr)
+}
+
+func mutationSetEdgeID(split bool, e *gen.Edge, valueExpr string) string {
+	if split {
+		return fmt.Sprintf("_ = m.SetEdgeID(%q, %s)", e.Name, valueExpr)
+	}
+	return fmt.Sprintf("m.%s(%s)", e.MutationSet(), valueExpr)
+}
+
+func mutationAddEdgeIDsStmt(e *gen.Edge, valueExpr string) string {
+	return mutationAddEdgeIDs(splitRuntime, e, valueExpr)
+}
+
+func mutationAddEdgeIDs(split bool, e *gen.Edge, valueExpr string) string {
+	if split {
+		return fmt.Sprintf("_ = m.AddEdgeIDs(%q, entbuilder.ToAny(%s)...)", e.Name, valueExpr)
+	}
+	return fmt.Sprintf("m.%s(%s...)", e.MutationAdd(), valueExpr)
+}
+
+func mutationRemoveEdgeIDsStmt(e *gen.Edge, valueExpr string) string {
+	return mutationRemoveEdgeIDs(splitRuntime, e, valueExpr)
+}
+
+func mutationRemoveEdgeIDs(split bool, e *gen.Edge, valueExpr string) string {
+	if split {
+		return fmt.Sprintf("_ = m.RemoveEdgeIDs(%q, entbuilder.ToAny(%s)...)", e.Name, valueExpr)
+	}
+	return fmt.Sprintf("m.%s(%s...)", e.MutationRemove(), valueExpr)
+}
+
+func mutationClearEdgeStmt(e *gen.Edge) string {
+	return mutationClearEdge(splitRuntime, e)
+}
+
+func mutationClearEdge(split bool, e *gen.Edge) string {
+	if split {
+		return fmt.Sprintf("_ = m.ClearEdge(%q)", e.Name)
+	}
+	return fmt.Sprintf("m.%s()", e.MutationClear())
 }
 
 func (m *MutationDescriptor) skip(immutable bool, skip SkipMode) bool {
