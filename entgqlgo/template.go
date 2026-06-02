@@ -108,6 +108,7 @@ var (
 		"gqlgoScalar":              gqlgoScalar,
 		"gqlgoHasFieldNamed":       hasFieldNamed,
 		"gqlgoImplements":          gqlgoImplements,
+		"gqlgoIsDeprecatedEnumValue": isDeprecatedEnumValue,
 	}
 
 	//go:embed template/*
@@ -735,6 +736,16 @@ func gqlgoType(f *gen.Field) string {
 	default:
 		return "graphql.String"
 	}
+}
+
+// isDeprecatedEnumValue reports whether the given enum value is listed in the
+// field's DeprecatedEnumValues annotation.
+func isDeprecatedEnumValue(f *gen.Field, value string) (bool, error) {
+	ant, err := annotation(f.Annotations)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(ant.DeprecatedEnumValues, value), nil
 }
 
 // gqlgoImplements returns the list of custom GraphQL interface names declared via

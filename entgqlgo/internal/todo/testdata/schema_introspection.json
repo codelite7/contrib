@@ -483,9 +483,9 @@
           "description": "CategoryStatus is enum for the field status",
           "enumValues": [
             {
-              "deprecationReason": null,
+              "deprecationReason": "No longer supported",
               "description": "",
-              "isDeprecated": false,
+              "isDeprecated": true,
               "name": "DISABLED"
             },
             {

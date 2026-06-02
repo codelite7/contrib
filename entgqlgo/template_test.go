@@ -297,6 +297,23 @@ func TestEdgeNullabilityLogic(t *testing.T) {
 }
 
 
+func TestIsDeprecatedEnumValue(t *testing.T) {
+	t.Parallel()
+
+	f := &gen.Field{Annotations: gen.Annotations{
+		"EntGQL": map[string]interface{}{
+			"DeprecatedEnumValues": []interface{}{"DISABLED"},
+		},
+	}}
+	dep, err := isDeprecatedEnumValue(f, "DISABLED")
+	require.NoError(t, err)
+	require.True(t, dep)
+
+	dep, err = isDeprecatedEnumValue(f, "ENABLED")
+	require.NoError(t, err)
+	require.False(t, dep)
+}
+
 func TestIsRelayConn(t *testing.T) {
 	tests := []struct {
 		name string

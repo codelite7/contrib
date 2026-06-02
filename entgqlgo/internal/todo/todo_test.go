@@ -3483,3 +3483,38 @@ func TestPlainListQueryField(t *testing.T) {
 	})
 	require.NotEmpty(t, result.Errors, "billProducts must not accept pagination arguments")
 }
+
+// TestDeprecatedEnumValue verifies enum values listed in DeprecatedEnumValues
+// are marked deprecated in the schema.
+func TestDeprecatedEnumValue(t *testing.T) {
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := newTestSchema(client)
+	require.NoError(t, err)
+
+	result := graphql.Do(graphql.Params{
+		Schema: schema,
+		RequestString: `query {
+			__type(name: "CategoryStatus") {
+				enumValues(includeDeprecated: true) {
+					name
+					isDeprecated
+					deprecationReason
+				}
+			}
+		}`,
+		Context: context.Background(),
+	})
+	require.Empty(t, result.Errors)
+
+	values := result.Data.(map[string]interface{})["__type"].(map[string]interface{})["enumValues"].([]interface{})
+	byName := map[string]map[string]interface{}{}
+	for _, v := range values {
+		vm := v.(map[string]interface{})
+		byName[vm["name"].(string)] = vm
+	}
+	require.False(t, byName["ENABLED"]["isDeprecated"].(bool))
+	require.True(t, byName["DISABLED"]["isDeprecated"].(bool))
+	require.Equal(t, "No longer supported", byName["DISABLED"]["deprecationReason"])
+}

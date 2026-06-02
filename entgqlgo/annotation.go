@@ -55,6 +55,9 @@ type (
 		// implemented by the type. Interface definitions must be registered in the
 		// generated package's CustomInterfaces map before building the schema.
 		Implements []string `json:"Implements,omitempty"`
+		// DeprecatedEnumValues is a list of enum VALUES that should be marked
+		// as deprecated in the GraphQL schema.
+		DeprecatedEnumValues []string `json:"DeprecatedEnumValues,omitempty"`
 	}
 
 	// SkipMode is a bit flag for the Skip annotation.
@@ -225,6 +228,12 @@ func Implements(interfaces ...string) Annotation {
 	return Annotation{Implements: interfaces}
 }
 
+// DeprecatedEnumValues returns an annotation marking the given enum values as
+// deprecated in the GraphQL schema.
+func DeprecatedEnumValues(values ...string) Annotation {
+	return Annotation{DeprecatedEnumValues: values}
+}
+
 // Merge implements the schema.Merger interface.
 func (a Annotation) Merge(other schema.Annotation) schema.Annotation {
 	var ant Annotation
@@ -279,6 +288,9 @@ func (a Annotation) Merge(other schema.Annotation) schema.Annotation {
 	}
 	if len(ant.Implements) > 0 {
 		a.Implements = append(a.Implements, ant.Implements...)
+	}
+	if len(ant.DeprecatedEnumValues) > 0 {
+		a.DeprecatedEnumValues = append(a.DeprecatedEnumValues, ant.DeprecatedEnumValues...)
 	}
 	return a
 }

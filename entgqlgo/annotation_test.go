@@ -221,3 +221,19 @@ func TestImplementsAnnotation(t *testing.T) {
 	}))
 	require.Equal(t, []string{"NamedNode"}, decoded.Implements)
 }
+
+func TestDeprecatedEnumValuesAnnotation(t *testing.T) {
+	t.Parallel()
+
+	a := DeprecatedEnumValues("DISABLED")
+	require.Equal(t, []string{"DISABLED"}, a.DeprecatedEnumValues)
+
+	merged := DeprecatedEnumValues("A").Merge(DeprecatedEnumValues("B")).(Annotation)
+	require.Equal(t, []string{"A", "B"}, merged.DeprecatedEnumValues)
+
+	decoded := Annotation{}
+	require.NoError(t, decoded.Decode(map[string]interface{}{
+		"DeprecatedEnumValues": []interface{}{"DISABLED"},
+	}))
+	require.Equal(t, []string{"DISABLED"}, decoded.DeprecatedEnumValues)
+}

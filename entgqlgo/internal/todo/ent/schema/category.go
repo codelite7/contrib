@@ -40,7 +40,10 @@ func (Category) Fields() []ent.Field {
 				"Enabled", "ENABLED",
 				"Disabled", "DISABLED",
 			).
-			Default("ENABLED"),
+			Default("ENABLED").
+			Annotations(
+				entgqlgo.DeprecatedEnumValues("DISABLED"),
+			),
 	}
 }
 

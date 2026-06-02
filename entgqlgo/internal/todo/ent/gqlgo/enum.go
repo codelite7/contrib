@@ -32,7 +32,8 @@ var CategoryStatusEnum = graphql.NewEnum(graphql.EnumConfig{
 			Value: "ENABLED",
 		},
 		"DISABLED": &graphql.EnumValueConfig{
-			Value: "DISABLED",
+			Value:             "DISABLED",
+			DeprecationReason: "No longer supported",
 		},
 	},
 })
