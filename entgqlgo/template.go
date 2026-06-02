@@ -94,6 +94,8 @@ var (
 		"gqlgoNeedsEntbuilder":       gqlgoNeedsEntbuilder,
 		"gqlgoDeref":                 gqlgoDeref,
 		"gqlgoDecodeField":           gqlgoDecodeField,
+		"gqlgoDecodeWhereScalar":     gqlgoDecodeWhereScalar,
+		"gqlgoDecodeWhereSlice":      gqlgoDecodeWhereSlice,
 		"gqlgoMutationSetField":      mutationSetField,
 		"gqlgoMutationClearField":    mutationClearField,
 		"gqlgoMutationAppendField":   mutationAppendField,
@@ -1241,7 +1243,7 @@ func gqlgoDecodeField(f *gen.Field, isPointer bool, valueVar, target string) (st
 	// pq.StringArray). When annotated/typed as a GraphQL list the value arrives
 	// as []interface{}; it may also arrive as a JSON string fallback.
 	case isSliceGoType(goType):
-		return sliceDecode(f, valueVar, target, goType), nil
+		return sliceDecode(f, isPointer, valueVar, target, goType), nil
 
 	// Numeric: graphql.Float -> float64, graphql.Int -> int. Accept int, int64,
 	// float64, json.Number and numeric strings, converting to the field's type.
@@ -1351,34 +1353,48 @@ func jsonDecode(f *gen.Field, isPointer bool, valueVar, target, goType string) s
 
 // sliceDecode emits decode code for slice-backed fields. A GraphQL list arrives
 // as []interface{} whose elements are decoded per the slice's element type; a
-// JSON-string fallback is json.Unmarshal'd into the whole slice type. The result
-// is always assigned by value (slice fields are never pointers in the structs).
-func sliceDecode(f *gen.Field, valueVar, target, goType string) string {
+// JSON-string fallback is json.Unmarshal'd into the whole slice type.
+//
+// In the mutation-input path slice fields are never pointers (a slice is
+// already nilable, so InputFieldDescriptor.IsPointer() is false). In the
+// where-input path, however, a *comparable* named slice type (e.g.
+// pq.StringArray) yields a scalar EQ/NEQ/... predicate whose struct field is a
+// pointer (*pq.StringArray) — so the assignment must take the address. isPointer
+// selects between the two via assignSlice.
+func sliceDecode(f *gen.Field, isPointer bool, valueVar, target, goType string) string {
 	jsonTag := f.Name
 	elem := sliceElementGoType(goType)
 	elemDecode := elementDecodeExpr(elem)
+	// assignSlice stores a slice value held in local "src" into target, taking
+	// its address when the struct field is a pointer.
+	assignSlice := func(src string) string {
+		if isPointer {
+			return fmt.Sprintf("dv := %s\n\t\t\t%s = &dv", src, target)
+		}
+		return fmt.Sprintf("%s = %s", target, src)
+	}
 	return fmt.Sprintf(`switch sv := %s.(type) {
 		case %s:
-			%s = sv
+			%s
 		case []interface{}:
 			out := make(%s, 0, len(sv))
 			for _, item := range sv {
 				%s
 			}
-			%s = out
+			%s
 		case string:
 			var dec %s
 			if err := json.Unmarshal([]byte(sv), &dec); err != nil {
 				return nil, fmt.Errorf("field %s: invalid JSON list: %%w", err)
 			}
-			%s = dec
+			%s
 		default:
 			return nil, fmt.Errorf("field %s: invalid value %%v (%%T)", %s, %s)
 		}`,
 		valueVar,
-		goType, target,
-		goType, fmt.Sprintf(elemDecode, "item"), target,
-		goType, jsonTag, target,
+		goType, assignSlice("sv"),
+		goType, fmt.Sprintf(elemDecode, "item"), assignSlice("out"),
+		goType, jsonTag, assignSlice("dec"),
 		jsonTag, valueVar, valueVar)
 }
 
@@ -1466,6 +1482,52 @@ func isSliceGoType(goType string) bool {
 // through sliceDecode (list shape) rather than jsonDecode (object shape).
 func isJSONSliceField(f *gen.Field) bool {
 	return isSliceGoType(f.Type.String())
+}
+
+// gqlgoDecodeWhereScalar emits the Go statements that decode a single scalar
+// where-input predicate value (e.g. idEQ, createdAtGT) into the where struct's
+// pointer field. It is the filter-path counterpart of the mutation-input
+// decode: the where_input template previously only knew how to decode
+// int/string/bool/time scalar predicates and emitted an empty "// Unsupported
+// type" stub for every other Go type — silently discarding the filter so e.g.
+// `where: {id: $uuid}` matched nothing (or, more dangerously, every row).
+//
+// It delegates to gqlgoDecodeField so the filter path and the mutation path
+// share one decode implementation (UUID strings, RFC3339 times, json.Number,
+// numeric coercions, etc.). The where struct field is a pointer to the field's
+// Go type unless the Go type is already a pointer (RType.IsPtr), mirroring the
+// struct shape emitted by where_input.tmpl. The template calls this only for
+// non-niladic, non-enum, non-variadic ops; enum/niladic ops are handled inline,
+// and int/string/bool/time scalars are handled inline for readability.
+func gqlgoDecodeWhereScalar(f *gen.Field, valueVar, target string) (string, error) {
+	isPointer := !f.Type.RType.IsPtr()
+	return gqlgoDecodeField(f, isPointer, valueVar, target)
+}
+
+// gqlgoDecodeWhereSlice emits the Go statements that decode a variadic
+// where-input predicate value (e.g. idIn, createdAtNotIn) into the where
+// struct's slice field []T. The value arrives from graphql-go as
+// []interface{} (a GraphQL list) whose elements carry the same per-element Go
+// shapes as the scalar path (UUID as string, time as time.Time/RFC3339 string,
+// float as float64, ...). Each element is decoded into the field's base Go type
+// via gqlgoDecodeField (reusing the single shared decode implementation) and
+// appended to the target slice. This replaces the previous "// Unsupported
+// variadic type" stub that silently dropped In/NotIn filters for any non
+// int/string/time field.
+func gqlgoDecodeWhereSlice(f *gen.Field, valueVar, target string) (string, error) {
+	// Decode one element into a fresh local "ev" then append it to target.
+	// gqlgoDecodeField with isPointer=false assigns "ev = <decoded>".
+	elemDecode, err := gqlgoDecodeField(f, false, "item", "ev")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`if slice, ok := %s.([]interface{}); ok {
+			for _, item := range slice {
+				var ev %s
+				%s
+				%s = append(%s, ev)
+			}
+		}`, valueVar, f.Type.String(), elemDecode, target, target), nil
 }
 
 // gqlgoScalar maps an ent field type to graphql-go scalar string.

@@ -17,6 +17,7 @@ package todosplit
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -434,4 +435,68 @@ func (s *TodoSplitTestSuite) TestMutationDecodesAllFieldTypes() {
 	require.Equal(s.T(), map[string]interface{}{"updated": true}, got2.Metadata)
 	require.Equal(s.T(), newExt, got2.ExternalID)
 	require.Equal(s.T(), int64(120000), got2.Duration)
+}
+
+// TestFilterDecodesAllFieldTypes is the split-runtime counterpart of the
+// where-input data-integrity regression: it asserts ParseTodoWhereInput decodes
+// non-primitive predicates (UUID, time, float) into correctly-typed ent
+// predicates instead of silently dropping them (which previously made
+// `where: {externalID: $uuid}` return every row). The where-input parsers are
+// shared with the classic path, but this proves the fix holds under the split
+// runtime layout too.
+func (s *TodoSplitTestSuite) TestFilterDecodesAllFieldTypes() {
+	extA, extB, extC := uuid.New(), uuid.New(), uuid.New()
+	dueA := time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC)
+	dueB := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+	dueC := time.Date(2010, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	mk := func(text string, ext uuid.UUID, due time.Time, score float64) {
+		s.client.Todo.Create().
+			SetText(text).
+			SetStatus(todo.StatusInProgress).
+			SetExternalID(ext).
+			SetDueDate(due).
+			SetScore(score).
+			SaveX(s.ctx)
+	}
+	mk("A", extA, dueA, 1.5)
+	mk("B", extB, dueB, 5.5)
+	mk("C", extC, dueC, 9.5)
+
+	texts := func(query string, vars map[string]interface{}) []string {
+		res := graphql.Do(graphql.Params{
+			Schema:         s.schema,
+			Context:        s.ctx,
+			RequestString:  query,
+			VariableValues: vars,
+		})
+		s.Require().Empty(res.Errors, "where query errors: %v", res.Errors)
+		conn := res.Data.(map[string]interface{})["todos"].(map[string]interface{})
+		var out []string
+		for _, e := range conn["edges"].([]interface{}) {
+			node := e.(map[string]interface{})["node"].(map[string]interface{})
+			out = append(out, node["text"].(string))
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	// Filter by UUID id: exactly one match.
+	require.Equal(s.T(), []string{"A"}, texts(
+		`query ($ext: ID!) { todos(where: {externalID: $ext}) { edges { node { text } } } }`,
+		map[string]interface{}{"ext": extA.String()}))
+	// Filter by UUID In: two matches.
+	require.Equal(s.T(), []string{"A", "C"}, texts(
+		`query ($a: ID!, $c: ID!) { todos(where: {externalIDIn: [$a, $c]}) { edges { node { text } } } }`,
+		map[string]interface{}{"a": extA.String(), "c": extC.String()}))
+	// Filter by time range: 1995 < due < 2005 -> only B.
+	require.Equal(s.T(), []string{"B"}, texts(
+		`query ($lo: Time!, $hi: Time!) { todos(where: {dueDateGT: $lo, dueDateLT: $hi}) { edges { node { text } } } }`,
+		map[string]interface{}{
+			"lo": time.Date(1995, 1, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			"hi": time.Date(2005, 1, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		}))
+	// Filter by float: score > 4.0 -> B and C.
+	require.Equal(s.T(), []string{"B", "C"}, texts(
+		`query { todos(where: {scoreGT: 4.0}) { edges { node { text } } } }`, nil))
 }

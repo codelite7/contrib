@@ -17,8 +17,10 @@
 package gqlgo
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
@@ -1911,35 +1913,177 @@ func ParseCategoryWhereInput(m map[string]interface{}) (*CategoryWhereInput, err
 	}
 	// Parse externalID
 	if v, ok := m["externalID"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalID = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalID = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalID = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDNEQ
 	if v, ok := m["externalIDNEQ"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDNEQ = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDNEQ = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDNEQ = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDIn
 	if v, ok := m["externalIDIn"]; ok && v != nil {
-		// Unsupported variadic type: uuid.UUID
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				var ev uuid.UUID
+				switch uv := item.(type) {
+				case uuid.UUID:
+					ev = uv
+				case string:
+					uu, err := uuid.Parse(uv)
+					if err != nil {
+						return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+					}
+					ev = uu
+				case [16]byte:
+					uu := uuid.UUID(uv)
+					ev = uu
+				default:
+					return nil, fmt.Errorf("field external_id: invalid value %v (%T)", item, item)
+				}
+				input.ExternalIDIn = append(input.ExternalIDIn, ev)
+			}
+		}
 	}
 	// Parse externalIDNotIn
 	if v, ok := m["externalIDNotIn"]; ok && v != nil {
-		// Unsupported variadic type: uuid.UUID
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				var ev uuid.UUID
+				switch uv := item.(type) {
+				case uuid.UUID:
+					ev = uv
+				case string:
+					uu, err := uuid.Parse(uv)
+					if err != nil {
+						return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+					}
+					ev = uu
+				case [16]byte:
+					uu := uuid.UUID(uv)
+					ev = uu
+				default:
+					return nil, fmt.Errorf("field external_id: invalid value %v (%T)", item, item)
+				}
+				input.ExternalIDNotIn = append(input.ExternalIDNotIn, ev)
+			}
+		}
 	}
 	// Parse externalIDGT
 	if v, ok := m["externalIDGT"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDGT = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDGT = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDGT = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDGTE
 	if v, ok := m["externalIDGTE"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDGTE = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDGTE = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDGTE = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDLT
 	if v, ok := m["externalIDLT"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDLT = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDLT = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDLT = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDLTE
 	if v, ok := m["externalIDLTE"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDLTE = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDLTE = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDLTE = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDIsNil
 	if v, ok := m["externalIDIsNil"]; ok && v != nil {
@@ -3133,25 +3277,107 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	}
 	// Parse score
 	if v, ok := m["score"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := float64(i)
-			input.Score = &val
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			input.Score = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			input.Score = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			input.Score = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.Score = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.Score = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse scoreNEQ
 	if v, ok := m["scoreNEQ"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := float64(i)
-			input.ScoreNEQ = &val
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreNEQ = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreNEQ = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreNEQ = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreNEQ = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreNEQ = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse scoreIn
 	if v, ok := m["scoreIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if i, ok := item.(int); ok {
-					input.ScoreIn = append(input.ScoreIn, float64(i))
+				var ev float64
+				switch nv := item.(type) {
+				case int:
+					cv := float64(nv)
+					ev = cv
+				case int64:
+					cv := float64(nv)
+					ev = cv
+				case float64:
+					cv := float64(nv)
+					ev = cv
+				case json.Number:
+					fv, err := nv.Float64()
+					if err != nil {
+						return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+					}
+					cv := float64(fv)
+					ev = cv
+				case string:
+					fv, err := strconv.ParseFloat(nv, 64)
+					if err != nil {
+						return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+					}
+					cv := float64(fv)
+					ev = cv
+				default:
+					return nil, fmt.Errorf("field score: invalid value %v (%T)", item, item)
 				}
+				input.ScoreIn = append(input.ScoreIn, ev)
 			}
 		}
 	}
@@ -3159,38 +3385,176 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	if v, ok := m["scoreNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if i, ok := item.(int); ok {
-					input.ScoreNotIn = append(input.ScoreNotIn, float64(i))
+				var ev float64
+				switch nv := item.(type) {
+				case int:
+					cv := float64(nv)
+					ev = cv
+				case int64:
+					cv := float64(nv)
+					ev = cv
+				case float64:
+					cv := float64(nv)
+					ev = cv
+				case json.Number:
+					fv, err := nv.Float64()
+					if err != nil {
+						return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+					}
+					cv := float64(fv)
+					ev = cv
+				case string:
+					fv, err := strconv.ParseFloat(nv, 64)
+					if err != nil {
+						return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+					}
+					cv := float64(fv)
+					ev = cv
+				default:
+					return nil, fmt.Errorf("field score: invalid value %v (%T)", item, item)
 				}
+				input.ScoreNotIn = append(input.ScoreNotIn, ev)
 			}
 		}
 	}
 	// Parse scoreGT
 	if v, ok := m["scoreGT"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := float64(i)
-			input.ScoreGT = &val
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreGT = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreGT = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreGT = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreGT = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreGT = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse scoreGTE
 	if v, ok := m["scoreGTE"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := float64(i)
-			input.ScoreGTE = &val
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreGTE = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreGTE = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreGTE = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreGTE = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreGTE = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse scoreLT
 	if v, ok := m["scoreLT"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := float64(i)
-			input.ScoreLT = &val
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreLT = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreLT = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreLT = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreLT = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreLT = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse scoreLTE
 	if v, ok := m["scoreLTE"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := float64(i)
-			input.ScoreLTE = &val
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreLTE = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreLTE = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			input.ScoreLTE = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreLTE = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			input.ScoreLTE = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse scoreIsNil
@@ -3275,35 +3639,177 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	}
 	// Parse externalID
 	if v, ok := m["externalID"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalID = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalID = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalID = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDNEQ
 	if v, ok := m["externalIDNEQ"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDNEQ = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDNEQ = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDNEQ = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDIn
 	if v, ok := m["externalIDIn"]; ok && v != nil {
-		// Unsupported variadic type: uuid.UUID
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				var ev uuid.UUID
+				switch uv := item.(type) {
+				case uuid.UUID:
+					ev = uv
+				case string:
+					uu, err := uuid.Parse(uv)
+					if err != nil {
+						return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+					}
+					ev = uu
+				case [16]byte:
+					uu := uuid.UUID(uv)
+					ev = uu
+				default:
+					return nil, fmt.Errorf("field external_id: invalid value %v (%T)", item, item)
+				}
+				input.ExternalIDIn = append(input.ExternalIDIn, ev)
+			}
+		}
 	}
 	// Parse externalIDNotIn
 	if v, ok := m["externalIDNotIn"]; ok && v != nil {
-		// Unsupported variadic type: uuid.UUID
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				var ev uuid.UUID
+				switch uv := item.(type) {
+				case uuid.UUID:
+					ev = uv
+				case string:
+					uu, err := uuid.Parse(uv)
+					if err != nil {
+						return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+					}
+					ev = uu
+				case [16]byte:
+					uu := uuid.UUID(uv)
+					ev = uu
+				default:
+					return nil, fmt.Errorf("field external_id: invalid value %v (%T)", item, item)
+				}
+				input.ExternalIDNotIn = append(input.ExternalIDNotIn, ev)
+			}
+		}
 	}
 	// Parse externalIDGT
 	if v, ok := m["externalIDGT"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDGT = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDGT = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDGT = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDGTE
 	if v, ok := m["externalIDGTE"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDGTE = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDGTE = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDGTE = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDLT
 	if v, ok := m["externalIDLT"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDLT = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDLT = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDLT = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDLTE
 	if v, ok := m["externalIDLTE"]; ok && v != nil {
-		// Unsupported type: uuid.UUID
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			input.ExternalIDLTE = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			input.ExternalIDLTE = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			input.ExternalIDLTE = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
 	}
 	// Parse externalIDIsNil
 	if v, ok := m["externalIDIsNil"]; ok && v != nil {
@@ -3319,25 +3825,107 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	}
 	// Parse duration
 	if v, ok := m["duration"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := int64(i)
-			input.Duration = &val
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			input.Duration = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			input.Duration = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			input.Duration = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.Duration = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.Duration = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse durationNEQ
 	if v, ok := m["durationNEQ"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := int64(i)
-			input.DurationNEQ = &val
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			input.DurationNEQ = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationNEQ = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationNEQ = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationNEQ = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationNEQ = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse durationIn
 	if v, ok := m["durationIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if i, ok := item.(int); ok {
-					input.DurationIn = append(input.DurationIn, int64(i))
+				var ev int64
+				switch nv := item.(type) {
+				case int:
+					cv := int64(nv)
+					ev = cv
+				case int64:
+					cv := int64(nv)
+					ev = cv
+				case float64:
+					cv := int64(nv)
+					ev = cv
+				case json.Number:
+					fv, err := nv.Float64()
+					if err != nil {
+						return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+					}
+					cv := int64(fv)
+					ev = cv
+				case string:
+					fv, err := strconv.ParseFloat(nv, 64)
+					if err != nil {
+						return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+					}
+					cv := int64(fv)
+					ev = cv
+				default:
+					return nil, fmt.Errorf("field duration: invalid value %v (%T)", item, item)
 				}
+				input.DurationIn = append(input.DurationIn, ev)
 			}
 		}
 	}
@@ -3345,38 +3933,176 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	if v, ok := m["durationNotIn"]; ok && v != nil {
 		if slice, ok := v.([]interface{}); ok {
 			for _, item := range slice {
-				if i, ok := item.(int); ok {
-					input.DurationNotIn = append(input.DurationNotIn, int64(i))
+				var ev int64
+				switch nv := item.(type) {
+				case int:
+					cv := int64(nv)
+					ev = cv
+				case int64:
+					cv := int64(nv)
+					ev = cv
+				case float64:
+					cv := int64(nv)
+					ev = cv
+				case json.Number:
+					fv, err := nv.Float64()
+					if err != nil {
+						return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+					}
+					cv := int64(fv)
+					ev = cv
+				case string:
+					fv, err := strconv.ParseFloat(nv, 64)
+					if err != nil {
+						return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+					}
+					cv := int64(fv)
+					ev = cv
+				default:
+					return nil, fmt.Errorf("field duration: invalid value %v (%T)", item, item)
 				}
+				input.DurationNotIn = append(input.DurationNotIn, ev)
 			}
 		}
 	}
 	// Parse durationGT
 	if v, ok := m["durationGT"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := int64(i)
-			input.DurationGT = &val
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			input.DurationGT = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationGT = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationGT = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationGT = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationGT = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse durationGTE
 	if v, ok := m["durationGTE"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := int64(i)
-			input.DurationGTE = &val
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			input.DurationGTE = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationGTE = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationGTE = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationGTE = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationGTE = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse durationLT
 	if v, ok := m["durationLT"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := int64(i)
-			input.DurationLT = &val
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			input.DurationLT = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationLT = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationLT = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationLT = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationLT = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse durationLTE
 	if v, ok := m["durationLTE"]; ok && v != nil {
-		if i, ok := v.(int); ok {
-			val := int64(i)
-			input.DurationLTE = &val
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			input.DurationLTE = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationLTE = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			input.DurationLTE = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationLTE = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			input.DurationLTE = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
 		}
 	}
 	// Parse durationIsNil

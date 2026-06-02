@@ -372,7 +372,12 @@ func init() {
             input.{{ $field }} = &val
                 {{- end }}
             {{- else if $op.Variadic }}
-                {{- if $f.Type.Numeric }}
+                {{- /* In/NotIn variants: decode the []interface{} list into the
+                       typed []T slice field. int/string/time keep their inline
+                       fast-paths; every other type (UUID, float, int64, ...) is
+                       decoded element-wise via the shared gqlgoDecodeField path
+                       instead of being silently dropped. */}}
+                {{- if eq $f.Type.String "int" }}
             if slice, ok := v.([]interface{}); ok {
                 for _, item := range slice {
                     if i, ok := item.(int); ok {
@@ -397,10 +402,15 @@ func init() {
                 }
             }
                 {{- else }}
-            // Unsupported variadic type: {{ $f.Type.Ident }}
+            {{ gqlgoDecodeWhereSlice $f "v" (printf "input.%s" $field) }}
                 {{- end }}
             {{- else }}
-                {{- if $f.Type.Numeric }}
+                {{- /* Scalar comparison variants (EQ/NEQ/GT/GTE/LT/LTE/Contains
+                       ...): decode the single value into the *T pointer field.
+                       int/string/bool/time keep their inline fast-paths; every
+                       other type (UUID, float, int64, ...) is decoded via the
+                       shared gqlgoDecodeField path instead of being dropped. */}}
+                {{- if eq $f.Type.String "int" }}
             if i, ok := v.(int); ok {
                 val := {{ $f.Type }}(i)
                 input.{{ $field }} = &val
@@ -418,7 +428,7 @@ func init() {
                 input.{{ $field }} = &t
             }
                 {{- else }}
-            // Unsupported type: {{ $f.Type.Ident }}
+            {{ gqlgoDecodeWhereScalar $f "v" (printf "input.%s" $field) }}
                 {{- end }}
             {{- end }}
         }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -3827,4 +3828,82 @@ func TestMutationDecodesAllFieldTypes(t *testing.T) {
 	require.Equal(t, map[string]interface{}{"updated": true}, got2.Metadata)
 	require.Equal(t, newExt, got2.ExternalID)
 	require.Equal(t, int64(120000), got2.Duration)
+}
+
+// TestFilterDecodesAllFieldTypes is the filter-path counterpart of
+// TestMutationDecodesAllFieldTypes. It asserts the generated
+// ParseTodoWhereInput decodes non-primitive where-input predicates (UUID, time,
+// float) into correctly-typed ent predicates instead of silently dropping them.
+// Before the fix, `where: {externalID: $uuid}` (and time/float filters) were
+// no-ops that returned every row — a data-integrity bug. Each sub-case creates
+// distinct todos, filters via graphql.Do, and asserts only matching rows return.
+func TestFilterDecodesAllFieldTypes(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := newTestSchema(client)
+	require.NoError(t, err)
+
+	// Three todos with distinct UUID external IDs, due dates and scores.
+	extA, extB, extC := uuid.New(), uuid.New(), uuid.New()
+	dueA := time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC)
+	dueB := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+	dueC := time.Date(2010, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	mk := func(text string, ext uuid.UUID, due time.Time, score float64) *ent.Todo {
+		return client.Todo.Create().
+			SetText(text).
+			SetStatus(todo.StatusPending).
+			SetExternalID(ext).
+			SetDueDate(due).
+			SetScore(score).
+			SaveX(ctx)
+	}
+	mk("A", extA, dueA, 1.5)
+	mk("B", extB, dueB, 5.5)
+	mk("C", extC, dueC, 9.5)
+
+	// texts runs a todos(where:...) query (where clause supplied as the GraphQL
+	// document body so coercion runs through ParseValue/ParseLiteral exactly as
+	// in production) and returns the sorted "text" of every node returned.
+	texts := func(query string, vars map[string]interface{}) []string {
+		res := graphql.Do(graphql.Params{
+			Schema:         schema,
+			Context:        ctx,
+			RequestString:  query,
+			VariableValues: vars,
+		})
+		require.Empty(t, res.Errors, "where query errors: %v", res.Errors)
+		conn := res.Data.(map[string]interface{})["todos"].(map[string]interface{})
+		var out []string
+		for _, e := range conn["edges"].([]interface{}) {
+			node := e.(map[string]interface{})["node"].(map[string]interface{})
+			out = append(out, node["text"].(string))
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	// Filter by UUID id (gemini's primary use case): exactly one match.
+	require.Equal(t, []string{"A"}, texts(
+		`query ($ext: ID!) { todos(where: {externalID: $ext}) { edges { node { text } } } }`,
+		map[string]interface{}{"ext": extA.String()}))
+	// Filter by UUID In: two matches.
+	require.Equal(t, []string{"A", "C"}, texts(
+		`query ($a: ID!, $c: ID!) { todos(where: {externalIDIn: [$a, $c]}) { edges { node { text } } } }`,
+		map[string]interface{}{"a": extA.String(), "c": extC.String()}))
+	// Filter by time: due strictly after 1995 and before 2005 -> only B.
+	require.Equal(t, []string{"B"}, texts(
+		`query ($lo: Time!, $hi: Time!) { todos(where: {dueDateGT: $lo, dueDateLT: $hi}) { edges { node { text } } } }`,
+		map[string]interface{}{
+			"lo": time.Date(1995, 1, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			"hi": time.Date(2005, 1, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		}))
+	// Filter by float: score > 4.0 -> B and C (inline float literal).
+	require.Equal(t, []string{"B", "C"}, texts(
+		`query { todos(where: {scoreGT: 4.0}) { edges { node { text } } } }`, nil))
+	// Filter by float range: 4.0 < score < 8.0 -> only B.
+	require.Equal(t, []string{"B"}, texts(
+		`query { todos(where: {scoreGT: 4.0, scoreLT: 8.0}) { edges { node { text } } } }`, nil))
 }
