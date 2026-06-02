@@ -213,7 +213,7 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 	node := &Node{
 		ID:     n.ID,
 		Type:   "Todo",
-		Fields: make([]*Field, 4),
+		Fields: make([]*Field, 10),
 		Edges:  make([]*Edge, 3),
 	}
 	var buf []byte
@@ -248,6 +248,54 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 	node.Fields[3] = &Field{
 		Type:  "string",
 		Name:  "text",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Score); err != nil {
+		return nil, err
+	}
+	node.Fields[4] = &Field{
+		Type:  "float64",
+		Name:  "score",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.DueDate); err != nil {
+		return nil, err
+	}
+	node.Fields[5] = &Field{
+		Type:  "time.Time",
+		Name:  "due_date",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Tags2); err != nil {
+		return nil, err
+	}
+	node.Fields[6] = &Field{
+		Type:  "[]string",
+		Name:  "tags2",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Metadata); err != nil {
+		return nil, err
+	}
+	node.Fields[7] = &Field{
+		Type:  "map[string]interface {}",
+		Name:  "metadata",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.ExternalID); err != nil {
+		return nil, err
+	}
+	node.Fields[8] = &Field{
+		Type:  "uuid.UUID",
+		Name:  "external_id",
+		Value: string(buf),
+	}
+	if buf, err = json.Marshal(n.Duration); err != nil {
+		return nil, err
+	}
+	node.Fields[9] = &Field{
+		Type:  "int64",
+		Name:  "duration",
 		Value: string(buf),
 	}
 	node.Edges[0] = &Edge{

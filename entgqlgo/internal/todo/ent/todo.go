@@ -17,6 +17,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/google/uuid"
 )
 
 // Todo is the model entity for the Todo schema.
@@ -40,6 +42,18 @@ type Todo struct {
 	Priority int `json:"priority,omitempty"`
 	// Text holds the value of the "text" field.
 	Text string `json:"text,omitempty"`
+	// Score holds the value of the "score" field.
+	Score float64 `json:"score,omitempty"`
+	// DueDate holds the value of the "due_date" field.
+	DueDate time.Time `json:"due_date,omitempty"`
+	// Tags2 holds the value of the "tags2" field.
+	Tags2 []string `json:"tags2,omitempty"`
+	// Metadata holds the value of the "metadata" field.
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	// ExternalID holds the value of the "external_id" field.
+	ExternalID uuid.UUID `json:"external_id,omitempty"`
+	// Duration holds the value of the "duration" field.
+	Duration int64 `json:"duration,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TodoQuery when eager-loading is set.
 	Edges          TodoEdges `json:"edges"`
@@ -98,12 +112,18 @@ func (*Todo) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case todo.FieldID, todo.FieldPriority:
+		case todo.FieldTags2, todo.FieldMetadata:
+			values[i] = new([]byte)
+		case todo.FieldScore:
+			values[i] = new(sql.NullFloat64)
+		case todo.FieldID, todo.FieldPriority, todo.FieldDuration:
 			values[i] = new(sql.NullInt64)
 		case todo.FieldStatus, todo.FieldText:
 			values[i] = new(sql.NullString)
-		case todo.FieldCreatedAt:
+		case todo.FieldCreatedAt, todo.FieldDueDate:
 			values[i] = new(sql.NullTime)
+		case todo.FieldExternalID:
+			values[i] = new(uuid.UUID)
 		case todo.ForeignKeys[0]: // category_todos
 			values[i] = new(sql.NullInt64)
 		case todo.ForeignKeys[1]: // todo_children
@@ -152,6 +172,46 @@ func (_m *Todo) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field text", values[i])
 			} else if value.Valid {
 				_m.Text = value.String
+			}
+		case todo.FieldScore:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field score", values[i])
+			} else if value.Valid {
+				_m.Score = value.Float64
+			}
+		case todo.FieldDueDate:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field due_date", values[i])
+			} else if value.Valid {
+				_m.DueDate = value.Time
+			}
+		case todo.FieldTags2:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field tags2", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Tags2); err != nil {
+					return fmt.Errorf("unmarshal field tags2: %w", err)
+				}
+			}
+		case todo.FieldMetadata:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field metadata", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Metadata); err != nil {
+					return fmt.Errorf("unmarshal field metadata: %w", err)
+				}
+			}
+		case todo.FieldExternalID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field external_id", values[i])
+			} else if value != nil {
+				_m.ExternalID = *value
+			}
+		case todo.FieldDuration:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field duration", values[i])
+			} else if value.Valid {
+				_m.Duration = value.Int64
 			}
 		case todo.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -229,6 +289,24 @@ func (_m *Todo) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("text=")
 	builder.WriteString(_m.Text)
+	builder.WriteString(", ")
+	builder.WriteString("score=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Score))
+	builder.WriteString(", ")
+	builder.WriteString("due_date=")
+	builder.WriteString(_m.DueDate.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("tags2=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Tags2))
+	builder.WriteString(", ")
+	builder.WriteString("metadata=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Metadata))
+	builder.WriteString(", ")
+	builder.WriteString("external_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ExternalID))
+	builder.WriteString(", ")
+	builder.WriteString("duration=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Duration))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -4,6 +4,7 @@ package gqlgo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -669,7 +670,27 @@ func ParseCreateCategoryInput(input map[string]interface{}) (*CreateCategoryInpu
 		result.ConfigType = &val
 	}
 	if v, ok := input["metadata"]; ok && v != nil {
-		// Handle map[string]interface {} type
+		switch jv := v.(type) {
+		case map[string]interface{}:
+			dec := jv
+			result.Metadata = dec
+		case string:
+			var dec map[string]interface{}
+			if err := json.Unmarshal([]byte(jv), &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		default:
+			raw, err := json.Marshal(jv)
+			if err != nil {
+				return nil, fmt.Errorf("field metadata: cannot marshal value: %w", err)
+			}
+			var dec map[string]interface{}
+			if err := json.Unmarshal(raw, &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		}
 	}
 	if v, ok := input["todoIDs"]; ok && v != nil {
 		if ids, ok := v.([]interface{}); ok {
@@ -730,7 +751,27 @@ func ParseUpdateCategoryInput(input map[string]interface{}) (*UpdateCategoryInpu
 		}
 	}
 	if v, ok := input["metadata"]; ok && v != nil {
-		// Handle map[string]interface {} type
+		switch jv := v.(type) {
+		case map[string]interface{}:
+			dec := jv
+			result.Metadata = dec
+		case string:
+			var dec map[string]interface{}
+			if err := json.Unmarshal([]byte(jv), &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		default:
+			raw, err := json.Marshal(jv)
+			if err != nil {
+				return nil, fmt.Errorf("field metadata: cannot marshal value: %w", err)
+			}
+			var dec map[string]interface{}
+			if err := json.Unmarshal(raw, &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		}
 	}
 	if v, ok := input["clearMetadata"]; ok {
 		if b, ok := v.(bool); ok {

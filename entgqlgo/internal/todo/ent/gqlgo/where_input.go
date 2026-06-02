@@ -562,6 +562,126 @@ func init() {
 				"textContainsFold": &graphql.InputObjectFieldConfig{
 					Type: graphql.String,
 				},
+				"score": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"scoreNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"scoreIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Float)),
+				},
+				"scoreNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Float)),
+				},
+				"scoreGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"scoreGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"scoreLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"scoreLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"scoreIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"scoreNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"dueDate": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"dueDateNEQ": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"dueDateIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(TimeScalar)),
+				},
+				"dueDateNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(TimeScalar)),
+				},
+				"dueDateGT": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"dueDateGTE": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"dueDateLT": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"dueDateLTE": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"dueDateIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"dueDateNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"externalID": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDNEQ": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(customTypeOr("UUID", graphql.ID))),
+				},
+				"externalIDNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(customTypeOr("UUID", graphql.ID))),
+				},
+				"externalIDGT": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDGTE": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDLT": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDLTE": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"externalIDIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"externalIDNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"duration": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"durationNEQ": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"durationIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Int)),
+				},
+				"durationNotIn": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.Int)),
+				},
+				"durationGT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"durationGTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"durationLT": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"durationLTE": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"durationIsNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
+				"durationNotNil": &graphql.InputObjectFieldConfig{
+					Type: graphql.Boolean,
+				},
 				"hasParent": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
 					Description: "Check if parent edge exists.",
@@ -2234,6 +2354,54 @@ type TodoWhereInput struct {
 	TextEqualFold    *string  `json:"textEqualFold,omitempty"`
 	TextContainsFold *string  `json:"textContainsFold,omitempty"`
 
+	// "score" field predicates.
+	Score       *float64  `json:"score,omitempty"`
+	ScoreNEQ    *float64  `json:"scoreNEQ,omitempty"`
+	ScoreIn     []float64 `json:"scoreIn,omitempty"`
+	ScoreNotIn  []float64 `json:"scoreNotIn,omitempty"`
+	ScoreGT     *float64  `json:"scoreGT,omitempty"`
+	ScoreGTE    *float64  `json:"scoreGTE,omitempty"`
+	ScoreLT     *float64  `json:"scoreLT,omitempty"`
+	ScoreLTE    *float64  `json:"scoreLTE,omitempty"`
+	ScoreIsNil  bool      `json:"scoreIsNil,omitempty"`
+	ScoreNotNil bool      `json:"scoreNotNil,omitempty"`
+
+	// "due_date" field predicates.
+	DueDate       *time.Time  `json:"dueDate,omitempty"`
+	DueDateNEQ    *time.Time  `json:"dueDateNEQ,omitempty"`
+	DueDateIn     []time.Time `json:"dueDateIn,omitempty"`
+	DueDateNotIn  []time.Time `json:"dueDateNotIn,omitempty"`
+	DueDateGT     *time.Time  `json:"dueDateGT,omitempty"`
+	DueDateGTE    *time.Time  `json:"dueDateGTE,omitempty"`
+	DueDateLT     *time.Time  `json:"dueDateLT,omitempty"`
+	DueDateLTE    *time.Time  `json:"dueDateLTE,omitempty"`
+	DueDateIsNil  bool        `json:"dueDateIsNil,omitempty"`
+	DueDateNotNil bool        `json:"dueDateNotNil,omitempty"`
+
+	// "external_id" field predicates.
+	ExternalID       *uuid.UUID  `json:"externalID,omitempty"`
+	ExternalIDNEQ    *uuid.UUID  `json:"externalIDNEQ,omitempty"`
+	ExternalIDIn     []uuid.UUID `json:"externalIDIn,omitempty"`
+	ExternalIDNotIn  []uuid.UUID `json:"externalIDNotIn,omitempty"`
+	ExternalIDGT     *uuid.UUID  `json:"externalIDGT,omitempty"`
+	ExternalIDGTE    *uuid.UUID  `json:"externalIDGTE,omitempty"`
+	ExternalIDLT     *uuid.UUID  `json:"externalIDLT,omitempty"`
+	ExternalIDLTE    *uuid.UUID  `json:"externalIDLTE,omitempty"`
+	ExternalIDIsNil  bool        `json:"externalIDIsNil,omitempty"`
+	ExternalIDNotNil bool        `json:"externalIDNotNil,omitempty"`
+
+	// "duration" field predicates.
+	Duration       *int64  `json:"duration,omitempty"`
+	DurationNEQ    *int64  `json:"durationNEQ,omitempty"`
+	DurationIn     []int64 `json:"durationIn,omitempty"`
+	DurationNotIn  []int64 `json:"durationNotIn,omitempty"`
+	DurationGT     *int64  `json:"durationGT,omitempty"`
+	DurationGTE    *int64  `json:"durationGTE,omitempty"`
+	DurationLT     *int64  `json:"durationLT,omitempty"`
+	DurationLTE    *int64  `json:"durationLTE,omitempty"`
+	DurationIsNil  bool    `json:"durationIsNil,omitempty"`
+	DurationNotNil bool    `json:"durationNotNil,omitempty"`
+
 	// "parent" edge predicates.
 	HasParent     *bool             `json:"hasParent,omitempty"`
 	HasParentWith []*TodoWhereInput `json:"hasParentWith,omitempty"`
@@ -2440,6 +2608,126 @@ func (i *TodoWhereInput) P() (predicate.Todo, error) {
 	}
 	if i.TextContainsFold != nil {
 		predicates = append(predicates, todo.TextContainsFold(*i.TextContainsFold))
+	}
+	if i.Score != nil {
+		predicates = append(predicates, todo.ScoreEQ(*i.Score))
+	}
+	if i.ScoreNEQ != nil {
+		predicates = append(predicates, todo.ScoreNEQ(*i.ScoreNEQ))
+	}
+	if len(i.ScoreIn) > 0 {
+		predicates = append(predicates, todo.ScoreIn(i.ScoreIn...))
+	}
+	if len(i.ScoreNotIn) > 0 {
+		predicates = append(predicates, todo.ScoreNotIn(i.ScoreNotIn...))
+	}
+	if i.ScoreGT != nil {
+		predicates = append(predicates, todo.ScoreGT(*i.ScoreGT))
+	}
+	if i.ScoreGTE != nil {
+		predicates = append(predicates, todo.ScoreGTE(*i.ScoreGTE))
+	}
+	if i.ScoreLT != nil {
+		predicates = append(predicates, todo.ScoreLT(*i.ScoreLT))
+	}
+	if i.ScoreLTE != nil {
+		predicates = append(predicates, todo.ScoreLTE(*i.ScoreLTE))
+	}
+	if i.ScoreIsNil {
+		predicates = append(predicates, todo.ScoreIsNil())
+	}
+	if i.ScoreNotNil {
+		predicates = append(predicates, todo.ScoreNotNil())
+	}
+	if i.DueDate != nil {
+		predicates = append(predicates, todo.DueDateEQ(*i.DueDate))
+	}
+	if i.DueDateNEQ != nil {
+		predicates = append(predicates, todo.DueDateNEQ(*i.DueDateNEQ))
+	}
+	if len(i.DueDateIn) > 0 {
+		predicates = append(predicates, todo.DueDateIn(i.DueDateIn...))
+	}
+	if len(i.DueDateNotIn) > 0 {
+		predicates = append(predicates, todo.DueDateNotIn(i.DueDateNotIn...))
+	}
+	if i.DueDateGT != nil {
+		predicates = append(predicates, todo.DueDateGT(*i.DueDateGT))
+	}
+	if i.DueDateGTE != nil {
+		predicates = append(predicates, todo.DueDateGTE(*i.DueDateGTE))
+	}
+	if i.DueDateLT != nil {
+		predicates = append(predicates, todo.DueDateLT(*i.DueDateLT))
+	}
+	if i.DueDateLTE != nil {
+		predicates = append(predicates, todo.DueDateLTE(*i.DueDateLTE))
+	}
+	if i.DueDateIsNil {
+		predicates = append(predicates, todo.DueDateIsNil())
+	}
+	if i.DueDateNotNil {
+		predicates = append(predicates, todo.DueDateNotNil())
+	}
+	if i.ExternalID != nil {
+		predicates = append(predicates, todo.ExternalIDEQ(*i.ExternalID))
+	}
+	if i.ExternalIDNEQ != nil {
+		predicates = append(predicates, todo.ExternalIDNEQ(*i.ExternalIDNEQ))
+	}
+	if len(i.ExternalIDIn) > 0 {
+		predicates = append(predicates, todo.ExternalIDIn(i.ExternalIDIn...))
+	}
+	if len(i.ExternalIDNotIn) > 0 {
+		predicates = append(predicates, todo.ExternalIDNotIn(i.ExternalIDNotIn...))
+	}
+	if i.ExternalIDGT != nil {
+		predicates = append(predicates, todo.ExternalIDGT(*i.ExternalIDGT))
+	}
+	if i.ExternalIDGTE != nil {
+		predicates = append(predicates, todo.ExternalIDGTE(*i.ExternalIDGTE))
+	}
+	if i.ExternalIDLT != nil {
+		predicates = append(predicates, todo.ExternalIDLT(*i.ExternalIDLT))
+	}
+	if i.ExternalIDLTE != nil {
+		predicates = append(predicates, todo.ExternalIDLTE(*i.ExternalIDLTE))
+	}
+	if i.ExternalIDIsNil {
+		predicates = append(predicates, todo.ExternalIDIsNil())
+	}
+	if i.ExternalIDNotNil {
+		predicates = append(predicates, todo.ExternalIDNotNil())
+	}
+	if i.Duration != nil {
+		predicates = append(predicates, todo.DurationEQ(*i.Duration))
+	}
+	if i.DurationNEQ != nil {
+		predicates = append(predicates, todo.DurationNEQ(*i.DurationNEQ))
+	}
+	if len(i.DurationIn) > 0 {
+		predicates = append(predicates, todo.DurationIn(i.DurationIn...))
+	}
+	if len(i.DurationNotIn) > 0 {
+		predicates = append(predicates, todo.DurationNotIn(i.DurationNotIn...))
+	}
+	if i.DurationGT != nil {
+		predicates = append(predicates, todo.DurationGT(*i.DurationGT))
+	}
+	if i.DurationGTE != nil {
+		predicates = append(predicates, todo.DurationGTE(*i.DurationGTE))
+	}
+	if i.DurationLT != nil {
+		predicates = append(predicates, todo.DurationLT(*i.DurationLT))
+	}
+	if i.DurationLTE != nil {
+		predicates = append(predicates, todo.DurationLTE(*i.DurationLTE))
+	}
+	if i.DurationIsNil {
+		predicates = append(predicates, todo.DurationIsNil())
+	}
+	if i.DurationNotNil {
+		predicates = append(predicates, todo.DurationNotNil())
 	}
 
 	if i.HasParent != nil {
@@ -2841,6 +3129,266 @@ func ParseTodoWhereInput(m map[string]interface{}) (*TodoWhereInput, error) {
 	if v, ok := m["textContainsFold"]; ok && v != nil {
 		if s, ok := v.(string); ok {
 			input.TextContainsFold = &s
+		}
+	}
+	// Parse score
+	if v, ok := m["score"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := float64(i)
+			input.Score = &val
+		}
+	}
+	// Parse scoreNEQ
+	if v, ok := m["scoreNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := float64(i)
+			input.ScoreNEQ = &val
+		}
+	}
+	// Parse scoreIn
+	if v, ok := m["scoreIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.ScoreIn = append(input.ScoreIn, float64(i))
+				}
+			}
+		}
+	}
+	// Parse scoreNotIn
+	if v, ok := m["scoreNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.ScoreNotIn = append(input.ScoreNotIn, float64(i))
+				}
+			}
+		}
+	}
+	// Parse scoreGT
+	if v, ok := m["scoreGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := float64(i)
+			input.ScoreGT = &val
+		}
+	}
+	// Parse scoreGTE
+	if v, ok := m["scoreGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := float64(i)
+			input.ScoreGTE = &val
+		}
+	}
+	// Parse scoreLT
+	if v, ok := m["scoreLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := float64(i)
+			input.ScoreLT = &val
+		}
+	}
+	// Parse scoreLTE
+	if v, ok := m["scoreLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := float64(i)
+			input.ScoreLTE = &val
+		}
+	}
+	// Parse scoreIsNil
+	if v, ok := m["scoreIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ScoreIsNil = b
+		}
+	}
+	// Parse scoreNotNil
+	if v, ok := m["scoreNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ScoreNotNil = b
+		}
+	}
+	// Parse dueDate
+	if v, ok := m["dueDate"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.DueDate = &t
+		}
+	}
+	// Parse dueDateNEQ
+	if v, ok := m["dueDateNEQ"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.DueDateNEQ = &t
+		}
+	}
+	// Parse dueDateIn
+	if v, ok := m["dueDateIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if t, ok := item.(time.Time); ok {
+					input.DueDateIn = append(input.DueDateIn, t)
+				}
+			}
+		}
+	}
+	// Parse dueDateNotIn
+	if v, ok := m["dueDateNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if t, ok := item.(time.Time); ok {
+					input.DueDateNotIn = append(input.DueDateNotIn, t)
+				}
+			}
+		}
+	}
+	// Parse dueDateGT
+	if v, ok := m["dueDateGT"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.DueDateGT = &t
+		}
+	}
+	// Parse dueDateGTE
+	if v, ok := m["dueDateGTE"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.DueDateGTE = &t
+		}
+	}
+	// Parse dueDateLT
+	if v, ok := m["dueDateLT"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.DueDateLT = &t
+		}
+	}
+	// Parse dueDateLTE
+	if v, ok := m["dueDateLTE"]; ok && v != nil {
+		if t, ok := v.(time.Time); ok {
+			input.DueDateLTE = &t
+		}
+	}
+	// Parse dueDateIsNil
+	if v, ok := m["dueDateIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.DueDateIsNil = b
+		}
+	}
+	// Parse dueDateNotNil
+	if v, ok := m["dueDateNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.DueDateNotNil = b
+		}
+	}
+	// Parse externalID
+	if v, ok := m["externalID"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDNEQ
+	if v, ok := m["externalIDNEQ"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDIn
+	if v, ok := m["externalIDIn"]; ok && v != nil {
+		// Unsupported variadic type: uuid.UUID
+	}
+	// Parse externalIDNotIn
+	if v, ok := m["externalIDNotIn"]; ok && v != nil {
+		// Unsupported variadic type: uuid.UUID
+	}
+	// Parse externalIDGT
+	if v, ok := m["externalIDGT"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDGTE
+	if v, ok := m["externalIDGTE"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDLT
+	if v, ok := m["externalIDLT"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDLTE
+	if v, ok := m["externalIDLTE"]; ok && v != nil {
+		// Unsupported type: uuid.UUID
+	}
+	// Parse externalIDIsNil
+	if v, ok := m["externalIDIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ExternalIDIsNil = b
+		}
+	}
+	// Parse externalIDNotNil
+	if v, ok := m["externalIDNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.ExternalIDNotNil = b
+		}
+	}
+	// Parse duration
+	if v, ok := m["duration"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int64(i)
+			input.Duration = &val
+		}
+	}
+	// Parse durationNEQ
+	if v, ok := m["durationNEQ"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int64(i)
+			input.DurationNEQ = &val
+		}
+	}
+	// Parse durationIn
+	if v, ok := m["durationIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.DurationIn = append(input.DurationIn, int64(i))
+				}
+			}
+		}
+	}
+	// Parse durationNotIn
+	if v, ok := m["durationNotIn"]; ok && v != nil {
+		if slice, ok := v.([]interface{}); ok {
+			for _, item := range slice {
+				if i, ok := item.(int); ok {
+					input.DurationNotIn = append(input.DurationNotIn, int64(i))
+				}
+			}
+		}
+	}
+	// Parse durationGT
+	if v, ok := m["durationGT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int64(i)
+			input.DurationGT = &val
+		}
+	}
+	// Parse durationGTE
+	if v, ok := m["durationGTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int64(i)
+			input.DurationGTE = &val
+		}
+	}
+	// Parse durationLT
+	if v, ok := m["durationLT"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int64(i)
+			input.DurationLT = &val
+		}
+	}
+	// Parse durationLTE
+	if v, ok := m["durationLTE"]; ok && v != nil {
+		if i, ok := v.(int); ok {
+			val := int64(i)
+			input.DurationLTE = &val
+		}
+	}
+	// Parse durationIsNil
+	if v, ok := m["durationIsNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.DurationIsNil = b
+		}
+	}
+	// Parse durationNotNil
+	if v, ok := m["durationNotNil"]; ok && v != nil {
+		if b, ok := v.(bool); ok {
+			input.DurationNotNil = b
 		}
 	}
 	// Parse hasParent

@@ -22,6 +22,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 // ID filters vertices based on their ID field.
@@ -82,6 +83,26 @@ func Priority(v int) predicate.Todo {
 // Text applies equality check predicate on the "text" field. It's identical to TextEQ.
 func Text(v string) predicate.Todo {
 	return predicate.Todo(sql.FieldEQ(FieldText, v))
+}
+
+// Score applies equality check predicate on the "score" field. It's identical to ScoreEQ.
+func Score(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldScore, v))
+}
+
+// DueDate applies equality check predicate on the "due_date" field. It's identical to DueDateEQ.
+func DueDate(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldDueDate, v))
+}
+
+// ExternalID applies equality check predicate on the "external_id" field. It's identical to ExternalIDEQ.
+func ExternalID(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldExternalID, v))
+}
+
+// Duration applies equality check predicate on the "duration" field. It's identical to DurationEQ.
+func Duration(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldDuration, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -247,6 +268,226 @@ func TextEqualFold(v string) predicate.Todo {
 // TextContainsFold applies the ContainsFold predicate on the "text" field.
 func TextContainsFold(v string) predicate.Todo {
 	return predicate.Todo(sql.FieldContainsFold(FieldText, v))
+}
+
+// ScoreEQ applies the EQ predicate on the "score" field.
+func ScoreEQ(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldScore, v))
+}
+
+// ScoreNEQ applies the NEQ predicate on the "score" field.
+func ScoreNEQ(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldNEQ(FieldScore, v))
+}
+
+// ScoreIn applies the In predicate on the "score" field.
+func ScoreIn(vs ...float64) predicate.Todo {
+	return predicate.Todo(sql.FieldIn(FieldScore, vs...))
+}
+
+// ScoreNotIn applies the NotIn predicate on the "score" field.
+func ScoreNotIn(vs ...float64) predicate.Todo {
+	return predicate.Todo(sql.FieldNotIn(FieldScore, vs...))
+}
+
+// ScoreGT applies the GT predicate on the "score" field.
+func ScoreGT(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldGT(FieldScore, v))
+}
+
+// ScoreGTE applies the GTE predicate on the "score" field.
+func ScoreGTE(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldGTE(FieldScore, v))
+}
+
+// ScoreLT applies the LT predicate on the "score" field.
+func ScoreLT(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldLT(FieldScore, v))
+}
+
+// ScoreLTE applies the LTE predicate on the "score" field.
+func ScoreLTE(v float64) predicate.Todo {
+	return predicate.Todo(sql.FieldLTE(FieldScore, v))
+}
+
+// ScoreIsNil applies the IsNil predicate on the "score" field.
+func ScoreIsNil() predicate.Todo {
+	return predicate.Todo(sql.FieldIsNull(FieldScore))
+}
+
+// ScoreNotNil applies the NotNil predicate on the "score" field.
+func ScoreNotNil() predicate.Todo {
+	return predicate.Todo(sql.FieldNotNull(FieldScore))
+}
+
+// DueDateEQ applies the EQ predicate on the "due_date" field.
+func DueDateEQ(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldDueDate, v))
+}
+
+// DueDateNEQ applies the NEQ predicate on the "due_date" field.
+func DueDateNEQ(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldNEQ(FieldDueDate, v))
+}
+
+// DueDateIn applies the In predicate on the "due_date" field.
+func DueDateIn(vs ...time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldIn(FieldDueDate, vs...))
+}
+
+// DueDateNotIn applies the NotIn predicate on the "due_date" field.
+func DueDateNotIn(vs ...time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldNotIn(FieldDueDate, vs...))
+}
+
+// DueDateGT applies the GT predicate on the "due_date" field.
+func DueDateGT(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldGT(FieldDueDate, v))
+}
+
+// DueDateGTE applies the GTE predicate on the "due_date" field.
+func DueDateGTE(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldGTE(FieldDueDate, v))
+}
+
+// DueDateLT applies the LT predicate on the "due_date" field.
+func DueDateLT(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldLT(FieldDueDate, v))
+}
+
+// DueDateLTE applies the LTE predicate on the "due_date" field.
+func DueDateLTE(v time.Time) predicate.Todo {
+	return predicate.Todo(sql.FieldLTE(FieldDueDate, v))
+}
+
+// DueDateIsNil applies the IsNil predicate on the "due_date" field.
+func DueDateIsNil() predicate.Todo {
+	return predicate.Todo(sql.FieldIsNull(FieldDueDate))
+}
+
+// DueDateNotNil applies the NotNil predicate on the "due_date" field.
+func DueDateNotNil() predicate.Todo {
+	return predicate.Todo(sql.FieldNotNull(FieldDueDate))
+}
+
+// Tags2IsNil applies the IsNil predicate on the "tags2" field.
+func Tags2IsNil() predicate.Todo {
+	return predicate.Todo(sql.FieldIsNull(FieldTags2))
+}
+
+// Tags2NotNil applies the NotNil predicate on the "tags2" field.
+func Tags2NotNil() predicate.Todo {
+	return predicate.Todo(sql.FieldNotNull(FieldTags2))
+}
+
+// MetadataIsNil applies the IsNil predicate on the "metadata" field.
+func MetadataIsNil() predicate.Todo {
+	return predicate.Todo(sql.FieldIsNull(FieldMetadata))
+}
+
+// MetadataNotNil applies the NotNil predicate on the "metadata" field.
+func MetadataNotNil() predicate.Todo {
+	return predicate.Todo(sql.FieldNotNull(FieldMetadata))
+}
+
+// ExternalIDEQ applies the EQ predicate on the "external_id" field.
+func ExternalIDEQ(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldExternalID, v))
+}
+
+// ExternalIDNEQ applies the NEQ predicate on the "external_id" field.
+func ExternalIDNEQ(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldNEQ(FieldExternalID, v))
+}
+
+// ExternalIDIn applies the In predicate on the "external_id" field.
+func ExternalIDIn(vs ...uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldIn(FieldExternalID, vs...))
+}
+
+// ExternalIDNotIn applies the NotIn predicate on the "external_id" field.
+func ExternalIDNotIn(vs ...uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldNotIn(FieldExternalID, vs...))
+}
+
+// ExternalIDGT applies the GT predicate on the "external_id" field.
+func ExternalIDGT(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldGT(FieldExternalID, v))
+}
+
+// ExternalIDGTE applies the GTE predicate on the "external_id" field.
+func ExternalIDGTE(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldGTE(FieldExternalID, v))
+}
+
+// ExternalIDLT applies the LT predicate on the "external_id" field.
+func ExternalIDLT(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldLT(FieldExternalID, v))
+}
+
+// ExternalIDLTE applies the LTE predicate on the "external_id" field.
+func ExternalIDLTE(v uuid.UUID) predicate.Todo {
+	return predicate.Todo(sql.FieldLTE(FieldExternalID, v))
+}
+
+// ExternalIDIsNil applies the IsNil predicate on the "external_id" field.
+func ExternalIDIsNil() predicate.Todo {
+	return predicate.Todo(sql.FieldIsNull(FieldExternalID))
+}
+
+// ExternalIDNotNil applies the NotNil predicate on the "external_id" field.
+func ExternalIDNotNil() predicate.Todo {
+	return predicate.Todo(sql.FieldNotNull(FieldExternalID))
+}
+
+// DurationEQ applies the EQ predicate on the "duration" field.
+func DurationEQ(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldDuration, v))
+}
+
+// DurationNEQ applies the NEQ predicate on the "duration" field.
+func DurationNEQ(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldNEQ(FieldDuration, v))
+}
+
+// DurationIn applies the In predicate on the "duration" field.
+func DurationIn(vs ...int64) predicate.Todo {
+	return predicate.Todo(sql.FieldIn(FieldDuration, vs...))
+}
+
+// DurationNotIn applies the NotIn predicate on the "duration" field.
+func DurationNotIn(vs ...int64) predicate.Todo {
+	return predicate.Todo(sql.FieldNotIn(FieldDuration, vs...))
+}
+
+// DurationGT applies the GT predicate on the "duration" field.
+func DurationGT(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldGT(FieldDuration, v))
+}
+
+// DurationGTE applies the GTE predicate on the "duration" field.
+func DurationGTE(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldGTE(FieldDuration, v))
+}
+
+// DurationLT applies the LT predicate on the "duration" field.
+func DurationLT(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldLT(FieldDuration, v))
+}
+
+// DurationLTE applies the LTE predicate on the "duration" field.
+func DurationLTE(v int64) predicate.Todo {
+	return predicate.Todo(sql.FieldLTE(FieldDuration, v))
+}
+
+// DurationIsNil applies the IsNil predicate on the "duration" field.
+func DurationIsNil() predicate.Todo {
+	return predicate.Todo(sql.FieldIsNull(FieldDuration))
+}
+
+// DurationNotNil applies the NotNil predicate on the "duration" field.
+func DurationNotNil() predicate.Todo {
+	return predicate.Todo(sql.FieldNotNull(FieldDuration))
 }
 
 // HasParent applies the HasEdge predicate on the "parent" edge.

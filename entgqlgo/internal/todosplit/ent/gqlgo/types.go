@@ -127,6 +127,24 @@ func init() {
 				"createdAt": &graphql.Field{
 					Type: graphql.NewNonNull(TimeScalar),
 				},
+				"score": &graphql.Field{
+					Type: graphql.Float,
+				},
+				"dueDate": &graphql.Field{
+					Type: TimeScalar,
+				},
+				"tags2": &graphql.Field{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"metadata": &graphql.Field{
+					Type: customTypeOr("Map", graphql.String),
+				},
+				"externalID": &graphql.Field{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"duration": &graphql.Field{
+					Type: graphql.Int,
+				},
 				"id": &graphql.Field{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "The unique identifier of the Todo.",

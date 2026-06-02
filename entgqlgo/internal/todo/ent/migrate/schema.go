@@ -87,6 +87,12 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"IN_PROGRESS", "COMPLETED", "PENDING"}},
 		{Name: "priority", Type: field.TypeInt, Default: 0},
 		{Name: "text", Type: field.TypeString, Size: 2147483647},
+		{Name: "score", Type: field.TypeFloat64, Nullable: true},
+		{Name: "due_date", Type: field.TypeTime, Nullable: true},
+		{Name: "tags2", Type: field.TypeJSON, Nullable: true},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true},
+		{Name: "external_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "duration", Type: field.TypeInt64, Nullable: true},
 		{Name: "category_todos", Type: field.TypeInt, Nullable: true},
 		{Name: "todo_children", Type: field.TypeInt, Nullable: true},
 	}
@@ -98,13 +104,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "todos_categories_todos",
-				Columns:    []*schema.Column{TodosColumns[5]},
+				Columns:    []*schema.Column{TodosColumns[11]},
 				RefColumns: []*schema.Column{CategoriesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "todos_todos_children",
-				Columns:    []*schema.Column{TodosColumns[6]},
+				Columns:    []*schema.Column{TodosColumns[12]},
 				RefColumns: []*schema.Column{TodosColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

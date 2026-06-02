@@ -22,6 +22,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // Todo defines the todo type schema.
@@ -58,6 +59,22 @@ func (Todo) Fields() []ent.Field {
 			Annotations(
 				entgqlgo.OrderField("TEXT"),
 			),
+		// Non-int/string/bool scalar fields added to exercise the mutation-input
+		// decode path that previously emitted an empty "// Handle <type>" stub
+		// and silently dropped the value (the data-loss bug). Each round-trips
+		// through create + update + query in the todo test suite.
+		field.Float("score").
+			Optional(),
+		field.Time("due_date").
+			Optional(),
+		field.Strings("tags2").
+			Optional(),
+		field.JSON("metadata", map[string]interface{}{}).
+			Optional(),
+		field.UUID("external_id", uuid.UUID{}).
+			Optional(),
+		field.Int64("duration").
+			Optional(),
 	}
 }
 

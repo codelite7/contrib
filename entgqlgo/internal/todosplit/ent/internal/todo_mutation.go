@@ -25,6 +25,7 @@ import (
 	"entgo.io/ent/runtime/entbuilder"
 
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/predicate"
+	"github.com/google/uuid"
 )
 
 // TodoMutation is an alias for entbuilder.Mutation parameterised by Todo.
@@ -56,6 +57,38 @@ var todoDescriptor = &entbuilder.Descriptor{
 		"created_at": {
 			Type:   reflect.TypeFor[time.Time](),
 			GoName: "CreatedAt",
+		},
+		"score": {
+			Type:     reflect.TypeFor[float64](),
+			GoName:   "Score",
+			Nillable: true,
+			Numeric:  true,
+		},
+		"due_date": {
+			Type:     reflect.TypeFor[time.Time](),
+			GoName:   "DueDate",
+			Nillable: true,
+		},
+		"tags2": {
+			Type:     reflect.TypeFor[[]string](),
+			GoName:   "Tags2",
+			Nillable: true,
+		},
+		"metadata": {
+			Type:     reflect.TypeFor[map[string]interface{}](),
+			GoName:   "Metadata",
+			Nillable: true,
+		},
+		"external_id": {
+			Type:     reflect.TypeFor[uuid.UUID](),
+			GoName:   "ExternalID",
+			Nillable: true,
+		},
+		"duration": {
+			Type:     reflect.TypeFor[int64](),
+			GoName:   "Duration",
+			Nillable: true,
+			Numeric:  true,
 		},
 	},
 	Edges: map[string]entbuilder.EdgeSpec{

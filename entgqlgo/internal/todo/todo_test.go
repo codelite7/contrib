@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"entgo.io/contrib/entgqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
@@ -27,6 +28,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/gqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -3140,9 +3142,10 @@ func TestNodeDescriptor(t *testing.T) {
 		t.Errorf("expected ID %d, got %d", createdTodo.ID, node.ID)
 	}
 
-	// Verify fields are present
-	if len(node.Fields) != 4 {
-		t.Errorf("expected 4 fields, got %d", len(node.Fields))
+	// Verify fields are present (the four original fields plus the six
+	// mixed-type fields added to cover the mutation-input decode bug).
+	if len(node.Fields) != 10 {
+		t.Errorf("expected 10 fields, got %d", len(node.Fields))
 	}
 
 	// Check specific field
@@ -3150,7 +3153,10 @@ func TestNodeDescriptor(t *testing.T) {
 	for _, f := range node.Fields {
 		fieldNames[f.Name] = true
 	}
-	expectedFields := []string{"created_at", "status", "priority", "text"}
+	expectedFields := []string{
+		"created_at", "status", "priority", "text",
+		"score", "due_date", "tags2", "metadata", "external_id", "duration",
+	}
 	for _, fname := range expectedFields {
 		if !fieldNames[fname] {
 			t.Errorf("expected field '%s' not found", fname)
@@ -3733,4 +3739,92 @@ func TestOptionalNillableEnumField(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cat.ConfigType)
 	require.Equal(t, category.ConfigTypeExternal, *cat.ConfigType)
+}
+
+// TestMutationDecodesAllFieldTypes is the regression test for the silent
+// data-loss bug: the generated ParseCreate/ParseUpdate input parsers used to
+// decode only int/string/bool fields and emit an empty "// Handle <type>" stub
+// for every other Go type, discarding the value while the mutation reported
+// success. It exercises a Float, Time, Strings list, JSON map, UUID and Int64
+// field through create + update mutations via graphql.Do, asserting every value
+// round-trips into the database (and back out for update).
+func TestMutationDecodesAllFieldTypes(t *testing.T) {
+	ctx := context.Background()
+	client := enttest.Open(t, "sqlite3", "file:ent?mode=memory&cache=shared&_fk=1")
+	defer client.Close()
+
+	schema, err := newTestSchema(client)
+	require.NoError(t, err)
+
+	extID := uuid.New()
+	due := time.Date(1990, time.June, 15, 12, 0, 0, 0, time.UTC)
+
+	// CREATE: every non-int/string/bool field is set. metadata (Map fallback) and
+	// externalID (UUID->ID fallback) arrive as JSON/UUID strings; tags2 arrives as
+	// a GraphQL list; score is Float; duration is Int64; dueDate is the Time scalar.
+	create := graphql.Do(graphql.Params{
+		Schema:  schema,
+		Context: ctx,
+		RequestString: `mutation ($due: Time!, $ext: ID!, $meta: String!) {
+			createTodo(input: {
+				text: "all-types"
+				status: PENDING
+				priority: 1
+				score: 4.5
+				dueDate: $due
+				tags2: ["a", "b", "c"]
+				metadata: $meta
+				externalID: $ext
+				duration: 90000
+			}) { id }
+		}`,
+		VariableValues: map[string]interface{}{
+			"due":  due.Format(time.RFC3339),
+			"ext":  extID.String(),
+			"meta": `{"k":"v","n":2}`,
+		},
+	})
+	require.Empty(t, create.Errors, "create mutation errors: %v", create.Errors)
+
+	got, err := client.Todo.Query().Where(todo.TextEQ("all-types")).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 4.5, got.Score, "score must round-trip (float64)")
+	require.WithinDuration(t, due, got.DueDate, 0, "dueDate must round-trip (time.Time)")
+	require.Equal(t, []string{"a", "b", "c"}, got.Tags2, "tags2 must round-trip ([]string)")
+	require.Equal(t, map[string]interface{}{"k": "v", "n": float64(2)}, got.Metadata, "metadata must round-trip (JSON map)")
+	require.Equal(t, extID, got.ExternalID, "externalID must round-trip (uuid.UUID)")
+	require.Equal(t, int64(90000), got.Duration, "duration must round-trip (int64)")
+
+	// UPDATE: change every field to a new value and confirm it persists.
+	newExt := uuid.New()
+	newDue := time.Date(2001, time.January, 2, 3, 4, 5, 0, time.UTC)
+	update := graphql.Do(graphql.Params{
+		Schema:  schema,
+		Context: ctx,
+		RequestString: fmt.Sprintf(`mutation ($due: Time!, $ext: ID!, $meta: String!) {
+			updateTodo(id: "%d", input: {
+				score: 8.25
+				dueDate: $due
+				tags2: ["x", "y"]
+				metadata: $meta
+				externalID: $ext
+				duration: 120000
+			}) { id }
+		}`, got.ID),
+		VariableValues: map[string]interface{}{
+			"due":  newDue.Format(time.RFC3339),
+			"ext":  newExt.String(),
+			"meta": `{"updated":true}`,
+		},
+	})
+	require.Empty(t, update.Errors, "update mutation errors: %v", update.Errors)
+
+	got2, err := client.Todo.Get(ctx, got.ID)
+	require.NoError(t, err)
+	require.Equal(t, 8.25, got2.Score)
+	require.WithinDuration(t, newDue, got2.DueDate, 0)
+	require.Equal(t, []string{"x", "y"}, got2.Tags2)
+	require.Equal(t, map[string]interface{}{"updated": true}, got2.Metadata)
+	require.Equal(t, newExt, got2.ExternalID)
+	require.Equal(t, int64(120000), got2.Duration)
 }

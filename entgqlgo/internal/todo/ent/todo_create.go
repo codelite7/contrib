@@ -29,6 +29,7 @@ import (
 	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/runtime/entgen"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // TodoCreate is the builder for creating a Todo entity.
@@ -75,6 +76,74 @@ func (_c *TodoCreate) SetNillablePriority(v *int) *TodoCreate {
 // SetText sets the "text" field.
 func (_c *TodoCreate) SetText(v string) *TodoCreate {
 	_c.mutation.SetText(v)
+	return _c
+}
+
+// SetScore sets the "score" field.
+func (_c *TodoCreate) SetScore(v float64) *TodoCreate {
+	_c.mutation.SetScore(v)
+	return _c
+}
+
+// SetNillableScore sets the "score" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableScore(v *float64) *TodoCreate {
+	if v != nil {
+		_c.SetScore(*v)
+	}
+	return _c
+}
+
+// SetDueDate sets the "due_date" field.
+func (_c *TodoCreate) SetDueDate(v time.Time) *TodoCreate {
+	_c.mutation.SetDueDate(v)
+	return _c
+}
+
+// SetNillableDueDate sets the "due_date" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableDueDate(v *time.Time) *TodoCreate {
+	if v != nil {
+		_c.SetDueDate(*v)
+	}
+	return _c
+}
+
+// SetTags2 sets the "tags2" field.
+func (_c *TodoCreate) SetTags2(v []string) *TodoCreate {
+	_c.mutation.SetTags2(v)
+	return _c
+}
+
+// SetMetadata sets the "metadata" field.
+func (_c *TodoCreate) SetMetadata(v map[string]interface{}) *TodoCreate {
+	_c.mutation.SetMetadata(v)
+	return _c
+}
+
+// SetExternalID sets the "external_id" field.
+func (_c *TodoCreate) SetExternalID(v uuid.UUID) *TodoCreate {
+	_c.mutation.SetExternalID(v)
+	return _c
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableExternalID(v *uuid.UUID) *TodoCreate {
+	if v != nil {
+		_c.SetExternalID(*v)
+	}
+	return _c
+}
+
+// SetDuration sets the "duration" field.
+func (_c *TodoCreate) SetDuration(v int64) *TodoCreate {
+	_c.mutation.SetDuration(v)
+	return _c
+}
+
+// SetNillableDuration sets the "duration" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableDuration(v *int64) *TodoCreate {
+	if v != nil {
+		_c.SetDuration(*v)
+	}
 	return _c
 }
 
@@ -254,6 +323,24 @@ var todoCreateSpec = entgen.CreateSpec[*TodoMutation]{
 				},
 			},
 		},
+		{
+			Name: "score",
+		},
+		{
+			Name: "due_date",
+		},
+		{
+			Name: "tags2",
+		},
+		{
+			Name: "metadata",
+		},
+		{
+			Name: "external_id",
+		},
+		{
+			Name: "duration",
+		},
 	},
 	Edges: []entgen.EdgeSpec[*TodoMutation]{},
 }
@@ -328,6 +415,48 @@ var todoCreateDescriptor = entbuilder.CreateDescriptor[config, Todo, *TodoMutati
 			field.TypeString,
 			(*TodoMutation).Text,
 			func(n *Todo, v string) { n.Text = v },
+		),
+
+		entbuilder.SimpleField[config, Todo, *TodoMutation, float64](
+			todo.FieldScore,
+			field.TypeFloat64,
+			(*TodoMutation).Score,
+			func(n *Todo, v float64) { n.Score = v },
+		),
+
+		entbuilder.SimpleField[config, Todo, *TodoMutation, time.Time](
+			todo.FieldDueDate,
+			field.TypeTime,
+			(*TodoMutation).DueDate,
+			func(n *Todo, v time.Time) { n.DueDate = v },
+		),
+
+		entbuilder.SimpleField[config, Todo, *TodoMutation, []string](
+			todo.FieldTags2,
+			field.TypeJSON,
+			(*TodoMutation).Tags2,
+			func(n *Todo, v []string) { n.Tags2 = v },
+		),
+
+		entbuilder.SimpleField[config, Todo, *TodoMutation, map[string]interface{}](
+			todo.FieldMetadata,
+			field.TypeJSON,
+			(*TodoMutation).Metadata,
+			func(n *Todo, v map[string]interface{}) { n.Metadata = v },
+		),
+
+		entbuilder.SimpleField[config, Todo, *TodoMutation, uuid.UUID](
+			todo.FieldExternalID,
+			field.TypeUUID,
+			(*TodoMutation).ExternalID,
+			func(n *Todo, v uuid.UUID) { n.ExternalID = v },
+		),
+
+		entbuilder.SimpleField[config, Todo, *TodoMutation, int64](
+			todo.FieldDuration,
+			field.TypeInt64,
+			(*TodoMutation).Duration,
+			func(n *Todo, v int64) { n.Duration = v },
 		),
 	},
 	Edges: []entbuilder.EdgeDescriptor[config, Todo, *TodoMutation]{

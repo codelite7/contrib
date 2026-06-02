@@ -1997,6 +1997,15 @@ type TodoMutation struct {
 	priority        *int
 	addpriority     *int
 	text            *string
+	score           *float64
+	addscore        *float64
+	due_date        *time.Time
+	tags2           *[]string
+	appendtags2     []string
+	metadata        *map[string]interface{}
+	external_id     *uuid.UUID
+	duration        *int64
+	addduration     *int64
 	clearedFields   map[string]struct{}
 	parent          *int
 	clearedparent   bool
@@ -2272,6 +2281,358 @@ func (m *TodoMutation) ResetText() {
 	m.text = nil
 }
 
+// SetScore sets the "score" field.
+func (m *TodoMutation) SetScore(f float64) {
+	m.score = &f
+	m.addscore = nil
+}
+
+// Score returns the value of the "score" field in the mutation.
+func (m *TodoMutation) Score() (r float64, exists bool) {
+	v := m.score
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScore returns the old "score" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldScore(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScore is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScore requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScore: %w", err)
+	}
+	return oldValue.Score, nil
+}
+
+// AddScore adds f to the "score" field.
+func (m *TodoMutation) AddScore(f float64) {
+	if m.addscore != nil {
+		*m.addscore += f
+	} else {
+		m.addscore = &f
+	}
+}
+
+// AddedScore returns the value that was added to the "score" field in this mutation.
+func (m *TodoMutation) AddedScore() (r float64, exists bool) {
+	v := m.addscore
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearScore clears the value of the "score" field.
+func (m *TodoMutation) ClearScore() {
+	m.score = nil
+	m.addscore = nil
+	m.clearedFields[todo.FieldScore] = struct{}{}
+}
+
+// ScoreCleared returns if the "score" field was cleared in this mutation.
+func (m *TodoMutation) ScoreCleared() bool {
+	_, ok := m.clearedFields[todo.FieldScore]
+	return ok
+}
+
+// ResetScore resets all changes to the "score" field.
+func (m *TodoMutation) ResetScore() {
+	m.score = nil
+	m.addscore = nil
+	delete(m.clearedFields, todo.FieldScore)
+}
+
+// SetDueDate sets the "due_date" field.
+func (m *TodoMutation) SetDueDate(t time.Time) {
+	m.due_date = &t
+}
+
+// DueDate returns the value of the "due_date" field in the mutation.
+func (m *TodoMutation) DueDate() (r time.Time, exists bool) {
+	v := m.due_date
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDueDate returns the old "due_date" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldDueDate(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDueDate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDueDate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDueDate: %w", err)
+	}
+	return oldValue.DueDate, nil
+}
+
+// ClearDueDate clears the value of the "due_date" field.
+func (m *TodoMutation) ClearDueDate() {
+	m.due_date = nil
+	m.clearedFields[todo.FieldDueDate] = struct{}{}
+}
+
+// DueDateCleared returns if the "due_date" field was cleared in this mutation.
+func (m *TodoMutation) DueDateCleared() bool {
+	_, ok := m.clearedFields[todo.FieldDueDate]
+	return ok
+}
+
+// ResetDueDate resets all changes to the "due_date" field.
+func (m *TodoMutation) ResetDueDate() {
+	m.due_date = nil
+	delete(m.clearedFields, todo.FieldDueDate)
+}
+
+// SetTags2 sets the "tags2" field.
+func (m *TodoMutation) SetTags2(s []string) {
+	m.tags2 = &s
+	m.appendtags2 = nil
+}
+
+// Tags2 returns the value of the "tags2" field in the mutation.
+func (m *TodoMutation) Tags2() (r []string, exists bool) {
+	v := m.tags2
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTags2 returns the old "tags2" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldTags2(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTags2 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTags2 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTags2: %w", err)
+	}
+	return oldValue.Tags2, nil
+}
+
+// AppendTags2 adds s to the "tags2" field.
+func (m *TodoMutation) AppendTags2(s []string) {
+	m.appendtags2 = append(m.appendtags2, s...)
+}
+
+// AppendedTags2 returns the list of values that were appended to the "tags2" field in this mutation.
+func (m *TodoMutation) AppendedTags2() ([]string, bool) {
+	if len(m.appendtags2) == 0 {
+		return nil, false
+	}
+	return m.appendtags2, true
+}
+
+// ClearTags2 clears the value of the "tags2" field.
+func (m *TodoMutation) ClearTags2() {
+	m.tags2 = nil
+	m.appendtags2 = nil
+	m.clearedFields[todo.FieldTags2] = struct{}{}
+}
+
+// Tags2Cleared returns if the "tags2" field was cleared in this mutation.
+func (m *TodoMutation) Tags2Cleared() bool {
+	_, ok := m.clearedFields[todo.FieldTags2]
+	return ok
+}
+
+// ResetTags2 resets all changes to the "tags2" field.
+func (m *TodoMutation) ResetTags2() {
+	m.tags2 = nil
+	m.appendtags2 = nil
+	delete(m.clearedFields, todo.FieldTags2)
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *TodoMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *TodoMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (m *TodoMutation) ClearMetadata() {
+	m.metadata = nil
+	m.clearedFields[todo.FieldMetadata] = struct{}{}
+}
+
+// MetadataCleared returns if the "metadata" field was cleared in this mutation.
+func (m *TodoMutation) MetadataCleared() bool {
+	_, ok := m.clearedFields[todo.FieldMetadata]
+	return ok
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *TodoMutation) ResetMetadata() {
+	m.metadata = nil
+	delete(m.clearedFields, todo.FieldMetadata)
+}
+
+// SetExternalID sets the "external_id" field.
+func (m *TodoMutation) SetExternalID(u uuid.UUID) {
+	m.external_id = &u
+}
+
+// ExternalID returns the value of the "external_id" field in the mutation.
+func (m *TodoMutation) ExternalID() (r uuid.UUID, exists bool) {
+	v := m.external_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExternalID returns the old "external_id" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldExternalID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExternalID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExternalID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExternalID: %w", err)
+	}
+	return oldValue.ExternalID, nil
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (m *TodoMutation) ClearExternalID() {
+	m.external_id = nil
+	m.clearedFields[todo.FieldExternalID] = struct{}{}
+}
+
+// ExternalIDCleared returns if the "external_id" field was cleared in this mutation.
+func (m *TodoMutation) ExternalIDCleared() bool {
+	_, ok := m.clearedFields[todo.FieldExternalID]
+	return ok
+}
+
+// ResetExternalID resets all changes to the "external_id" field.
+func (m *TodoMutation) ResetExternalID() {
+	m.external_id = nil
+	delete(m.clearedFields, todo.FieldExternalID)
+}
+
+// SetDuration sets the "duration" field.
+func (m *TodoMutation) SetDuration(i int64) {
+	m.duration = &i
+	m.addduration = nil
+}
+
+// Duration returns the value of the "duration" field in the mutation.
+func (m *TodoMutation) Duration() (r int64, exists bool) {
+	v := m.duration
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDuration returns the old "duration" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldDuration(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDuration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDuration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDuration: %w", err)
+	}
+	return oldValue.Duration, nil
+}
+
+// AddDuration adds i to the "duration" field.
+func (m *TodoMutation) AddDuration(i int64) {
+	if m.addduration != nil {
+		*m.addduration += i
+	} else {
+		m.addduration = &i
+	}
+}
+
+// AddedDuration returns the value that was added to the "duration" field in this mutation.
+func (m *TodoMutation) AddedDuration() (r int64, exists bool) {
+	v := m.addduration
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDuration clears the value of the "duration" field.
+func (m *TodoMutation) ClearDuration() {
+	m.duration = nil
+	m.addduration = nil
+	m.clearedFields[todo.FieldDuration] = struct{}{}
+}
+
+// DurationCleared returns if the "duration" field was cleared in this mutation.
+func (m *TodoMutation) DurationCleared() bool {
+	_, ok := m.clearedFields[todo.FieldDuration]
+	return ok
+}
+
+// ResetDuration resets all changes to the "duration" field.
+func (m *TodoMutation) ResetDuration() {
+	m.duration = nil
+	m.addduration = nil
+	delete(m.clearedFields, todo.FieldDuration)
+}
+
 // SetParentID sets the "parent" edge to the Todo entity by id.
 func (m *TodoMutation) SetParentID(id int) {
 	m.parent = &id
@@ -2438,7 +2799,7 @@ func (m *TodoMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TodoMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 10)
 	if m.created_at != nil {
 		fields = append(fields, todo.FieldCreatedAt)
 	}
@@ -2450,6 +2811,24 @@ func (m *TodoMutation) Fields() []string {
 	}
 	if m.text != nil {
 		fields = append(fields, todo.FieldText)
+	}
+	if m.score != nil {
+		fields = append(fields, todo.FieldScore)
+	}
+	if m.due_date != nil {
+		fields = append(fields, todo.FieldDueDate)
+	}
+	if m.tags2 != nil {
+		fields = append(fields, todo.FieldTags2)
+	}
+	if m.metadata != nil {
+		fields = append(fields, todo.FieldMetadata)
+	}
+	if m.external_id != nil {
+		fields = append(fields, todo.FieldExternalID)
+	}
+	if m.duration != nil {
+		fields = append(fields, todo.FieldDuration)
 	}
 	return fields
 }
@@ -2467,6 +2846,18 @@ func (m *TodoMutation) Field(name string) (ent.Value, bool) {
 		return m.Priority()
 	case todo.FieldText:
 		return m.Text()
+	case todo.FieldScore:
+		return m.Score()
+	case todo.FieldDueDate:
+		return m.DueDate()
+	case todo.FieldTags2:
+		return m.Tags2()
+	case todo.FieldMetadata:
+		return m.Metadata()
+	case todo.FieldExternalID:
+		return m.ExternalID()
+	case todo.FieldDuration:
+		return m.Duration()
 	}
 	return nil, false
 }
@@ -2484,6 +2875,18 @@ func (m *TodoMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldPriority(ctx)
 	case todo.FieldText:
 		return m.OldText(ctx)
+	case todo.FieldScore:
+		return m.OldScore(ctx)
+	case todo.FieldDueDate:
+		return m.OldDueDate(ctx)
+	case todo.FieldTags2:
+		return m.OldTags2(ctx)
+	case todo.FieldMetadata:
+		return m.OldMetadata(ctx)
+	case todo.FieldExternalID:
+		return m.OldExternalID(ctx)
+	case todo.FieldDuration:
+		return m.OldDuration(ctx)
 	}
 	return nil, fmt.Errorf("unknown Todo field %s", name)
 }
@@ -2521,6 +2924,48 @@ func (m *TodoMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetText(v)
 		return nil
+	case todo.FieldScore:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScore(v)
+		return nil
+	case todo.FieldDueDate:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDueDate(v)
+		return nil
+	case todo.FieldTags2:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTags2(v)
+		return nil
+	case todo.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
+	case todo.FieldExternalID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExternalID(v)
+		return nil
+	case todo.FieldDuration:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDuration(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Todo field %s", name)
 }
@@ -2532,6 +2977,12 @@ func (m *TodoMutation) AddedFields() []string {
 	if m.addpriority != nil {
 		fields = append(fields, todo.FieldPriority)
 	}
+	if m.addscore != nil {
+		fields = append(fields, todo.FieldScore)
+	}
+	if m.addduration != nil {
+		fields = append(fields, todo.FieldDuration)
+	}
 	return fields
 }
 
@@ -2542,6 +2993,10 @@ func (m *TodoMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case todo.FieldPriority:
 		return m.AddedPriority()
+	case todo.FieldScore:
+		return m.AddedScore()
+	case todo.FieldDuration:
+		return m.AddedDuration()
 	}
 	return nil, false
 }
@@ -2558,6 +3013,20 @@ func (m *TodoMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddPriority(v)
 		return nil
+	case todo.FieldScore:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddScore(v)
+		return nil
+	case todo.FieldDuration:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDuration(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Todo numeric field %s", name)
 }
@@ -2565,7 +3034,26 @@ func (m *TodoMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *TodoMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(todo.FieldScore) {
+		fields = append(fields, todo.FieldScore)
+	}
+	if m.FieldCleared(todo.FieldDueDate) {
+		fields = append(fields, todo.FieldDueDate)
+	}
+	if m.FieldCleared(todo.FieldTags2) {
+		fields = append(fields, todo.FieldTags2)
+	}
+	if m.FieldCleared(todo.FieldMetadata) {
+		fields = append(fields, todo.FieldMetadata)
+	}
+	if m.FieldCleared(todo.FieldExternalID) {
+		fields = append(fields, todo.FieldExternalID)
+	}
+	if m.FieldCleared(todo.FieldDuration) {
+		fields = append(fields, todo.FieldDuration)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -2578,6 +3066,26 @@ func (m *TodoMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *TodoMutation) ClearField(name string) error {
+	switch name {
+	case todo.FieldScore:
+		m.ClearScore()
+		return nil
+	case todo.FieldDueDate:
+		m.ClearDueDate()
+		return nil
+	case todo.FieldTags2:
+		m.ClearTags2()
+		return nil
+	case todo.FieldMetadata:
+		m.ClearMetadata()
+		return nil
+	case todo.FieldExternalID:
+		m.ClearExternalID()
+		return nil
+	case todo.FieldDuration:
+		m.ClearDuration()
+		return nil
+	}
 	return fmt.Errorf("unknown Todo nullable field %s", name)
 }
 
@@ -2596,6 +3104,24 @@ func (m *TodoMutation) ResetField(name string) error {
 		return nil
 	case todo.FieldText:
 		m.ResetText()
+		return nil
+	case todo.FieldScore:
+		m.ResetScore()
+		return nil
+	case todo.FieldDueDate:
+		m.ResetDueDate()
+		return nil
+	case todo.FieldTags2:
+		m.ResetTags2()
+		return nil
+	case todo.FieldMetadata:
+		m.ResetMetadata()
+		return nil
+	case todo.FieldExternalID:
+		m.ResetExternalID()
+		return nil
+	case todo.FieldDuration:
+		m.ResetDuration()
 		return nil
 	}
 	return fmt.Errorf("unknown Todo field %s", name)

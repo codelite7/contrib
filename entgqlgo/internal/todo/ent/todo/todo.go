@@ -37,6 +37,18 @@ const (
 	FieldPriority = "priority"
 	// FieldText holds the string denoting the text field in the database.
 	FieldText = "text"
+	// FieldScore holds the string denoting the score field in the database.
+	FieldScore = "score"
+	// FieldDueDate holds the string denoting the due_date field in the database.
+	FieldDueDate = "due_date"
+	// FieldTags2 holds the string denoting the tags2 field in the database.
+	FieldTags2 = "tags2"
+	// FieldMetadata holds the string denoting the metadata field in the database.
+	FieldMetadata = "metadata"
+	// FieldExternalID holds the string denoting the external_id field in the database.
+	FieldExternalID = "external_id"
+	// FieldDuration holds the string denoting the duration field in the database.
+	FieldDuration = "duration"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
 	EdgeParent = "parent"
 	// EdgeChildren holds the string denoting the children edge name in mutations.
@@ -69,6 +81,12 @@ var Columns = []string{
 	FieldStatus,
 	FieldPriority,
 	FieldText,
+	FieldScore,
+	FieldDueDate,
+	FieldTags2,
+	FieldMetadata,
+	FieldExternalID,
+	FieldDuration,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "todos"
@@ -152,6 +170,26 @@ func ByPriority(opts ...sql.OrderTermOption) OrderOption {
 // ByText orders the results by the text field.
 func ByText(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldText, opts...).ToFunc()
+}
+
+// ByScore orders the results by the score field.
+func ByScore(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldScore, opts...).ToFunc()
+}
+
+// ByDueDate orders the results by the due_date field.
+func ByDueDate(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDueDate, opts...).ToFunc()
+}
+
+// ByExternalID orders the results by the external_id field.
+func ByExternalID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExternalID, opts...).ToFunc()
+}
+
+// ByDuration orders the results by the duration field.
+func ByDuration(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDuration, opts...).ToFunc()
 }
 
 // ByParentField orders the results by parent field.

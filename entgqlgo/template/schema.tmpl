@@ -520,7 +520,12 @@ func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.N
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
 {{- if not $f.IsEdgeField }}
-{{- $isPointer := or $f.Optional $f.Default (not (not $f.DefaultFunc)) }}
+{{- /* $isPointer must mirror InputFieldDescriptor.IsPointer(): the create
+       struct field is a pointer only when the field is nullable on create AND
+       its Go type is not already nilable (slice/map -> Type.Nillable) and not
+       already a pointer (RType.IsPtr). Otherwise the decode helper would take
+       the address of a value whose struct field is not a pointer. */ -}}
+{{- $isPointer := and (or $f.Optional $f.Default (not (not $f.DefaultFunc))) (not $f.Type.Nillable) (not $f.Type.RType.IsPtr) }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
 {{- if $f.IsEnum }}
 		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
@@ -565,7 +570,7 @@ func ParseCreate{{ $n.Name }}Input(input map[string]interface{}) (*Create{{ $n.N
 {{- end }}
 		}
 {{- else }}
-		// Handle {{ $f.Type.String }} type
+		{{ gqlgoDecodeField $f $isPointer "v" (printf "result.%s" $f.StructField) }}
 {{- end }}
 	}
 {{- end }}
@@ -631,6 +636,11 @@ func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.N
 {{- if not $f.Sensitive }}
 {{- if not $f.Immutable }}
 {{- if not $f.IsEdgeField }}
+{{- /* On update every field is nullable, so the struct field is a pointer
+       unless its Go type is already nilable (slice/map -> Type.Nillable) or
+       already a pointer (RType.IsPtr). This mirrors InputFieldDescriptor.
+       IsPointer() and tells the decode helper whether to take an address. */ -}}
+{{- $updatePointer := and (not $f.Type.Nillable) (not $f.Type.RType.IsPtr) }}
 	if v, ok := input["{{ camel $f.Name }}"]; ok && v != nil {
 {{- if $f.IsEnum }}
 		// graphql-go decodes enum input to the typed Go value; fmt.Sprint
@@ -657,7 +667,7 @@ func ParseUpdate{{ $n.Name }}Input(input map[string]interface{}) (*Update{{ $n.N
 			result.{{ $f.StructField }} = &bb
 		}
 {{- else }}
-		// Handle {{ $f.Type.String }} type
+		{{ gqlgoDecodeField $f $updatePointer "v" (printf "result.%s" $f.StructField) }}
 {{- end }}
 	}
 {{- if $f.Optional }}

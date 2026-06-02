@@ -93,6 +93,7 @@ var (
 		"gqlgoPascalMutations":       gqlgoPascalMutations,
 		"gqlgoNeedsEntbuilder":       gqlgoNeedsEntbuilder,
 		"gqlgoDeref":                 gqlgoDeref,
+		"gqlgoDecodeField":           gqlgoDecodeField,
 		"gqlgoMutationSetField":      mutationSetField,
 		"gqlgoMutationClearField":    mutationClearField,
 		"gqlgoMutationAppendField":   mutationAppendField,
@@ -1130,6 +1131,341 @@ func sliceElementGraphQLType(goType string) (string, bool) {
 	default:
 		return "graphql.String", true // Default to String for unknown element types
 	}
+}
+
+// gqlgoDecodeField emits the Go statements that decode a single mutation-input
+// field value into the parser's result struct. It is the heart of the
+// silent-data-loss fix: previously the schema template only knew how to decode
+// int/string/bool fields and emitted an empty "// Handle <type>" stub for every
+// other Go type, silently discarding the value. This helper decodes every Go
+// type an ent field can carry (float, sized ints, time.Time, uuid.UUID, JSON
+// maps/slices, []byte, named slice types such as pq.StringArray, ...).
+//
+// The value arrives from graphql-go's input coercion: each InputObject field is
+// run through its GraphQL type's ParseValue (variables path) or ParseLiteral
+// (inline-literal path). The concrete Go shape therefore depends on the GraphQL
+// type entgqlgo assigned the field (see gqlgoType): graphql.Int -> int,
+// graphql.Float -> float64, graphql.String -> string, TimeScalar -> time.Time,
+// a list type -> []interface{}, and a custom scalar (UUID/Map/...) -> whatever
+// that scalar's ParseValue returns, or the graphql.String/graphql.ID fallback
+// (string) when the consumer never registered it. Because the same field can
+// arrive in more than one shape (e.g. a Map field is map[string]interface{}
+// when a Map scalar is registered but a JSON string otherwise), the emitted
+// code accepts every plausible arrival shape defensively and only errors on a
+// value it genuinely cannot interpret — never a silent skip, never a panic.
+//
+//   - f          the ent field being decoded (its Go type drives the cases).
+//   - isPointer  whether the result struct field is a pointer (then we decode
+//     into a temporary and assign its address).
+//   - valueVar   the already-non-nil interface{} value variable name (e.g. "v").
+//   - target     the assignment target (e.g. "result.Score").
+//
+// Enum, plain int, plain string and plain bool fields are handled inline by the
+// template and never reach this helper.
+func gqlgoDecodeField(f *gen.Field, isPointer bool, valueVar, target string) (string, error) {
+	goType := f.Type.String()
+	jsonTag := f.Name
+	// assign emits the code that stores a value expression of the field's base
+	// Go type into target, taking its address first when the struct field is a
+	// pointer. tmpVar is a fresh local used when an address must be taken.
+	assign := func(valueExpr string) string {
+		if isPointer {
+			return fmt.Sprintf("dv := %s\n\t\t\t%s = &dv", valueExpr, target)
+		}
+		return fmt.Sprintf("%s = %s", target, valueExpr)
+	}
+	errLine := func() string {
+		return fmt.Sprintf("return nil, fmt.Errorf(\"field %s: invalid value %%v (%%T)\", %s, %s)", jsonTag, valueVar, valueVar)
+	}
+
+	switch {
+	// time.Time: TimeScalar.ParseValue/ParseLiteral already returns time.Time;
+	// fall back to RFC3339 parsing if a raw string slips through.
+	case goType == "time.Time":
+		return fmt.Sprintf(`switch tv := %s.(type) {
+		case time.Time:
+			%s
+		case string:
+			tt, err := time.Parse(time.RFC3339, tv)
+			if err != nil {
+				return nil, fmt.Errorf("field %s: invalid time %%q: %%w", tv, err)
+			}
+			%s
+		default:
+			%s
+		}`, valueVar, assign("tv"), jsonTag, assign("tt"), errLine()), nil
+
+	// uuid.UUID: arrives as a string via the UUID/ID scalar (parse it), or as a
+	// uuid.UUID directly if a typed UUID scalar is registered.
+	case goType == "uuid.UUID":
+		return fmt.Sprintf(`switch uv := %s.(type) {
+		case uuid.UUID:
+			%s
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field %s: invalid uuid %%q: %%w", uv, err)
+			}
+			%s
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			%s
+		default:
+			%s
+		}`, valueVar, assign("uv"), jsonTag, assign("uu"), assign("uu"), errLine()), nil
+
+	// []byte: arrives as a base64 string (graphql.String fallback) or as raw
+	// bytes / a string if a custom Bytes scalar is registered.
+	case goType == "[]byte":
+		return fmt.Sprintf(`switch bv := %s.(type) {
+		case []byte:
+			%s
+		case string:
+			if decoded, err := base64.StdEncoding.DecodeString(bv); err == nil {
+				%s
+			} else {
+				%s
+			}
+		default:
+			%s
+		}`, valueVar, assign("bv"), assignBytesDecoded(isPointer, target), assignBytesRaw(isPointer, target), errLine()), nil
+
+	// JSON map (map[string]interface{} and friends), or any other JSON-backed Go
+	// type (map[string]string, []int, custom structs, ...). The value is either
+	// already the decoded Go value (Map scalar registered) or a JSON string
+	// (graphql.String fallback) that we json.Unmarshal into the field's Go type.
+	case f.Type.Type == field.TypeJSON && !isJSONSliceField(f):
+		return jsonDecode(f, isPointer, valueVar, target, goType), nil
+
+	// Slice-backed fields (Strings/Ints/Floats and named slice types such as
+	// pq.StringArray). When annotated/typed as a GraphQL list the value arrives
+	// as []interface{}; it may also arrive as a JSON string fallback.
+	case isSliceGoType(goType):
+		return sliceDecode(f, valueVar, target, goType), nil
+
+	// Numeric: graphql.Float -> float64, graphql.Int -> int. Accept int, int64,
+	// float64, json.Number and numeric strings, converting to the field's type.
+	case f.Type.Numeric():
+		return fmt.Sprintf(`switch nv := %s.(type) {
+		case int:
+			cv := %s(nv)
+			%s
+		case int64:
+			cv := %s(nv)
+			%s
+		case float64:
+			cv := %s(nv)
+			%s
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field %s: invalid number %%q: %%w", nv.String(), err)
+			}
+			cv := %s(fv)
+			%s
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field %s: invalid number %%q: %%w", nv, err)
+			}
+			cv := %s(fv)
+			%s
+		default:
+			%s
+		}`,
+			valueVar,
+			goType, assign("cv"),
+			goType, assign("cv"),
+			goType, assign("cv"),
+			jsonTag, goType, assign("cv"),
+			jsonTag, goType, assign("cv"),
+			errLine()), nil
+
+	// Fallback for any remaining Go type (e.g. field.TypeOther without a more
+	// specific case, or a custom scalar Go type): accept a string verbatim,
+	// otherwise error rather than silently dropping the value.
+	default:
+		return fmt.Sprintf(`if sv, ok := %s.(string); ok {
+			%s
+		} else {
+			%s
+		}`, valueVar, assign(fmt.Sprintf("%s(sv)", goType)), errLine()), nil
+	}
+}
+
+// assignBytesDecoded/assignBytesRaw emit the []byte assignment for the
+// base64-decoded and raw-string fallbacks respectively.
+func assignBytesDecoded(isPointer bool, target string) string {
+	if isPointer {
+		return fmt.Sprintf("dv := decoded\n\t\t\t\t%s = &dv", target)
+	}
+	return fmt.Sprintf("%s = decoded", target)
+}
+
+func assignBytesRaw(isPointer bool, target string) string {
+	if isPointer {
+		return fmt.Sprintf("dv := []byte(bv)\n\t\t\t\t%s = &dv", target)
+	}
+	return fmt.Sprintf("%s = []byte(bv)", target)
+}
+
+// jsonDecode emits decode code for a JSON-backed (non-slice) field: an already
+// decoded Go value is asserted directly; a JSON string is json.Unmarshal'd into
+// the field's Go type; a map[string]interface{} is re-marshalled then
+// unmarshalled into the concrete Go type to coerce (e.g. into map[string]string
+// or a struct) when the registered scalar handed us a generic map.
+func jsonDecode(f *gen.Field, isPointer bool, valueVar, target, goType string) string {
+	jsonTag := f.Name
+	assignAddr := "" // how to store a value held in the variable "dec"
+	if isPointer {
+		assignAddr = fmt.Sprintf("dv := dec\n\t\t\t%s = &dv", target)
+	} else {
+		assignAddr = fmt.Sprintf("%s = dec", target)
+	}
+	return fmt.Sprintf(`switch jv := %s.(type) {
+		case %s:
+			dec := jv
+			%s
+		case string:
+			var dec %s
+			if err := json.Unmarshal([]byte(jv), &dec); err != nil {
+				return nil, fmt.Errorf("field %s: invalid JSON: %%w", err)
+			}
+			%s
+		default:
+			raw, err := json.Marshal(jv)
+			if err != nil {
+				return nil, fmt.Errorf("field %s: cannot marshal value: %%w", err)
+			}
+			var dec %s
+			if err := json.Unmarshal(raw, &dec); err != nil {
+				return nil, fmt.Errorf("field %s: invalid JSON: %%w", err)
+			}
+			%s
+		}`,
+		valueVar,
+		goType, assignAddr,
+		goType, jsonTag, assignAddr,
+		jsonTag, goType, jsonTag, assignAddr)
+}
+
+// sliceDecode emits decode code for slice-backed fields. A GraphQL list arrives
+// as []interface{} whose elements are decoded per the slice's element type; a
+// JSON-string fallback is json.Unmarshal'd into the whole slice type. The result
+// is always assigned by value (slice fields are never pointers in the structs).
+func sliceDecode(f *gen.Field, valueVar, target, goType string) string {
+	jsonTag := f.Name
+	elem := sliceElementGoType(goType)
+	elemDecode := elementDecodeExpr(elem)
+	return fmt.Sprintf(`switch sv := %s.(type) {
+		case %s:
+			%s = sv
+		case []interface{}:
+			out := make(%s, 0, len(sv))
+			for _, item := range sv {
+				%s
+			}
+			%s = out
+		case string:
+			var dec %s
+			if err := json.Unmarshal([]byte(sv), &dec); err != nil {
+				return nil, fmt.Errorf("field %s: invalid JSON list: %%w", err)
+			}
+			%s = dec
+		default:
+			return nil, fmt.Errorf("field %s: invalid value %%v (%%T)", %s, %s)
+		}`,
+		valueVar,
+		goType, target,
+		goType, fmt.Sprintf(elemDecode, "item"), target,
+		goType, jsonTag, target,
+		jsonTag, valueVar, valueVar)
+}
+
+// elementDecodeExpr returns a format string (with a single %s for the source
+// element expression) that appends one decoded element of type elem to "out".
+func elementDecodeExpr(elem string) string {
+	switch elem {
+	case "string":
+		return `if s, ok := %[1]s.(string); ok {
+					out = append(out, s)
+				} else {
+					out = append(out, fmt.Sprint(%[1]s))
+				}`
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64", "rune", "byte":
+		return `switch n := %[1]s.(type) {
+				case int:
+					out = append(out, ` + elem + `(n))
+				case int64:
+					out = append(out, ` + elem + `(n))
+				case float64:
+					out = append(out, ` + elem + `(n))
+				}`
+	case "float32", "float64":
+		return `switch n := %[1]s.(type) {
+				case float64:
+					out = append(out, ` + elem + `(n))
+				case int:
+					out = append(out, ` + elem + `(n))
+				case int64:
+					out = append(out, ` + elem + `(n))
+				}`
+	case "bool":
+		return `if b, ok := %[1]s.(bool); ok {
+					out = append(out, b)
+				}`
+	default:
+		// Unknown element type: best-effort assert to the element type directly.
+		return `if e, ok := %[1]s.(` + elem + `); ok {
+					out = append(out, e)
+				}`
+	}
+}
+
+// sliceElementGoType returns the element Go type of a slice type string, looking
+// through a named slice alias if necessary. For "[]string" it returns "string";
+// for a named type like "pq.StringArray" it returns "string" (its underlying
+// element), inferred from the well-known aliases entgql/ent emit. For an unknown
+// named slice type it returns "interface{}" so the decoded []interface{} can be
+// asserted element-wise.
+func sliceElementGoType(goType string) string {
+	if strings.HasPrefix(goType, "[]") {
+		return goType[2:]
+	}
+	switch goType {
+	case "pq.StringArray":
+		return "string"
+	case "pq.Int64Array":
+		return "int64"
+	case "pq.Float64Array":
+		return "float64"
+	case "pq.BoolArray":
+		return "bool"
+	default:
+		return "interface{}"
+	}
+}
+
+// isSliceGoType reports whether the Go type string denotes a slice value,
+// including named slice aliases (pq.StringArray and friends).
+func isSliceGoType(goType string) bool {
+	if strings.HasPrefix(goType, "[]") {
+		return true
+	}
+	switch goType {
+	case "pq.StringArray", "pq.Int64Array", "pq.Float64Array", "pq.BoolArray":
+		return true
+	default:
+		return false
+	}
+}
+
+// isJSONSliceField reports whether a JSON-backed field's Go type is a slice
+// (e.g. field.Strings -> []string, or a named slice alias). Such fields decode
+// through sliceDecode (list shape) rather than jsonDecode (object shape).
+func isJSONSliceField(f *gen.Field) bool {
+	return isSliceGoType(f.Type.String())
 }
 
 // gqlgoScalar maps an ent field type to graphql-go scalar string.

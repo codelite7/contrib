@@ -18,12 +18,15 @@ package gqlgo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/todo"
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 )
 
@@ -535,6 +538,24 @@ var (
 				"priority": &graphql.InputObjectFieldConfig{
 					Type: graphql.Int,
 				},
+				"score": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"dueDate": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"tags2": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"metadata": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("Map", graphql.String),
+				},
+				"externalID": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"duration": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
 				"parentID": &graphql.InputObjectFieldConfig{
 					Type:        graphql.ID,
 					Description: "ID of the parent edge.",
@@ -567,6 +588,48 @@ var (
 				"clearPriority": &graphql.InputObjectFieldConfig{
 					Type:        graphql.Boolean,
 					Description: "Clear the priority field.",
+				},
+				"score": &graphql.InputObjectFieldConfig{
+					Type: graphql.Float,
+				},
+				"clearScore": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the score field.",
+				},
+				"dueDate": &graphql.InputObjectFieldConfig{
+					Type: TimeScalar,
+				},
+				"clearDueDate": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the dueDate field.",
+				},
+				"tags2": &graphql.InputObjectFieldConfig{
+					Type: graphql.NewList(graphql.NewNonNull(graphql.String)),
+				},
+				"clearTags2": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the tags2 field.",
+				},
+				"metadata": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("Map", graphql.String),
+				},
+				"clearMetadata": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the metadata field.",
+				},
+				"externalID": &graphql.InputObjectFieldConfig{
+					Type: customTypeOr("UUID", graphql.ID),
+				},
+				"clearExternalID": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the externalID field.",
+				},
+				"duration": &graphql.InputObjectFieldConfig{
+					Type: graphql.Int,
+				},
+				"clearDuration": &graphql.InputObjectFieldConfig{
+					Type:        graphql.Boolean,
+					Description: "Clear the duration field.",
 				},
 				"parentID": &graphql.InputObjectFieldConfig{
 					Type:        graphql.ID,
@@ -723,6 +786,157 @@ func ParseCreateTodoInput(input map[string]interface{}) (*CreateTodoInput, error
 			result.Priority = &i
 		}
 	}
+	if v, ok := input["score"]; ok && v != nil {
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			result.Score = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			result.Score = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			result.Score = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			result.Score = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			result.Score = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["dueDate"]; ok && v != nil {
+		switch tv := v.(type) {
+		case time.Time:
+			dv := tv
+			result.DueDate = &dv
+		case string:
+			tt, err := time.Parse(time.RFC3339, tv)
+			if err != nil {
+				return nil, fmt.Errorf("field due_date: invalid time %q: %w", tv, err)
+			}
+			dv := tt
+			result.DueDate = &dv
+		default:
+			return nil, fmt.Errorf("field due_date: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["tags2"]; ok && v != nil {
+		switch sv := v.(type) {
+		case []string:
+			result.Tags2 = sv
+		case []interface{}:
+			out := make([]string, 0, len(sv))
+			for _, item := range sv {
+				if s, ok := item.(string); ok {
+					out = append(out, s)
+				} else {
+					out = append(out, fmt.Sprint(item))
+				}
+			}
+			result.Tags2 = out
+		case string:
+			var dec []string
+			if err := json.Unmarshal([]byte(sv), &dec); err != nil {
+				return nil, fmt.Errorf("field tags2: invalid JSON list: %w", err)
+			}
+			result.Tags2 = dec
+		default:
+			return nil, fmt.Errorf("field tags2: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["metadata"]; ok && v != nil {
+		switch jv := v.(type) {
+		case map[string]interface{}:
+			dec := jv
+			result.Metadata = dec
+		case string:
+			var dec map[string]interface{}
+			if err := json.Unmarshal([]byte(jv), &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		default:
+			raw, err := json.Marshal(jv)
+			if err != nil {
+				return nil, fmt.Errorf("field metadata: cannot marshal value: %w", err)
+			}
+			var dec map[string]interface{}
+			if err := json.Unmarshal(raw, &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		}
+	}
+	if v, ok := input["externalID"]; ok && v != nil {
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			result.ExternalID = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			result.ExternalID = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			result.ExternalID = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["duration"]; ok && v != nil {
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			result.Duration = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			result.Duration = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			result.Duration = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			result.Duration = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			result.Duration = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
+		}
+	}
 	if v, ok := input["parentID"]; ok && v != nil {
 		id, err := strconv.Atoi(fmt.Sprint(v))
 		if err != nil {
@@ -779,6 +993,187 @@ func ParseUpdateTodoInput(input map[string]interface{}) (*UpdateTodoInput, error
 	if v, ok := input["clearPriority"]; ok {
 		if b, ok := v.(bool); ok {
 			result.ClearPriority = b
+		}
+	}
+	if v, ok := input["score"]; ok && v != nil {
+		switch nv := v.(type) {
+		case int:
+			cv := float64(nv)
+			dv := cv
+			result.Score = &dv
+		case int64:
+			cv := float64(nv)
+			dv := cv
+			result.Score = &dv
+		case float64:
+			cv := float64(nv)
+			dv := cv
+			result.Score = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv.String(), err)
+			}
+			cv := float64(fv)
+			dv := cv
+			result.Score = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field score: invalid number %q: %w", nv, err)
+			}
+			cv := float64(fv)
+			dv := cv
+			result.Score = &dv
+		default:
+			return nil, fmt.Errorf("field score: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["clearScore"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearScore = b
+		}
+	}
+	if v, ok := input["dueDate"]; ok && v != nil {
+		switch tv := v.(type) {
+		case time.Time:
+			dv := tv
+			result.DueDate = &dv
+		case string:
+			tt, err := time.Parse(time.RFC3339, tv)
+			if err != nil {
+				return nil, fmt.Errorf("field due_date: invalid time %q: %w", tv, err)
+			}
+			dv := tt
+			result.DueDate = &dv
+		default:
+			return nil, fmt.Errorf("field due_date: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["clearDueDate"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearDueDate = b
+		}
+	}
+	if v, ok := input["tags2"]; ok && v != nil {
+		switch sv := v.(type) {
+		case []string:
+			result.Tags2 = sv
+		case []interface{}:
+			out := make([]string, 0, len(sv))
+			for _, item := range sv {
+				if s, ok := item.(string); ok {
+					out = append(out, s)
+				} else {
+					out = append(out, fmt.Sprint(item))
+				}
+			}
+			result.Tags2 = out
+		case string:
+			var dec []string
+			if err := json.Unmarshal([]byte(sv), &dec); err != nil {
+				return nil, fmt.Errorf("field tags2: invalid JSON list: %w", err)
+			}
+			result.Tags2 = dec
+		default:
+			return nil, fmt.Errorf("field tags2: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["clearTags2"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearTags2 = b
+		}
+	}
+	if v, ok := input["metadata"]; ok && v != nil {
+		switch jv := v.(type) {
+		case map[string]interface{}:
+			dec := jv
+			result.Metadata = dec
+		case string:
+			var dec map[string]interface{}
+			if err := json.Unmarshal([]byte(jv), &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		default:
+			raw, err := json.Marshal(jv)
+			if err != nil {
+				return nil, fmt.Errorf("field metadata: cannot marshal value: %w", err)
+			}
+			var dec map[string]interface{}
+			if err := json.Unmarshal(raw, &dec); err != nil {
+				return nil, fmt.Errorf("field metadata: invalid JSON: %w", err)
+			}
+			result.Metadata = dec
+		}
+	}
+	if v, ok := input["clearMetadata"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearMetadata = b
+		}
+	}
+	if v, ok := input["externalID"]; ok && v != nil {
+		switch uv := v.(type) {
+		case uuid.UUID:
+			dv := uv
+			result.ExternalID = &dv
+		case string:
+			uu, err := uuid.Parse(uv)
+			if err != nil {
+				return nil, fmt.Errorf("field external_id: invalid uuid %q: %w", uv, err)
+			}
+			dv := uu
+			result.ExternalID = &dv
+		case [16]byte:
+			uu := uuid.UUID(uv)
+			dv := uu
+			result.ExternalID = &dv
+		default:
+			return nil, fmt.Errorf("field external_id: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["clearExternalID"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearExternalID = b
+		}
+	}
+	if v, ok := input["duration"]; ok && v != nil {
+		switch nv := v.(type) {
+		case int:
+			cv := int64(nv)
+			dv := cv
+			result.Duration = &dv
+		case int64:
+			cv := int64(nv)
+			dv := cv
+			result.Duration = &dv
+		case float64:
+			cv := int64(nv)
+			dv := cv
+			result.Duration = &dv
+		case json.Number:
+			fv, err := nv.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv.String(), err)
+			}
+			cv := int64(fv)
+			dv := cv
+			result.Duration = &dv
+		case string:
+			fv, err := strconv.ParseFloat(nv, 64)
+			if err != nil {
+				return nil, fmt.Errorf("field duration: invalid number %q: %w", nv, err)
+			}
+			cv := int64(fv)
+			dv := cv
+			result.Duration = &dv
+		default:
+			return nil, fmt.Errorf("field duration: invalid value %v (%T)", v, v)
+		}
+	}
+	if v, ok := input["clearDuration"]; ok {
+		if b, ok := v.(bool); ok {
+			result.ClearDuration = b
 		}
 	}
 	if v, ok := input["parentID"]; ok && v != nil {

@@ -25,6 +25,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // TodoCreate is the builder for creating a Todo entity.
@@ -75,6 +76,74 @@ func (_c *TodoCreate) SetCreatedAt(v time.Time) *TodoCreate {
 func (_c *TodoCreate) SetNillableCreatedAt(v *time.Time) *TodoCreate {
 	if v != nil {
 		_c.SetCreatedAt(*v)
+	}
+	return _c
+}
+
+// SetScore sets the "score" field.
+func (_c *TodoCreate) SetScore(v float64) *TodoCreate {
+	_ = _c.mutation.SetField("score", v)
+	return _c
+}
+
+// SetNillableScore sets the "score" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableScore(v *float64) *TodoCreate {
+	if v != nil {
+		_c.SetScore(*v)
+	}
+	return _c
+}
+
+// SetDueDate sets the "due_date" field.
+func (_c *TodoCreate) SetDueDate(v time.Time) *TodoCreate {
+	_ = _c.mutation.SetField("due_date", v)
+	return _c
+}
+
+// SetNillableDueDate sets the "due_date" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableDueDate(v *time.Time) *TodoCreate {
+	if v != nil {
+		_c.SetDueDate(*v)
+	}
+	return _c
+}
+
+// SetTags2 sets the "tags2" field.
+func (_c *TodoCreate) SetTags2(v []string) *TodoCreate {
+	_ = _c.mutation.SetField("tags2", v)
+	return _c
+}
+
+// SetMetadata sets the "metadata" field.
+func (_c *TodoCreate) SetMetadata(v map[string]interface{}) *TodoCreate {
+	_ = _c.mutation.SetField("metadata", v)
+	return _c
+}
+
+// SetExternalID sets the "external_id" field.
+func (_c *TodoCreate) SetExternalID(v uuid.UUID) *TodoCreate {
+	_ = _c.mutation.SetField("external_id", v)
+	return _c
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableExternalID(v *uuid.UUID) *TodoCreate {
+	if v != nil {
+		_c.SetExternalID(*v)
+	}
+	return _c
+}
+
+// SetDuration sets the "duration" field.
+func (_c *TodoCreate) SetDuration(v int64) *TodoCreate {
+	_ = _c.mutation.SetField("duration", v)
+	return _c
+}
+
+// SetNillableDuration sets the "duration" field if the given value is not nil.
+func (_c *TodoCreate) SetNillableDuration(v *int64) *TodoCreate {
+	if v != nil {
+		_c.SetDuration(*v)
 	}
 	return _c
 }
@@ -216,6 +285,30 @@ func (_c *TodoCreate) createSpec() (*Todo, *sqlgraph.CreateSpec) {
 	if value, ok := entbuilder.GetField[time.Time](_c.mutation, "created_at"); ok {
 		_spec.SetField(FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if value, ok := entbuilder.GetField[float64](_c.mutation, "score"); ok {
+		_spec.SetField(FieldScore, field.TypeFloat64, value)
+		_node.Score = value
+	}
+	if value, ok := entbuilder.GetField[time.Time](_c.mutation, "due_date"); ok {
+		_spec.SetField(FieldDueDate, field.TypeTime, value)
+		_node.DueDate = value
+	}
+	if value, ok := entbuilder.GetField[[]string](_c.mutation, "tags2"); ok {
+		_spec.SetField(FieldTags2, field.TypeJSON, value)
+		_node.Tags2 = value
+	}
+	if value, ok := entbuilder.GetField[map[string]interface{}](_c.mutation, "metadata"); ok {
+		_spec.SetField(FieldMetadata, field.TypeJSON, value)
+		_node.Metadata = value
+	}
+	if value, ok := entbuilder.GetField[uuid.UUID](_c.mutation, "external_id"); ok {
+		_spec.SetField(FieldExternalID, field.TypeUUID, value)
+		_node.ExternalID = value
+	}
+	if value, ok := entbuilder.GetField[int64](_c.mutation, "duration"); ok {
+		_spec.SetField(FieldDuration, field.TypeInt64, value)
+		_node.Duration = value
 	}
 	if nodes := entbuilder.EdgeIDsAs[int](_c.mutation, "parent"); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

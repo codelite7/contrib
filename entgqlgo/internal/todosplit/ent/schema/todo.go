@@ -22,6 +22,7 @@ import (
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // Todo defines the todo type schema. It is the split-runtime counterpart of the
@@ -54,6 +55,21 @@ func (Todo) Fields() []ent.Field {
 			Annotations(
 				entgqlgo.Skip(entgqlgo.SkipMutationCreateInput),
 			),
+		// Non-int/string/bool scalar fields exercising the split-runtime
+		// mutation-input decode path (SetField generic API). These previously
+		// hit the empty "// Handle <type>" stub and were silently dropped.
+		field.Float("score").
+			Optional(),
+		field.Time("due_date").
+			Optional(),
+		field.Strings("tags2").
+			Optional(),
+		field.JSON("metadata", map[string]interface{}{}).
+			Optional(),
+		field.UUID("external_id", uuid.UUID{}).
+			Optional(),
+		field.Int64("duration").
+			Optional(),
 	}
 }
 

@@ -16,7 +16,9 @@ package todosplit
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/category"
@@ -25,6 +27,7 @@ import (
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/gqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/todo"
 
+	"github.com/google/uuid"
 	"github.com/graphql-go/graphql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -354,4 +357,81 @@ func (s *TodoSplitTestSuite) TestPascalMutationNames() {
 	count, err := s.client.Todo.Query().Count(s.ctx)
 	s.Require().NoError(err)
 	require.Zero(s.T(), count, "todo should have been deleted")
+}
+
+// TestMutationDecodesAllFieldTypes is the split-runtime counterpart of the
+// data-loss regression test: it drives a Float, Time, Strings list, JSON map,
+// UUID and Int64 field through the PascalCase Create/Update Todo mutations via
+// graphql.Do and asserts every value round-trips into the database. The
+// split-runtime mutation applies these via the generic entbuilder SetField API,
+// but the input parsers (where the bug lived) are shared with the classic path.
+func (s *TodoSplitTestSuite) TestMutationDecodesAllFieldTypes() {
+	extID := uuid.New()
+	due := time.Date(1990, time.June, 15, 12, 0, 0, 0, time.UTC)
+
+	create := graphql.Do(graphql.Params{
+		Schema:  s.schema,
+		Context: s.ctx,
+		// PascalCase CreateTodo (WithPascalMutationNames). metadata/externalID use
+		// the String/ID scalar fallbacks (no Map/UUID scalar registered).
+		RequestString: `mutation ($due: Time!, $ext: ID!, $meta: String!) {
+			CreateTodo(input: {
+				text: "all-types"
+				status: IN_PROGRESS
+				score: 4.5
+				dueDate: $due
+				tags2: ["a", "b", "c"]
+				metadata: $meta
+				externalID: $ext
+				duration: 90000
+			}) { id }
+		}`,
+		VariableValues: map[string]interface{}{
+			"due":  due.Format(time.RFC3339),
+			"ext":  extID.String(),
+			"meta": `{"k":"v","n":2}`,
+		},
+	})
+	s.Require().Empty(create.Errors, "create errors: %v", create.Errors)
+
+	got, err := s.client.Todo.Query().Where(todo.TextEQ("all-types")).Only(s.ctx)
+	s.Require().NoError(err)
+	require.Equal(s.T(), 4.5, got.Score)
+	require.WithinDuration(s.T(), due, got.DueDate, 0)
+	require.Equal(s.T(), []string{"a", "b", "c"}, got.Tags2)
+	require.Equal(s.T(), map[string]interface{}{"k": "v", "n": float64(2)}, got.Metadata)
+	require.Equal(s.T(), extID, got.ExternalID)
+	require.Equal(s.T(), int64(90000), got.Duration)
+
+	newExt := uuid.New()
+	newDue := time.Date(2001, time.January, 2, 3, 4, 5, 0, time.UTC)
+	update := graphql.Do(graphql.Params{
+		Schema:  s.schema,
+		Context: s.ctx,
+		RequestString: fmt.Sprintf(`mutation ($due: Time!, $ext: ID!, $meta: String!) {
+			UpdateTodo(id: "%d", input: {
+				score: 8.25
+				dueDate: $due
+				tags2: ["x", "y"]
+				metadata: $meta
+				externalID: $ext
+				duration: 120000
+			}) { id }
+		}`, got.ID),
+		VariableValues: map[string]interface{}{
+			"due":  newDue.Format(time.RFC3339),
+			"ext":  newExt.String(),
+			"meta": `{"updated":true}`,
+		},
+	})
+	s.Require().Empty(update.Errors, "update errors: %v", update.Errors)
+
+	got2, err := s.client.Todo.Get(s.ctx, got.ID)
+	s.Require().NoError(err)
+	require.Equal(s.T(), 8.25, got2.Score)
+	require.WithinDuration(s.T(), newDue, got2.DueDate, 0)
+	require.Equal(s.T(), []string{"x", "y"}, got2.Tags2)
+	require.Equal(s.T(), map[string]interface{}{"updated": true}, got2.Metadata)
+	require.Equal(s.T(), newExt, got2.ExternalID)
+	require.Equal(s.T(), int64(120000), got2.Duration)
 }

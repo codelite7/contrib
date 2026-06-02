@@ -17,10 +17,13 @@
 package gqlgo
 
 import (
+	"time"
+
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todosplit/ent/todo"
 	"entgo.io/ent/runtime/entbuilder"
+	"github.com/google/uuid"
 )
 
 // CreateCategoryInput represents a mutation input for creating categories.
@@ -90,6 +93,12 @@ type CreateTodoInput struct {
 	Text       string
 	Status     todo.Status
 	Priority   *int
+	Score      *float64
+	DueDate    *time.Time
+	Tags2      []string
+	Metadata   map[string]interface{}
+	ExternalID *uuid.UUID
+	Duration   *int64
 	ParentID   *int
 	ChildIDs   []int
 	CategoryID *int
@@ -101,6 +110,24 @@ func (i *CreateTodoInput) Mutate(m *ent.TodoMutation) {
 	_ = m.SetField("status", i.Status)
 	if v := i.Priority; v != nil {
 		_ = m.SetField("priority", *v)
+	}
+	if v := i.Score; v != nil {
+		_ = m.SetField("score", *v)
+	}
+	if v := i.DueDate; v != nil {
+		_ = m.SetField("due_date", *v)
+	}
+	if v := i.Tags2; v != nil {
+		_ = m.SetField("tags2", v)
+	}
+	if v := i.Metadata; v != nil {
+		_ = m.SetField("metadata", v)
+	}
+	if v := i.ExternalID; v != nil {
+		_ = m.SetField("external_id", *v)
+	}
+	if v := i.Duration; v != nil {
+		_ = m.SetField("duration", *v)
 	}
 	if v := i.ParentID; v != nil {
 		_ = m.SetEdgeID("parent", *v)
@@ -115,17 +142,30 @@ func (i *CreateTodoInput) Mutate(m *ent.TodoMutation) {
 
 // UpdateTodoInput represents a mutation input for updating todos.
 type UpdateTodoInput struct {
-	Text           *string
-	Status         *todo.Status
-	ClearPriority  bool
-	Priority       *int
-	ClearParent    bool
-	ParentID       *int
-	ClearChildren  bool
-	AddChildIDs    []int
-	RemoveChildIDs []int
-	ClearCategory  bool
-	CategoryID     *int
+	Text            *string
+	Status          *todo.Status
+	ClearPriority   bool
+	Priority        *int
+	ClearScore      bool
+	Score           *float64
+	ClearDueDate    bool
+	DueDate         *time.Time
+	ClearTags2      bool
+	Tags2           []string
+	AppendTags2     []string
+	ClearMetadata   bool
+	Metadata        map[string]interface{}
+	ClearExternalID bool
+	ExternalID      *uuid.UUID
+	ClearDuration   bool
+	Duration        *int64
+	ClearParent     bool
+	ParentID        *int
+	ClearChildren   bool
+	AddChildIDs     []int
+	RemoveChildIDs  []int
+	ClearCategory   bool
+	CategoryID      *int
 }
 
 // Mutate applies the UpdateTodoInput on the TodoMutation builder.
@@ -141,6 +181,45 @@ func (i *UpdateTodoInput) Mutate(m *ent.TodoMutation) {
 	}
 	if v := i.Priority; v != nil {
 		_ = m.SetField("priority", *v)
+	}
+	if i.ClearScore {
+		_ = m.ClearField("score")
+	}
+	if v := i.Score; v != nil {
+		_ = m.SetField("score", *v)
+	}
+	if i.ClearDueDate {
+		_ = m.ClearField("due_date")
+	}
+	if v := i.DueDate; v != nil {
+		_ = m.SetField("due_date", *v)
+	}
+	if i.ClearTags2 {
+		_ = m.ClearField("tags2")
+	}
+	if v := i.Tags2; v != nil {
+		_ = m.SetField("tags2", v)
+	}
+	if i.AppendTags2 != nil {
+		_ = m.AppendField("tags2", i.Tags2)
+	}
+	if i.ClearMetadata {
+		_ = m.ClearField("metadata")
+	}
+	if v := i.Metadata; v != nil {
+		_ = m.SetField("metadata", v)
+	}
+	if i.ClearExternalID {
+		_ = m.ClearField("external_id")
+	}
+	if v := i.ExternalID; v != nil {
+		_ = m.SetField("external_id", *v)
+	}
+	if i.ClearDuration {
+		_ = m.ClearField("duration")
+	}
+	if v := i.Duration; v != nil {
+		_ = m.SetField("duration", *v)
 	}
 	if i.ClearParent {
 		_ = m.ClearEdge("parent")

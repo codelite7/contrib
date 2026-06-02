@@ -17,6 +17,8 @@
 package gqlgo
 
 import (
+	"time"
+
 	"entgo.io/contrib/entgqlgo/internal/todo/ent"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
@@ -170,6 +172,12 @@ type CreateTodoInput struct {
 	Status     todo.Status
 	Priority   *int
 	Text       string
+	Score      *float64
+	DueDate    *time.Time
+	Tags2      []string
+	Metadata   map[string]interface{}
+	ExternalID *uuid.UUID
+	Duration   *int64
 	ParentID   *int
 	ChildIDs   []int
 	CategoryID *int
@@ -182,6 +190,24 @@ func (i *CreateTodoInput) Mutate(m *ent.TodoMutation) {
 		m.SetPriority(*v)
 	}
 	m.SetText(i.Text)
+	if v := i.Score; v != nil {
+		m.SetScore(*v)
+	}
+	if v := i.DueDate; v != nil {
+		m.SetDueDate(*v)
+	}
+	if v := i.Tags2; v != nil {
+		m.SetTags2(v)
+	}
+	if v := i.Metadata; v != nil {
+		m.SetMetadata(v)
+	}
+	if v := i.ExternalID; v != nil {
+		m.SetExternalID(*v)
+	}
+	if v := i.Duration; v != nil {
+		m.SetDuration(*v)
+	}
 	if v := i.ParentID; v != nil {
 		m.SetParentID(*v)
 	}
@@ -195,16 +221,29 @@ func (i *CreateTodoInput) Mutate(m *ent.TodoMutation) {
 
 // UpdateTodoInput represents a mutation input for updating todos.
 type UpdateTodoInput struct {
-	Status         *todo.Status
-	Priority       *int
-	Text           *string
-	ClearParent    bool
-	ParentID       *int
-	ClearChildren  bool
-	AddChildIDs    []int
-	RemoveChildIDs []int
-	ClearCategory  bool
-	CategoryID     *int
+	Status          *todo.Status
+	Priority        *int
+	Text            *string
+	ClearScore      bool
+	Score           *float64
+	ClearDueDate    bool
+	DueDate         *time.Time
+	ClearTags2      bool
+	Tags2           []string
+	AppendTags2     []string
+	ClearMetadata   bool
+	Metadata        map[string]interface{}
+	ClearExternalID bool
+	ExternalID      *uuid.UUID
+	ClearDuration   bool
+	Duration        *int64
+	ClearParent     bool
+	ParentID        *int
+	ClearChildren   bool
+	AddChildIDs     []int
+	RemoveChildIDs  []int
+	ClearCategory   bool
+	CategoryID      *int
 }
 
 // Mutate applies the UpdateTodoInput on the TodoMutation builder.
@@ -217,6 +256,45 @@ func (i *UpdateTodoInput) Mutate(m *ent.TodoMutation) {
 	}
 	if v := i.Text; v != nil {
 		m.SetText(*v)
+	}
+	if i.ClearScore {
+		m.ClearScore()
+	}
+	if v := i.Score; v != nil {
+		m.SetScore(*v)
+	}
+	if i.ClearDueDate {
+		m.ClearDueDate()
+	}
+	if v := i.DueDate; v != nil {
+		m.SetDueDate(*v)
+	}
+	if i.ClearTags2 {
+		m.ClearTags2()
+	}
+	if v := i.Tags2; v != nil {
+		m.SetTags2(v)
+	}
+	if i.AppendTags2 != nil {
+		m.AppendTags2(i.Tags2)
+	}
+	if i.ClearMetadata {
+		m.ClearMetadata()
+	}
+	if v := i.Metadata; v != nil {
+		m.SetMetadata(v)
+	}
+	if i.ClearExternalID {
+		m.ClearExternalID()
+	}
+	if v := i.ExternalID; v != nil {
+		m.SetExternalID(*v)
+	}
+	if i.ClearDuration {
+		m.ClearDuration()
+	}
+	if v := i.Duration; v != nil {
+		m.SetDuration(*v)
 	}
 	if i.ClearParent {
 		m.ClearParent()

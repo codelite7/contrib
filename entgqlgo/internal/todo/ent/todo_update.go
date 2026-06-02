@@ -21,14 +21,17 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/category"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/predicate"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/todo"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/runtime/entbuilder"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 // TodoUpdate is the builder for updating Todo entities.
@@ -90,6 +93,130 @@ func (_u *TodoUpdate) SetNillableText(v *string) *TodoUpdate {
 	if v != nil {
 		_u.SetText(*v)
 	}
+	return _u
+}
+
+// SetScore sets the "score" field.
+func (_u *TodoUpdate) SetScore(v float64) *TodoUpdate {
+	_u.mutation.ResetScore()
+	_u.mutation.SetScore(v)
+	return _u
+}
+
+// SetNillableScore sets the "score" field if the given value is not nil.
+func (_u *TodoUpdate) SetNillableScore(v *float64) *TodoUpdate {
+	if v != nil {
+		_u.SetScore(*v)
+	}
+	return _u
+}
+
+// AddScore adds value to the "score" field.
+func (_u *TodoUpdate) AddScore(v float64) *TodoUpdate {
+	_u.mutation.AddScore(v)
+	return _u
+}
+
+// ClearScore clears the value of the "score" field.
+func (_u *TodoUpdate) ClearScore() *TodoUpdate {
+	_u.mutation.ClearScore()
+	return _u
+}
+
+// SetDueDate sets the "due_date" field.
+func (_u *TodoUpdate) SetDueDate(v time.Time) *TodoUpdate {
+	_u.mutation.SetDueDate(v)
+	return _u
+}
+
+// SetNillableDueDate sets the "due_date" field if the given value is not nil.
+func (_u *TodoUpdate) SetNillableDueDate(v *time.Time) *TodoUpdate {
+	if v != nil {
+		_u.SetDueDate(*v)
+	}
+	return _u
+}
+
+// ClearDueDate clears the value of the "due_date" field.
+func (_u *TodoUpdate) ClearDueDate() *TodoUpdate {
+	_u.mutation.ClearDueDate()
+	return _u
+}
+
+// SetTags2 sets the "tags2" field.
+func (_u *TodoUpdate) SetTags2(v []string) *TodoUpdate {
+	_u.mutation.SetTags2(v)
+	return _u
+}
+
+// AppendTags2 appends value to the "tags2" field.
+func (_u *TodoUpdate) AppendTags2(v []string) *TodoUpdate {
+	_u.mutation.AppendTags2(v)
+	return _u
+}
+
+// ClearTags2 clears the value of the "tags2" field.
+func (_u *TodoUpdate) ClearTags2() *TodoUpdate {
+	_u.mutation.ClearTags2()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *TodoUpdate) SetMetadata(v map[string]interface{}) *TodoUpdate {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *TodoUpdate) ClearMetadata() *TodoUpdate {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
+// SetExternalID sets the "external_id" field.
+func (_u *TodoUpdate) SetExternalID(v uuid.UUID) *TodoUpdate {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *TodoUpdate) SetNillableExternalID(v *uuid.UUID) *TodoUpdate {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (_u *TodoUpdate) ClearExternalID() *TodoUpdate {
+	_u.mutation.ClearExternalID()
+	return _u
+}
+
+// SetDuration sets the "duration" field.
+func (_u *TodoUpdate) SetDuration(v int64) *TodoUpdate {
+	_u.mutation.ResetDuration()
+	_u.mutation.SetDuration(v)
+	return _u
+}
+
+// SetNillableDuration sets the "duration" field if the given value is not nil.
+func (_u *TodoUpdate) SetNillableDuration(v *int64) *TodoUpdate {
+	if v != nil {
+		_u.SetDuration(*v)
+	}
+	return _u
+}
+
+// AddDuration adds value to the "duration" field.
+func (_u *TodoUpdate) AddDuration(v int64) *TodoUpdate {
+	_u.mutation.AddDuration(v)
+	return _u
+}
+
+// ClearDuration clears the value of the "duration" field.
+func (_u *TodoUpdate) ClearDuration() *TodoUpdate {
+	_u.mutation.ClearDuration()
 	return _u
 }
 
@@ -264,6 +391,110 @@ var todoUpdateDescriptor = entbuilder.UpdateDescriptor[config, *TodoMutation]{
 					return value, true, nil
 				}
 				return nil, false, nil
+			},
+		},
+
+		{
+			Column: todo.FieldScore,
+			Type:   field.TypeFloat64,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Score(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.AddedScore(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *TodoMutation) bool {
+				return m.ScoreCleared()
+			},
+		},
+
+		{
+			Column: todo.FieldDueDate,
+			Type:   field.TypeTime,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.DueDate(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *TodoMutation) bool {
+				return m.DueDateCleared()
+			},
+		},
+
+		{
+			Column: todo.FieldTags2,
+			Type:   field.TypeJSON,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Tags2(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Append: func(m *TodoMutation) (func(*sql.UpdateBuilder), bool, error) {
+				if value, ok := m.AppendedTags2(); ok {
+					return func(u *sql.UpdateBuilder) {
+						sqljson.Append(u, todo.FieldTags2, value)
+					}, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *TodoMutation) bool {
+				return m.Tags2Cleared()
+			},
+		},
+
+		{
+			Column: todo.FieldMetadata,
+			Type:   field.TypeJSON,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Metadata(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *TodoMutation) bool {
+				return m.MetadataCleared()
+			},
+		},
+
+		{
+			Column: todo.FieldExternalID,
+			Type:   field.TypeUUID,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.ExternalID(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *TodoMutation) bool {
+				return m.ExternalIDCleared()
+			},
+		},
+
+		{
+			Column: todo.FieldDuration,
+			Type:   field.TypeInt64,
+			Set: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.Duration(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Add: func(m *TodoMutation) (driver.Value, bool, error) {
+				if value, ok := m.AddedDuration(); ok {
+					return value, true, nil
+				}
+				return nil, false, nil
+			},
+			Clear: func(m *TodoMutation) bool {
+				return m.DurationCleared()
 			},
 		},
 	},
@@ -481,6 +712,130 @@ func (_u *TodoUpdateOne) SetNillableText(v *string) *TodoUpdateOne {
 	if v != nil {
 		_u.SetText(*v)
 	}
+	return _u
+}
+
+// SetScore sets the "score" field.
+func (_u *TodoUpdateOne) SetScore(v float64) *TodoUpdateOne {
+	_u.mutation.ResetScore()
+	_u.mutation.SetScore(v)
+	return _u
+}
+
+// SetNillableScore sets the "score" field if the given value is not nil.
+func (_u *TodoUpdateOne) SetNillableScore(v *float64) *TodoUpdateOne {
+	if v != nil {
+		_u.SetScore(*v)
+	}
+	return _u
+}
+
+// AddScore adds value to the "score" field.
+func (_u *TodoUpdateOne) AddScore(v float64) *TodoUpdateOne {
+	_u.mutation.AddScore(v)
+	return _u
+}
+
+// ClearScore clears the value of the "score" field.
+func (_u *TodoUpdateOne) ClearScore() *TodoUpdateOne {
+	_u.mutation.ClearScore()
+	return _u
+}
+
+// SetDueDate sets the "due_date" field.
+func (_u *TodoUpdateOne) SetDueDate(v time.Time) *TodoUpdateOne {
+	_u.mutation.SetDueDate(v)
+	return _u
+}
+
+// SetNillableDueDate sets the "due_date" field if the given value is not nil.
+func (_u *TodoUpdateOne) SetNillableDueDate(v *time.Time) *TodoUpdateOne {
+	if v != nil {
+		_u.SetDueDate(*v)
+	}
+	return _u
+}
+
+// ClearDueDate clears the value of the "due_date" field.
+func (_u *TodoUpdateOne) ClearDueDate() *TodoUpdateOne {
+	_u.mutation.ClearDueDate()
+	return _u
+}
+
+// SetTags2 sets the "tags2" field.
+func (_u *TodoUpdateOne) SetTags2(v []string) *TodoUpdateOne {
+	_u.mutation.SetTags2(v)
+	return _u
+}
+
+// AppendTags2 appends value to the "tags2" field.
+func (_u *TodoUpdateOne) AppendTags2(v []string) *TodoUpdateOne {
+	_u.mutation.AppendTags2(v)
+	return _u
+}
+
+// ClearTags2 clears the value of the "tags2" field.
+func (_u *TodoUpdateOne) ClearTags2() *TodoUpdateOne {
+	_u.mutation.ClearTags2()
+	return _u
+}
+
+// SetMetadata sets the "metadata" field.
+func (_u *TodoUpdateOne) SetMetadata(v map[string]interface{}) *TodoUpdateOne {
+	_u.mutation.SetMetadata(v)
+	return _u
+}
+
+// ClearMetadata clears the value of the "metadata" field.
+func (_u *TodoUpdateOne) ClearMetadata() *TodoUpdateOne {
+	_u.mutation.ClearMetadata()
+	return _u
+}
+
+// SetExternalID sets the "external_id" field.
+func (_u *TodoUpdateOne) SetExternalID(v uuid.UUID) *TodoUpdateOne {
+	_u.mutation.SetExternalID(v)
+	return _u
+}
+
+// SetNillableExternalID sets the "external_id" field if the given value is not nil.
+func (_u *TodoUpdateOne) SetNillableExternalID(v *uuid.UUID) *TodoUpdateOne {
+	if v != nil {
+		_u.SetExternalID(*v)
+	}
+	return _u
+}
+
+// ClearExternalID clears the value of the "external_id" field.
+func (_u *TodoUpdateOne) ClearExternalID() *TodoUpdateOne {
+	_u.mutation.ClearExternalID()
+	return _u
+}
+
+// SetDuration sets the "duration" field.
+func (_u *TodoUpdateOne) SetDuration(v int64) *TodoUpdateOne {
+	_u.mutation.ResetDuration()
+	_u.mutation.SetDuration(v)
+	return _u
+}
+
+// SetNillableDuration sets the "duration" field if the given value is not nil.
+func (_u *TodoUpdateOne) SetNillableDuration(v *int64) *TodoUpdateOne {
+	if v != nil {
+		_u.SetDuration(*v)
+	}
+	return _u
+}
+
+// AddDuration adds value to the "duration" field.
+func (_u *TodoUpdateOne) AddDuration(v int64) *TodoUpdateOne {
+	_u.mutation.AddDuration(v)
+	return _u
+}
+
+// ClearDuration clears the value of the "duration" field.
+func (_u *TodoUpdateOne) ClearDuration() *TodoUpdateOne {
+	_u.mutation.ClearDuration()
 	return _u
 }
 
