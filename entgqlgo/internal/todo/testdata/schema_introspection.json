@@ -491,8 +491,8 @@
             },
             {
               "defaultValue": null,
-              "description": "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
-              "name": "nulls",
+              "description": "The direction to order null values.",
+              "name": "nullsDirection",
               "type": {
                 "kind": "ENUM",
                 "name": "NullsDirection",
@@ -2196,8 +2196,8 @@
             },
             {
               "defaultValue": null,
-              "description": "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
-              "name": "nulls",
+              "description": "The direction to order null values.",
+              "name": "nullsDirection",
               "type": {
                 "kind": "ENUM",
                 "name": "NullsDirection",

@@ -2738,7 +2738,7 @@ func TestNullsDirection(t *testing.T) {
 	result := graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `query {
-			todos(orderBy: [{field: PRIORITY, direction: ASC, nulls: FIRST}]) {
+			todos(orderBy: [{field: PRIORITY, direction: ASC, nullsDirection: FIRST}]) {
 				edges {
 					node {
 						id
@@ -2776,7 +2776,7 @@ func TestNullsDirection(t *testing.T) {
 	result = graphql.Do(graphql.Params{
 		Schema: schema,
 		RequestString: `query {
-			todos(orderBy: [{field: PRIORITY, direction: DESC, nulls: LAST}]) {
+			todos(orderBy: [{field: PRIORITY, direction: DESC, nullsDirection: LAST}]) {
 				edges {
 					node {
 						id

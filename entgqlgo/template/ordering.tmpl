@@ -62,9 +62,9 @@ var {{ $names.Order }}InputType = graphql.NewInputObject(graphql.InputObjectConf
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},
-		"nulls": &graphql.InputObjectFieldConfig{
-			Type:         NullsDirectionEnum,
-			Description:  "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
+		"nullsDirection": &graphql.InputObjectFieldConfig{
+			Type:        NullsDirectionEnum,
+			Description: "The direction to order null values.",
 		},
 	},
 })
@@ -92,7 +92,7 @@ func Parse{{ $names.Order }}(m map[string]interface{}) (*{{ $names.Order }}, err
 			order.Direction = entgqlgo.OrderDirection(v)
 		}
 	}
-	if nulls, ok := m["nulls"]; ok && nulls != nil {
+	if nulls, ok := m["nullsDirection"]; ok && nulls != nil {
 		switch v := nulls.(type) {
 		case entgqlgo.NullsDirection:
 			order.Nulls = &v

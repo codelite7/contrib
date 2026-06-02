@@ -51,9 +51,9 @@ var CategoryOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},
-		"nulls": &graphql.InputObjectFieldConfig{
+		"nullsDirection": &graphql.InputObjectFieldConfig{
 			Type:        NullsDirectionEnum,
-			Description: "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
+			Description: "The direction to order null values.",
 		},
 	},
 })
@@ -81,7 +81,7 @@ func ParseCategoryOrder(m map[string]interface{}) (*CategoryOrder, error) {
 			order.Direction = entgqlgo.OrderDirection(v)
 		}
 	}
-	if nulls, ok := m["nulls"]; ok && nulls != nil {
+	if nulls, ok := m["nullsDirection"]; ok && nulls != nil {
 		switch v := nulls.(type) {
 		case entgqlgo.NullsDirection:
 			order.Nulls = &v
@@ -148,9 +148,9 @@ var TodoOrderInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 			DefaultValue: entgqlgo.OrderDirectionAsc,
 			Description:  "The direction to order by.",
 		},
-		"nulls": &graphql.InputObjectFieldConfig{
+		"nullsDirection": &graphql.InputObjectFieldConfig{
 			Type:        NullsDirectionEnum,
-			Description: "The ordering of null values. If not specified, nulls are ordered last for ASC, first for DESC.",
+			Description: "The direction to order null values.",
 		},
 	},
 })
@@ -178,7 +178,7 @@ func ParseTodoOrder(m map[string]interface{}) (*TodoOrder, error) {
 			order.Direction = entgqlgo.OrderDirection(v)
 		}
 	}
-	if nulls, ok := m["nulls"]; ok && nulls != nil {
+	if nulls, ok := m["nullsDirection"]; ok && nulls != nil {
 		switch v := nulls.(type) {
 		case entgqlgo.NullsDirection:
 			order.Nulls = &v
