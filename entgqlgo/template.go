@@ -91,15 +91,15 @@ var (
 		"gqlgoSplitRuntime":          gqlgoSplitRuntime,
 		"gqlgoNeedsEntbuilder":       gqlgoNeedsEntbuilder,
 		"gqlgoDeref":                 gqlgoDeref,
-		"gqlgoMutationSetField":      mutationSetFieldStmt,
-		"gqlgoMutationClearField":    mutationClearFieldStmt,
-		"gqlgoMutationAppendField":   mutationAppendFieldStmt,
-		"gqlgoMutationSetEdgeID":     mutationSetEdgeIDStmt,
-		"gqlgoMutationAddEdgeIDs":    mutationAddEdgeIDsStmt,
-		"gqlgoMutationRemoveEdgeIDs": mutationRemoveEdgeIDsStmt,
-		"gqlgoMutationClearEdge":     mutationClearEdgeStmt,
-		"gqlgoEdgeQueryExpr":         gqlgoEdgeQueryExpr,
-		"gqlgoEdgeWithExpr":          gqlgoEdgeWithExpr,
+		"gqlgoMutationSetField":      mutationSetField,
+		"gqlgoMutationClearField":    mutationClearField,
+		"gqlgoMutationAppendField":   mutationAppendField,
+		"gqlgoMutationSetEdgeID":     mutationSetEdgeID,
+		"gqlgoMutationAddEdgeIDs":    mutationAddEdgeIDs,
+		"gqlgoMutationRemoveEdgeIDs": mutationRemoveEdgeIDs,
+		"gqlgoMutationClearEdge":     mutationClearEdge,
+		"gqlgoEdgeQueryExpr":         edgeQueryExpr,
+		"gqlgoEdgeWithExpr":          edgeWithExpr,
 		"gqlgoFieldCollections":      fieldCollections,
 		"gqlgoFieldMapping":          fieldMapping,
 		"gqlgoFilterEdges":           filterEdges,
@@ -282,8 +282,29 @@ func (m *MutationDescriptor) InputEdges() ([]*gen.Edge, error) {
 // gqlgoSplitRuntime reports whether the extension was configured for the
 // MatthewsREIS/ent fork's split runtime layout via WithSplitRuntime(true).
 // Templates branch on it to emit generic-mutation calls instead of typed setters.
-func gqlgoSplitRuntime() bool {
-	return splitRuntime
+//
+// It reads the flag from the Graph's annotations, where NewExtension's
+// annotation hook injects an ExtensionAnnotation before rendering. Templates
+// call it once as {{ $split := gqlgoSplitRuntime $ }} and thread the result
+// through the mutation/edge helpers as their leading bool argument.
+//
+// The annotation value may arrive either as the original ExtensionAnnotation
+// struct (in-process injection) or, if it round-trips through ent's JSON
+// annotation encoding, as a map[string]any with a "SplitRuntime" key. Both
+// shapes are handled here so callers never see the difference.
+func gqlgoSplitRuntime(g *gen.Graph) bool {
+	if g == nil || g.Config == nil || g.Annotations == nil {
+		return false
+	}
+	switch ant := g.Annotations[ExtensionAnnotation{}.Name()].(type) {
+	case ExtensionAnnotation:
+		return ant.SplitRuntime
+	case map[string]any:
+		v, _ := ant["SplitRuntime"].(bool)
+		return v
+	default:
+		return false
+	}
 }
 
 // gqlgoDeref returns "*" when ptr is true, else "". Used by the mutation-input
@@ -300,8 +321,9 @@ func gqlgoDeref(ptr bool) string {
 // least one mutation input has a non-unique edge (the only place that emits
 // entbuilder.ToAny). Avoids an unused-import compile error when every edge is
 // unique. Mirrors gqlgoMutationInputs/InputEdges filtering so it stays in sync.
-func gqlgoNeedsEntbuilder(nodes []*gen.Type) (bool, error) {
-	if !splitRuntime {
+// The split flag is supplied by the template (via gqlgoSplitRuntime $).
+func gqlgoNeedsEntbuilder(split bool, nodes []*gen.Type) (bool, error) {
+	if !split {
 		return false, nil
 	}
 	inputs, err := mutationInputs(nodes)
@@ -322,28 +344,20 @@ func gqlgoNeedsEntbuilder(nodes []*gen.Type) (bool, error) {
 	return false, nil
 }
 
-// The mutation*Stmt helpers below return a complete Go statement applying one
+// The mutation* helpers below return a complete Go statement applying one
 // field/edge operation to a mutation builder. In classic mode they emit the
 // typed setter (e.g. m.SetStatus(*v)); in split-runtime mode they emit the
 // generic entbuilder.Mutation API (e.g. _ = m.SetField("status", *v)) keyed by
 // the schema (snake_case) field/edge name. They take the already-formed Go value
-// expression so the template controls *v vs v vs i.Field. Splitting the FuncMap
-// wrapper (reads the package global) from the pure implementation keeps the
-// behaviour table-testable without mutating global state in tests.
-
-func mutationSetFieldStmt(f *InputFieldDescriptor, valueExpr string) string {
-	return mutationSetField(splitRuntime, f, valueExpr)
-}
+// expression so the template controls *v vs v vs i.Field. The leading split bool
+// is supplied by the template (via gqlgoSplitRuntime $), keeping the behaviour
+// table-testable without any global state.
 
 func mutationSetField(split bool, f *InputFieldDescriptor, valueExpr string) string {
 	if split {
 		return fmt.Sprintf("_ = m.SetField(%q, %s)", f.Name, valueExpr)
 	}
 	return fmt.Sprintf("m.%s(%s)", f.MutationSet(), valueExpr)
-}
-
-func mutationClearFieldStmt(f *InputFieldDescriptor) string {
-	return mutationClearField(splitRuntime, f)
 }
 
 func mutationClearField(split bool, f *InputFieldDescriptor) string {
@@ -353,19 +367,11 @@ func mutationClearField(split bool, f *InputFieldDescriptor) string {
 	return fmt.Sprintf("m.%s()", "Clear"+f.StructField())
 }
 
-func mutationAppendFieldStmt(f *InputFieldDescriptor, valueExpr string) string {
-	return mutationAppendField(splitRuntime, f, valueExpr)
-}
-
 func mutationAppendField(split bool, f *InputFieldDescriptor, valueExpr string) string {
 	if split {
 		return fmt.Sprintf("_ = m.AppendField(%q, %s)", f.Name, valueExpr)
 	}
 	return fmt.Sprintf("m.%s(%s)", f.MutationAppend(), valueExpr)
-}
-
-func mutationSetEdgeIDStmt(e *gen.Edge, valueExpr string) string {
-	return mutationSetEdgeID(splitRuntime, e, valueExpr)
 }
 
 func mutationSetEdgeID(split bool, e *gen.Edge, valueExpr string) string {
@@ -375,19 +381,11 @@ func mutationSetEdgeID(split bool, e *gen.Edge, valueExpr string) string {
 	return fmt.Sprintf("m.%s(%s)", e.MutationSet(), valueExpr)
 }
 
-func mutationAddEdgeIDsStmt(e *gen.Edge, valueExpr string) string {
-	return mutationAddEdgeIDs(splitRuntime, e, valueExpr)
-}
-
 func mutationAddEdgeIDs(split bool, e *gen.Edge, valueExpr string) string {
 	if split {
 		return fmt.Sprintf("_ = m.AddEdgeIDs(%q, entbuilder.ToAny(%s)...)", e.Name, valueExpr)
 	}
 	return fmt.Sprintf("m.%s(%s...)", e.MutationAdd(), valueExpr)
-}
-
-func mutationRemoveEdgeIDsStmt(e *gen.Edge, valueExpr string) string {
-	return mutationRemoveEdgeIDs(splitRuntime, e, valueExpr)
 }
 
 func mutationRemoveEdgeIDs(split bool, e *gen.Edge, valueExpr string) string {
@@ -397,10 +395,6 @@ func mutationRemoveEdgeIDs(split bool, e *gen.Edge, valueExpr string) string {
 	return fmt.Sprintf("m.%s(%s...)", e.MutationRemove(), valueExpr)
 }
 
-func mutationClearEdgeStmt(e *gen.Edge) string {
-	return mutationClearEdge(splitRuntime, e)
-}
-
 func mutationClearEdge(split bool, e *gen.Edge) string {
 	if split {
 		return fmt.Sprintf("_ = m.ClearEdge(%q)", e.Name)
@@ -408,7 +402,7 @@ func mutationClearEdge(split bool, e *gen.Edge) string {
 	return fmt.Sprintf("m.%s()", e.MutationClear())
 }
 
-// The gqlgoEdge*Expr helpers below return the Go expression to traverse or
+// The edge*Expr helpers below return the Go expression to traverse or
 // eager-load edge e of node n. In classic mode they emit the per-entity method
 // the entity/query type carries (source.QueryParent(), query.WithParent()). The
 // MatthewsREIS/ent fork's split layout has no such methods; instead the edge
@@ -416,23 +410,15 @@ func mutationClearEdge(split bool, e *gen.Edge) string {
 // Query<TypeName><EdgeStructField> / With<TypeName><EdgeStructField> (aliased in
 // the gen root). The query form takes the typed per-entity client plus the
 // entity; the eager-load form takes the query plus optional sub-query option
-// closures. Splitting the FuncMap wrapper (reads the package global) from the
-// pure implementation keeps the behaviour table-testable without mutating
-// global state in tests.
-
-func gqlgoEdgeQueryExpr(n *gen.Type, e *gen.Edge, entPkg, entityExpr, typedClientExpr string) string {
-	return edgeQueryExpr(splitRuntime, n, e, entPkg, entityExpr, typedClientExpr)
-}
+// closures. The leading split bool is supplied by the template (via
+// gqlgoSplitRuntime $), keeping the behaviour table-testable without any global
+// state.
 
 func edgeQueryExpr(split bool, n *gen.Type, e *gen.Edge, entPkg, entityExpr, typedClientExpr string) string {
 	if split {
 		return fmt.Sprintf("%s.Query%s%s(%s, %s)", entPkg, n.Name, e.StructField(), typedClientExpr, entityExpr)
 	}
 	return fmt.Sprintf("%s.Query%s()", entityExpr, e.StructField())
-}
-
-func gqlgoEdgeWithExpr(n *gen.Type, e *gen.Edge, entPkg, queryExpr string, args ...string) string {
-	return edgeWithExpr(splitRuntime, n, e, entPkg, queryExpr, args...)
 }
 
 func edgeWithExpr(split bool, n *gen.Type, e *gen.Edge, entPkg, queryExpr string, args ...string) string {

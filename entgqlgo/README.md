@@ -432,7 +432,37 @@ query {
 | `WithWhereInputs(bool)` | `true` | Enable/disable generating `WhereInput` filter types |
 | `WithRelaySpec(bool)` | `true` | Enable/disable generating the Relay `Node` interface and `node`/`nodes` query fields |
 | `WithMapScalarFunc(fn)` | built-in mapping | Custom function mapping an ent field + operator to a GraphQL scalar name |
+| `WithSplitRuntime(bool)` | `false` | Target the [MatthewsREIS/ent](https://github.com/MatthewsREIS/ent) fork's split runtime layout (see [Split-runtime mode](#split-runtime-mode)) |
 | `WithTemplates(...)` | all built-in templates | Replace the code generation templates entirely |
+
+## Split-runtime mode
+
+`WithSplitRuntime(true)` adapts the generated resolver code to the
+[MatthewsREIS/ent](https://github.com/MatthewsREIS/ent) fork's split runtime
+layout instead of the classic monolithic ent package.
+
+**When to use it.** Enable this only if your ent codegen already targets the
+fork's split layout — i.e. your generated ent code emits per-entity builder
+subpackages and routes mutations through an `internal/` generic-mutation API
+(entbuilder). If your project uses upstream `entgo.io/ent` with the standard
+single-package output, leave it `false` (the default).
+
+**What it changes.** In split-runtime mode:
+
+- Generated mutation-input `Mutate` methods call ent's generic mutation API
+  (`m.SetField(...)`, `m.SetEdgeID(...)`, `m.AddEdgeIDs(...)`, etc.) keyed by the
+  schema field/edge name, rather than the typed setters
+  (`m.SetStatus(...)`) that don't exist in the split layout.
+- Edge traversal and eager-loading use the hoisted package-level
+  `Query<Type><Edge>` / `With<Type><Edge>` functions instead of the per-entity
+  `source.Query<Edge>()` / `query.With<Edge>()` methods.
+
+**Caveat.** Do **not** also pass `entc.Split()` to `entc.Generate` for the
+entgqlgo output. The fork emits its split layout unconditionally;
+`WithSplitRuntime` only tells entgqlgo's templates to match it.
+
+See [`internal/todosplit`](internal/todosplit) for a complete reference setup
+(its `ent/entc.go` calls `entgqlgo.WithSplitRuntime(true)`).
 
 ## Differences from entgql + gqlgen
 

@@ -14,6 +14,7 @@ in the LICENSE file in the root directory of this source tree.
 
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
+{{ $split := gqlgoSplitRuntime $ }}
 
 {{- /* Determine whether any edge resolver will emit fmt.Errorf calls.
      fmt is used only inside RelayConnection resolvers that have where or orderBy. */ -}}
@@ -199,7 +200,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 	if err != nil {
 		return nil, err
 	}
-	query := {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}
+	query := {{ gqlgoEdgeQueryExpr $split $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}
 	{{- if $edgeHasWhere }}
 	// Apply where filter.
 	if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
@@ -254,7 +255,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 		return edge, nil
 	}
 	// Fall back to query
-	edge, err := {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}.Only(p.Context)
+	edge, err := {{ gqlgoEdgeQueryExpr $split $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}.Only(p.Context)
 	if err != nil {
 		// For optional edges, not found is not an error - return nil
 		if {{ $entPkg }}.IsNotFound(err) {
@@ -269,7 +270,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 		return edges, nil
 	}
 	// Fall back to query
-	return {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}.All(p.Context)
+	return {{ gqlgoEdgeQueryExpr $split $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}.All(p.Context)
 	{{- end }}
 }
 {{- end }}

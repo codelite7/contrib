@@ -14,6 +14,7 @@ in the LICENSE file in the root directory of this source tree.
 
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
+{{ $split := gqlgoSplitRuntime $ }}
 
 import (
 	"context"
@@ -55,9 +56,9 @@ func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolvePar
 
 	// Fall back to query
 	{{- if $e.Optional }}
-	return {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.Only(p.Context)
+	return {{ gqlgoEdgeQueryExpr $split $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.Only(p.Context)
 	{{- else }}
-	edge, err := {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.Only(p.Context)
+	edge, err := {{ gqlgoEdgeQueryExpr $split $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.Only(p.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +70,7 @@ func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolvePar
 	}
 
 	// Fall back to query
-	return {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.All(p.Context)
+	return {{ gqlgoEdgeQueryExpr $split $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.All(p.Context)
 	{{- end }}
 }
 {{- end }}

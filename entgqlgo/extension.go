@@ -29,6 +29,7 @@ type (
 		// Configuration
 		genWhereInput bool
 		relaySpec     bool
+		splitRuntime  bool
 		scalarFunc    func(*gen.Field, gen.Op) string
 	}
 
@@ -36,6 +37,19 @@ type (
 	// using functional options.
 	ExtensionOption func(*Extension) error
 )
+
+// ExtensionAnnotation carries graph-level entgqlgo configuration for code
+// generation. It is injected into gen.Graph.Annotations by a gen.Hook before
+// template rendering so templates can read it via $.Annotations (mirroring how
+// the sibling entgql extension threads ExtensionAnnotation/EntGQLExtension).
+type ExtensionAnnotation struct {
+	// SplitRuntime reports whether generation targets the MatthewsREIS/ent fork's
+	// split runtime layout. See WithSplitRuntime for details.
+	SplitRuntime bool
+}
+
+// Name implements the ent.Annotation interface.
+func (ExtensionAnnotation) Name() string { return "EntGQLGo" }
 
 // WithTemplates overrides the default templates with specific templates.
 func WithTemplates(templates ...*gen.Template) ExtensionOption {
@@ -73,14 +87,13 @@ func WithRelaySpec(enabled bool) ExtensionOption {
 // entbuilder generic mutations). In this mode, generated mutation-input code uses
 // ent's generic mutation API (SetField/SetEdgeID/...) instead of typed setters.
 //
-// The flag is consulted by template FuncMap helpers (which are package-level
-// functions and cannot reach the Extension instance), so it is stored solely in
-// a package-level variable. Codegen is single-pass and single-threaded, so a
-// package global is safe here and mirrors how ent itself threads global codegen
-// config into template functions.
+// The flag is stored on the Extension instance and threaded into templates via a
+// gen.Hook that injects an ExtensionAnnotation into the graph annotations before
+// rendering (see genAnnotationHook). Templates read it with the gqlgoSplitRuntime
+// helper.
 func WithSplitRuntime(enabled bool) ExtensionOption {
 	return func(e *Extension) error {
-		splitRuntime = enabled
+		e.splitRuntime = enabled
 		return nil
 	}
 }
@@ -111,6 +124,7 @@ func NewExtension(opts ...ExtensionOption) (*Extension, error) {
 			return nil, err
 		}
 	}
+	ex.hooks = append(ex.hooks, ex.genAnnotationHook())
 	return ex, nil
 }
 
@@ -122,6 +136,24 @@ func (e *Extension) Templates() []*gen.Template {
 // Hooks of the extension.
 func (e *Extension) Hooks() []gen.Hook {
 	return e.hooks
+}
+
+// genAnnotationHook returns a gen.Hook that injects the extension's graph-level
+// configuration into g.Annotations before template rendering, so package-level
+// template FuncMap helpers can reach instance config via $.Annotations rather
+// than a package global. This mirrors entgql's genSchemaHook.
+func (e *Extension) genAnnotationHook() gen.Hook {
+	return func(next gen.Generator) gen.Generator {
+		return gen.GenerateFunc(func(g *gen.Graph) error {
+			if g.Annotations == nil {
+				g.Annotations = make(gen.Annotations)
+			}
+			g.Annotations[ExtensionAnnotation{}.Name()] = ExtensionAnnotation{
+				SplitRuntime: e.splitRuntime,
+			}
+			return next.Generate(g)
+		})
+	}
 }
 
 // Options of the extension.
@@ -144,11 +176,6 @@ func (e *Extension) hasTemplate(tem *gen.Template) (int, bool) {
 	}
 	return -1, false
 }
-
-// splitRuntime mirrors the most recently configured WithSplitRuntime value so
-// that package-level template FuncMap helpers (e.g. gqlgoSplitRuntime) can read
-// it. See WithSplitRuntime for why a package global is used.
-var splitRuntime bool
 
 var (
 	_ entc.Extension = (*Extension)(nil)

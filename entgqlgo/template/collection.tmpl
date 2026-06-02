@@ -14,6 +14,7 @@ in the LICENSE file in the root directory of this source tree.
 
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "type") }}
 {{ $entPkg := base $.Config.Package }}
+{{ $split := gqlgoSplitRuntime $ }}
 
 import (
 	"context"
@@ -43,7 +44,7 @@ func {{ $n.QueryName }}CollectFieldsFromList(ctx context.Context, fields []strin
 		switch field {
 		{{- range $e := $edges }}
 		case "{{ camel $e.Name }}":
-			query = {{ gqlgoEdgeWithExpr $n $e $entPkg "query" }}
+			query = {{ gqlgoEdgeWithExpr $split $n $e $entPkg "query" }}
 		{{- end }}
 		}
 	}
@@ -87,7 +88,7 @@ func {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx context.Context, fields [
 		switch field.Name {
 		{{- range $e := $edges }}
 		case "{{ camel $e.Name }}":
-			query = {{ gqlgoEdgeWithExpr $n $e $entPkg "query" (printf "func(q *%s.%s) {\n\t\t\t\t\t// Recursively collect nested fields\n\t\t\t\t\tif len(field.Children) > 0 {\n\t\t\t\t\t\t%sCollectFieldsFromFieldInfos(ctx, field.Children, q)\n\t\t\t\t\t}\n\t\t\t\t}" $entPkg $e.Type.QueryName $e.Type.QueryName) }}
+			query = {{ gqlgoEdgeWithExpr $split $n $e $entPkg "query" (printf "func(q *%s.%s) {\n\t\t\t\t\t// Recursively collect nested fields\n\t\t\t\t\tif len(field.Children) > 0 {\n\t\t\t\t\t\t%sCollectFieldsFromFieldInfos(ctx, field.Children, q)\n\t\t\t\t\t}\n\t\t\t\t}" $entPkg $e.Type.QueryName $e.Type.QueryName) }}
 		{{- end }}
 		}
 	}

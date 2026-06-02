@@ -90,12 +90,27 @@ func TestGqlgoDeref(t *testing.T) {
 	assert.Equal(t, "", gqlgoDeref(false))
 }
 
-func TestGqlgoSplitRuntimeReflectsGlobal(t *testing.T) {
-	orig := splitRuntime
-	defer func() { splitRuntime = orig }()
+func TestGqlgoSplitRuntimeReadsGraphAnnotation(t *testing.T) {
+	name := ExtensionAnnotation{}.Name()
 
-	splitRuntime = false
-	assert.False(t, gqlgoSplitRuntime())
-	splitRuntime = true
-	assert.True(t, gqlgoSplitRuntime())
+	graphWith := func(ant any) *gen.Graph {
+		g := &gen.Graph{Config: &gen.Config{}}
+		if ant != nil {
+			g.Annotations = gen.Annotations{name: ant}
+		}
+		return g
+	}
+
+	// Nil graph / nil-config / nil annotations default to classic (false).
+	assert.False(t, gqlgoSplitRuntime(nil))
+	assert.False(t, gqlgoSplitRuntime(&gen.Graph{}))
+	assert.False(t, gqlgoSplitRuntime(graphWith(nil)))
+
+	// Struct-valued annotation (in-process hook injection).
+	assert.False(t, gqlgoSplitRuntime(graphWith(ExtensionAnnotation{SplitRuntime: false})))
+	assert.True(t, gqlgoSplitRuntime(graphWith(ExtensionAnnotation{SplitRuntime: true})))
+
+	// Map-valued annotation (JSON round-tripped shape) is handled too.
+	assert.True(t, gqlgoSplitRuntime(graphWith(map[string]any{"SplitRuntime": true})))
+	assert.False(t, gqlgoSplitRuntime(graphWith(map[string]any{"SplitRuntime": false})))
 }

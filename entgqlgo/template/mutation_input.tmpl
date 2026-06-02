@@ -14,10 +14,11 @@
         {{ template "header" . }}
 {{- end }}
 
+{{ $split := gqlgoSplitRuntime $ }}
 {{ $entPkg := base $.Config.Package }}
 {{ $gqlNodes := gqlgoFilterNodes $.Nodes (gqlgoSkipMode "mutation_create_input" "mutation_update_input") }}
 import (
-    {{- if gqlgoNeedsEntbuilder $.Nodes }}
+    {{- if gqlgoNeedsEntbuilder $split $.Nodes }}
         "entgo.io/ent/runtime/entbuilder"
     {{- end }}
     "{{ $.Config.Package }}"
@@ -77,49 +78,49 @@ import (
         {{- range $f := $fields }}
             {{- if $f.ClearOp }}
                 if i.{{ print "Clear" $f.StructField }} {
-                    {{ gqlgoMutationClearField $f }}
+                    {{ gqlgoMutationClearField $split $f }}
                 }
             {{- end }}
             {{- if or $f.Type.Nillable $f.IsPointer }}
                 if v := i.{{ $f.StructField }}; v != nil {
-                    {{ gqlgoMutationSetField $f (printf "%sv" ($f.IsPointer | gqlgoDeref)) }}
+                    {{ gqlgoMutationSetField $split $f (printf "%sv" ($f.IsPointer | gqlgoDeref)) }}
                 }
             {{- else }}
-                {{ gqlgoMutationSetField $f (printf "i.%s" $f.StructField) }}
+                {{ gqlgoMutationSetField $split $f (printf "i.%s" $f.StructField) }}
             {{- end }}
             {{- if $f.AppendOp }}
                 if i.{{ $f.MutationAppend }} != nil {
-                    {{ gqlgoMutationAppendField $f (printf "%si.%s" ($f.IsPointer | gqlgoDeref) $f.StructField) }}
+                    {{ gqlgoMutationAppendField $split $f (printf "%si.%s" ($f.IsPointer | gqlgoDeref) $f.StructField) }}
                 }
             {{- end }}
         {{- end }}
         {{- range $e := $edges }}
            {{- if and (not $n.IsCreate) $e.Optional }}
                 if i.{{ $e.MutationClear }} {
-                    {{ gqlgoMutationClearEdge $e }}
+                    {{ gqlgoMutationClearEdge $split $e }}
                 }
             {{- end }}
             {{- if $e.Unique }}
                 {{- $structField := print (pascal $e.Name) "ID" }}
                 {{- if or (not $n.IsCreate) $e.Optional }}
                     if v := i.{{ $structField }}; v != nil {
-                        {{ gqlgoMutationSetEdgeID $e "*v" }}
+                        {{ gqlgoMutationSetEdgeID $split $e "*v" }}
                     }
                 {{- else }}
-                    {{ gqlgoMutationSetEdgeID $e (printf "i.%s" $structField) }}
+                    {{ gqlgoMutationSetEdgeID $split $e (printf "i.%s" $structField) }}
                 {{- end }}
             {{- else }}
                 {{- if $n.IsCreate }}
                     {{- $structField := print (singular $e.Name | pascal) "IDs" }}
                     if v := i.{{ $structField }}; len(v) > 0 {
-                        {{ gqlgoMutationAddEdgeIDs $e "v" }}
+                        {{ gqlgoMutationAddEdgeIDs $split $e "v" }}
                     }
                 {{- else }}
                     if v := i.{{ $e.MutationAdd }}; len(v) > 0 {
-                        {{ gqlgoMutationAddEdgeIDs $e "v" }}
+                        {{ gqlgoMutationAddEdgeIDs $split $e "v" }}
                     }
                     if v := i.{{ $e.MutationRemove }}; len(v) > 0 {
-                        {{ gqlgoMutationRemoveEdgeIDs $e "v" }}
+                        {{ gqlgoMutationRemoveEdgeIDs $split $e "v" }}
                     }
                 {{- end }}
             {{- end }}
