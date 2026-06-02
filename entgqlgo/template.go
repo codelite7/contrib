@@ -98,6 +98,8 @@ var (
 		"gqlgoMutationAddEdgeIDs":    mutationAddEdgeIDsStmt,
 		"gqlgoMutationRemoveEdgeIDs": mutationRemoveEdgeIDsStmt,
 		"gqlgoMutationClearEdge":     mutationClearEdgeStmt,
+		"gqlgoEdgeQueryExpr":         gqlgoEdgeQueryExpr,
+		"gqlgoEdgeWithExpr":          gqlgoEdgeWithExpr,
 		"gqlgoFieldCollections":      fieldCollections,
 		"gqlgoFieldMapping":          fieldMapping,
 		"gqlgoFilterEdges":           filterEdges,
@@ -404,6 +406,41 @@ func mutationClearEdge(split bool, e *gen.Edge) string {
 		return fmt.Sprintf("_ = m.ClearEdge(%q)", e.Name)
 	}
 	return fmt.Sprintf("m.%s()", e.MutationClear())
+}
+
+// The gqlgoEdge*Expr helpers below return the Go expression to traverse or
+// eager-load edge e of node n. In classic mode they emit the per-entity method
+// the entity/query type carries (source.QueryParent(), query.WithParent()). The
+// MatthewsREIS/ent fork's split layout has no such methods; instead the edge
+// query/eager-load bodies are hoisted to package-level functions named
+// Query<TypeName><EdgeStructField> / With<TypeName><EdgeStructField> (aliased in
+// the gen root). The query form takes the typed per-entity client plus the
+// entity; the eager-load form takes the query plus optional sub-query option
+// closures. Splitting the FuncMap wrapper (reads the package global) from the
+// pure implementation keeps the behaviour table-testable without mutating
+// global state in tests.
+
+func gqlgoEdgeQueryExpr(n *gen.Type, e *gen.Edge, entPkg, entityExpr, typedClientExpr string) string {
+	return edgeQueryExpr(splitRuntime, n, e, entPkg, entityExpr, typedClientExpr)
+}
+
+func edgeQueryExpr(split bool, n *gen.Type, e *gen.Edge, entPkg, entityExpr, typedClientExpr string) string {
+	if split {
+		return fmt.Sprintf("%s.Query%s%s(%s, %s)", entPkg, n.Name, e.StructField(), typedClientExpr, entityExpr)
+	}
+	return fmt.Sprintf("%s.Query%s()", entityExpr, e.StructField())
+}
+
+func gqlgoEdgeWithExpr(n *gen.Type, e *gen.Edge, entPkg, queryExpr string, args ...string) string {
+	return edgeWithExpr(splitRuntime, n, e, entPkg, queryExpr, args...)
+}
+
+func edgeWithExpr(split bool, n *gen.Type, e *gen.Edge, entPkg, queryExpr string, args ...string) string {
+	if split {
+		callArgs := append([]string{queryExpr}, args...)
+		return fmt.Sprintf("%s.With%s%s(%s)", entPkg, n.Name, e.StructField(), strings.Join(callArgs, ", "))
+	}
+	return fmt.Sprintf("%s.With%s(%s)", queryExpr, e.StructField(), strings.Join(args, ", "))
 }
 
 func (m *MutationDescriptor) skip(immutable bool, skip SkipMode) bool {

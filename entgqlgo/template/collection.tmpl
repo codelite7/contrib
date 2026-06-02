@@ -43,7 +43,7 @@ func {{ $n.QueryName }}CollectFieldsFromList(ctx context.Context, fields []strin
 		switch field {
 		{{- range $e := $edges }}
 		case "{{ camel $e.Name }}":
-			query = query.With{{ $e.StructField }}()
+			query = {{ gqlgoEdgeWithExpr $n $e $entPkg "query" }}
 		{{- end }}
 		}
 	}
@@ -87,21 +87,7 @@ func {{ $n.QueryName }}CollectFieldsFromFieldInfos(ctx context.Context, fields [
 		switch field.Name {
 		{{- range $e := $edges }}
 		case "{{ camel $e.Name }}":
-			{{- if $e.Unique }}
-			query = query.With{{ $e.StructField }}(func(q *{{ $entPkg }}.{{ $e.Type.QueryName }}) {
-				// Recursively collect nested fields
-				if len(field.Children) > 0 {
-					{{ $e.Type.QueryName }}CollectFieldsFromFieldInfos(ctx, field.Children, q)
-				}
-			})
-			{{- else }}
-			query = query.With{{ $e.StructField }}(func(q *{{ $entPkg }}.{{ $e.Type.QueryName }}) {
-				// Recursively collect nested fields
-				if len(field.Children) > 0 {
-					{{ $e.Type.QueryName }}CollectFieldsFromFieldInfos(ctx, field.Children, q)
-				}
-			})
-			{{- end }}
+			query = {{ gqlgoEdgeWithExpr $n $e $entPkg "query" (printf "func(q *%s.%s) {\n\t\t\t\t\t// Recursively collect nested fields\n\t\t\t\t\tif len(field.Children) > 0 {\n\t\t\t\t\t\t%sCollectFieldsFromFieldInfos(ctx, field.Children, q)\n\t\t\t\t\t}\n\t\t\t\t}" $entPkg $e.Type.QueryName $e.Type.QueryName) }}
 		{{- end }}
 		}
 	}

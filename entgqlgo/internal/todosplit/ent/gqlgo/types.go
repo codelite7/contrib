@@ -132,7 +132,7 @@ func resolveCategoryTodos(p graphql.ResolveParams) (interface{}, error) {
 		return edges, nil
 	}
 	// Fall back to query
-	return source.QueryTodos().All(p.Context)
+	return ent.QueryCategoryTodos(ent.NewCategoryClient(source.Config), source).All(p.Context)
 }
 
 // resolveTodoParent resolves the parent edge for Todo.
@@ -147,7 +147,7 @@ func resolveTodoParent(p graphql.ResolveParams) (interface{}, error) {
 		return edge, nil
 	}
 	// Fall back to query
-	edge, err := source.QueryParent().Only(p.Context)
+	edge, err := ent.QueryTodoParent(ent.NewTodoClient(source.Config), source).Only(p.Context)
 	if err != nil {
 		// For optional edges, not found is not an error - return nil
 		if ent.IsNotFound(err) {
@@ -170,7 +170,7 @@ func resolveTodoChildren(p graphql.ResolveParams) (interface{}, error) {
 		return edges, nil
 	}
 	// Fall back to query
-	return source.QueryChildren().All(p.Context)
+	return ent.QueryTodoChildren(ent.NewTodoClient(source.Config), source).All(p.Context)
 }
 
 // resolveTodoCategory resolves the category edge for Todo.
@@ -185,7 +185,7 @@ func resolveTodoCategory(p graphql.ResolveParams) (interface{}, error) {
 		return edge, nil
 	}
 	// Fall back to query
-	edge, err := source.QueryCategory().Only(p.Context)
+	edge, err := ent.QueryTodoCategory(ent.NewTodoClient(source.Config), source).Only(p.Context)
 	if err != nil {
 		// For optional edges, not found is not an error - return nil
 		if ent.IsNotFound(err) {

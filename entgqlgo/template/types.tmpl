@@ -199,7 +199,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 	if err != nil {
 		return nil, err
 	}
-	query := source.Query{{ $e.StructField }}()
+	query := {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}
 	{{- if $edgeHasWhere }}
 	// Apply where filter.
 	if whereArg, ok := p.Args["where"].(map[string]interface{}); ok {
@@ -254,7 +254,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 		return edge, nil
 	}
 	// Fall back to query
-	edge, err := source.Query{{ $e.StructField }}().Only(p.Context)
+	edge, err := {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}.Only(p.Context)
 	if err != nil {
 		// For optional edges, not found is not an error - return nil
 		if {{ $entPkg }}.IsNotFound(err) {
@@ -269,7 +269,7 @@ func resolve{{ $n.Name }}{{ $e.StructField }}(p graphql.ResolveParams) (interfac
 		return edges, nil
 	}
 	// Fall back to query
-	return source.Query{{ $e.StructField }}().All(p.Context)
+	return {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "%s.New%sClient(source.Config)" $entPkg $n.Name) }}.All(p.Context)
 	{{- end }}
 }
 {{- end }}

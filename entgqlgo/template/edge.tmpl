@@ -55,9 +55,9 @@ func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolvePar
 
 	// Fall back to query
 	{{- if $e.Optional }}
-	return source.Query{{ $e.StructField }}().Only(p.Context)
+	return {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.Only(p.Context)
 	{{- else }}
-	edge, err := source.Query{{ $e.StructField }}().Only(p.Context)
+	edge, err := {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.Only(p.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (r *{{ $n.Name }}{{ $e.StructField }}Resolver) Resolve(p graphql.ResolvePar
 	}
 
 	// Fall back to query
-	return source.Query{{ $e.StructField }}().All(p.Context)
+	return {{ gqlgoEdgeQueryExpr $n $e $entPkg "source" (printf "r.client.%s" $n.Name) }}.All(p.Context)
 	{{- end }}
 }
 {{- end }}

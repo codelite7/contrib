@@ -84,7 +84,7 @@ func {{ $n.Name }}Node(ctx context.Context, n *{{ $entPkg }}.{{ $n.Name }}) (*No
 		Type: "{{ $e.Type.Name }}",
 		Name: "{{ $e.Name }}",
 	}
-	if err := n.{{ print "Query" (pascal $e.Name) }}().
+	if err := {{ gqlgoEdgeQueryExpr $n $e $entPkg "n" (printf "%s.New%sClient(n.Config)" $entPkg $n.Name) }}.
 		Select({{ $e.Type.Package }}.FieldID).
 		Scan(ctx, &node.Edges[{{ $i }}].IDs); err != nil {
 		return nil, err

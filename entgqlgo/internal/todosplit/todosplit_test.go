@@ -12,18 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build splitruntime
-
-// This test file is gated behind the `splitruntime` build tag because the
-// todosplit module's generated gqlgo package does not yet fully compile: the
-// edge/collection/types/node_descriptor templates still emit classic-layout
-// code (entity.QueryX()/query.WithX()) that does not exist in the MatthewsREIS
-// split runtime. Mutation-input support (mutation_input.go) IS complete and
-// compiles clean, which is what these tests exercise. Remove the build tag once
-// the follow-up edge-support task lands and the full package compiles.
-//
-// Run with: go test -tags splitruntime ./...
-
 package todosplit
 
 import (
@@ -171,9 +159,8 @@ func (s *TodoSplitTestSuite) TestNonUniqueEdgeMutation() {
 }
 
 // TestRelayQuery exercises the generated Relay connection query end-to-end
-// through the GraphQL schema. It depends on edge/collection support, so it only
-// compiles/runs once the follow-up task lands and this file's build tag is
-// removed.
+// through the GraphQL schema, exercising the split-runtime edge/collection
+// support (hoisted Query/With edge functions).
 func (s *TodoSplitTestSuite) TestRelayQuery() {
 	for _, text := range []string{"one", "two", "three"} {
 		input := &gqlgo.CreateTodoInput{Text: text, Status: todo.StatusInProgress}

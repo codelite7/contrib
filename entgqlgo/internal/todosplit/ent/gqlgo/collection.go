@@ -39,7 +39,7 @@ func CategoryQueryCollectFieldsFromList(ctx context.Context, fields []string, qu
 	for _, field := range fields {
 		switch field {
 		case "todos":
-			query = query.WithTodos()
+			query = ent.WithCategoryTodos(query)
 		}
 	}
 	return query
@@ -78,7 +78,7 @@ func CategoryQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*ent
 	for _, field := range fields {
 		switch field.Name {
 		case "todos":
-			query = query.WithTodos(func(q *ent.TodoQuery) {
+			query = ent.WithCategoryTodos(query, func(q *ent.TodoQuery) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
@@ -101,11 +101,11 @@ func TodoQueryCollectFieldsFromList(ctx context.Context, fields []string, query 
 	for _, field := range fields {
 		switch field {
 		case "parent":
-			query = query.WithParent()
+			query = ent.WithTodoParent(query)
 		case "children":
-			query = query.WithChildren()
+			query = ent.WithTodoChildren(query)
 		case "category":
-			query = query.WithCategory()
+			query = ent.WithTodoCategory(query)
 		}
 	}
 	return query
@@ -144,21 +144,21 @@ func TodoQueryCollectFieldsFromFieldInfos(ctx context.Context, fields []*entgqlg
 	for _, field := range fields {
 		switch field.Name {
 		case "parent":
-			query = query.WithParent(func(q *ent.TodoQuery) {
+			query = ent.WithTodoParent(query, func(q *ent.TodoQuery) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
 				}
 			})
 		case "children":
-			query = query.WithChildren(func(q *ent.TodoQuery) {
+			query = ent.WithTodoChildren(query, func(q *ent.TodoQuery) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					TodoQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)
 				}
 			})
 		case "category":
-			query = query.WithCategory(func(q *ent.CategoryQuery) {
+			query = ent.WithTodoCategory(query, func(q *ent.CategoryQuery) {
 				// Recursively collect nested fields
 				if len(field.Children) > 0 {
 					CategoryQueryCollectFieldsFromFieldInfos(ctx, field.Children, q)

@@ -29,7 +29,6 @@ type (
 		// Configuration
 		genWhereInput bool
 		relaySpec     bool
-		splitRuntime  bool
 		scalarFunc    func(*gen.Field, gen.Op) string
 	}
 
@@ -75,13 +74,12 @@ func WithRelaySpec(enabled bool) ExtensionOption {
 // ent's generic mutation API (SetField/SetEdgeID/...) instead of typed setters.
 //
 // The flag is consulted by template FuncMap helpers (which are package-level
-// functions and cannot reach the Extension instance), so it is stored in a
-// package-level variable. Codegen is single-pass and single-threaded, so a
+// functions and cannot reach the Extension instance), so it is stored solely in
+// a package-level variable. Codegen is single-pass and single-threaded, so a
 // package global is safe here and mirrors how ent itself threads global codegen
 // config into template functions.
 func WithSplitRuntime(enabled bool) ExtensionOption {
 	return func(e *Extension) error {
-		e.splitRuntime = enabled
 		splitRuntime = enabled
 		return nil
 	}

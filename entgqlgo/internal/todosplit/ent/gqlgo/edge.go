@@ -49,7 +49,7 @@ func (r *CategoryTodosResolver) Resolve(p graphql.ResolveParams) (interface{}, e
 	}
 
 	// Fall back to query
-	return source.QueryTodos().All(p.Context)
+	return ent.QueryCategoryTodos(r.client.Category, source).All(p.Context)
 }
 
 // TodoParentResolver resolves the parent edge for Todo.
@@ -77,7 +77,7 @@ func (r *TodoParentResolver) Resolve(p graphql.ResolveParams) (interface{}, erro
 	}
 
 	// Fall back to query
-	return source.QueryParent().Only(p.Context)
+	return ent.QueryTodoParent(r.client.Todo, source).Only(p.Context)
 }
 
 // TodoChildrenResolver resolves the children edge for Todo.
@@ -105,7 +105,7 @@ func (r *TodoChildrenResolver) Resolve(p graphql.ResolveParams) (interface{}, er
 	}
 
 	// Fall back to query
-	return source.QueryChildren().All(p.Context)
+	return ent.QueryTodoChildren(r.client.Todo, source).All(p.Context)
 }
 
 // TodoCategoryResolver resolves the category edge for Todo.
@@ -133,7 +133,7 @@ func (r *TodoCategoryResolver) Resolve(p graphql.ResolveParams) (interface{}, er
 	}
 
 	// Fall back to query
-	return source.QueryCategory().Only(p.Context)
+	return ent.QueryTodoCategory(r.client.Todo, source).Only(p.Context)
 }
 
 // EdgeResolverMap provides a map of edge resolvers for all types.

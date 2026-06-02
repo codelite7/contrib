@@ -70,7 +70,7 @@ func CategoryNode(ctx context.Context, n *ent.Category) (*Node, error) {
 		Type: "Todo",
 		Name: "todos",
 	}
-	if err := n.QueryTodos().
+	if err := ent.QueryCategoryTodos(ent.NewCategoryClient(n.Config), n).
 		Select(todo.FieldID).
 		Scan(ctx, &node.Edges[0].IDs); err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 		Type: "Todo",
 		Name: "parent",
 	}
-	if err := n.QueryParent().
+	if err := ent.QueryTodoParent(ent.NewTodoClient(n.Config), n).
 		Select(todo.FieldID).
 		Scan(ctx, &node.Edges[0].IDs); err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 		Type: "Todo",
 		Name: "children",
 	}
-	if err := n.QueryChildren().
+	if err := ent.QueryTodoChildren(ent.NewTodoClient(n.Config), n).
 		Select(todo.FieldID).
 		Scan(ctx, &node.Edges[1].IDs); err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func TodoNode(ctx context.Context, n *ent.Todo) (*Node, error) {
 		Type: "Category",
 		Name: "category",
 	}
-	if err := n.QueryCategory().
+	if err := ent.QueryTodoCategory(ent.NewTodoClient(n.Config), n).
 		Select(category.FieldID).
 		Scan(ctx, &node.Edges[2].IDs); err != nil {
 		return nil, err
