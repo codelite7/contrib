@@ -53,6 +53,8 @@ Run codegen with `go generate ./ent/...` (the standard `//go:generate go run -mo
 
 **3. Serve the generated schema:**
 
+`gqlgo` is the generated package under your `ent/gqlgo/` directory.
+
 ```go
 schema, err := gqlgo.NewSchema(client)
 if err != nil {
@@ -78,7 +80,7 @@ schema types and fields.
 | `QueryField("name")` | type | Expose with a custom field name on Query |
 | `RelayConnection()` | type | Root query field returns a Relay Connection (cursor pagination) |
 | `RelayConnection()` | edge | Edge field returns a Relay Connection |
-| `Mutations(MutationCreate(), MutationUpdate())` | type | Generate create/update/delete mutations |
+| `Mutations(MutationCreate(), MutationUpdate())` | type | Generate create/update/delete mutations; delete mutations are generated alongside update (there is no separate `MutationDelete()`) |
 | `MultiOrder()` | type | `orderBy` accepts a list of order terms instead of a single term |
 | `OrderField("NAME")` | field | Field can be used in `orderBy` |
 | `Skip(...)` | type / field | Exclude from schema; see `SkipMode` flags below |
@@ -280,6 +282,8 @@ ex, err := entgqlgo.NewExtension(entgqlgo.WithWhereInputs(false))
 `MultiOrder()` on the type, it accepts a list of such terms.
 
 ## Extending the schema
+
+`graphql` is the upstream `github.com/graphql-go/graphql` package.
 
 Use `SchemaConfig` to obtain the underlying `graphql.SchemaConfig` before
 building the schema. You can add custom fields or a Subscription root:
