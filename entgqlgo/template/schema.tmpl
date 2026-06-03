@@ -413,7 +413,7 @@ var (
 	Create{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "Create{{ $n.Name }}Input",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-		return graphql.InputObjectConfigFieldMap{
+		return mergeInputExtraFields("Create{{ $n.Name }}Input", graphql.InputObjectConfigFieldMap{
 			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_create_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
@@ -443,7 +443,7 @@ var (
 			},
 			{{- end }}
 			{{- end }}
-		}
+		})
 	}),
 	})
 	{{- else }}
@@ -451,7 +451,7 @@ var (
 	Update{{ $n.Name }}InputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "Update{{ $n.Name }}Input",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-		return graphql.InputObjectConfigFieldMap{
+		return mergeInputExtraFields("Update{{ $n.Name }}Input", graphql.InputObjectConfigFieldMap{
 			{{- range $f := gqlgoFilterFields $n.Fields (gqlgoSkipMode "mutation_update_input") }}
 			{{- if not $f.Sensitive }}
 			{{- if not $f.Immutable }}
@@ -500,7 +500,7 @@ var (
 			},
 			{{- end }}
 			{{- end }}
-		}
+		})
 	}),
 	})
 	{{- end }}

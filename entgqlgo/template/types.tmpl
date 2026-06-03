@@ -98,6 +98,35 @@ func mergeExtraFields(typeName string, fields graphql.Fields) graphql.Fields {
 // the typed where-input, and may mutate the typed input (e.g. add predicates).
 var WhereInputExtraFields = map[string]graphql.InputObjectConfigFieldMap{}
 
+// InputExtraFields registers additional GraphQL input fields on generated
+// mutation input types — the Create<Entity>Input / Update<Entity>Input objects —
+// e.g. a hand-written `extend input CreateXInput { ... }` field that ent itself
+// does not expose. Key by the GraphQL input type name (e.g. "CreateTodoInput");
+// the value is merged into that type's input-field map when its
+// InputObjectConfigFieldMapThunk resolves.
+//
+// Because mutation input types are built with InputObjectConfigFieldMapThunk,
+// (*InputObject).AddFieldConfig after construction is a silent no-op. Populate
+// InputExtraFields before NewSchema / SchemaConfig is called (it is read lazily
+// the first time the schema resolves each input's fields). Entries whose key does
+// not match a generated input type are ignored; an extra field whose name
+// collides with a generated field overrides the generated one.
+//
+// This seam only makes the field part of the schema (so input validation accepts
+// it). Giving the field runtime effect is the consumer's responsibility — e.g. a
+// resolver that overrides the mutation and reads the raw input itself.
+var InputExtraFields = map[string]graphql.InputObjectConfigFieldMap{}
+
+// mergeInputExtraFields overlays InputExtraFields[typeName] onto fields and
+// returns it. It is called from each generated mutation input type's thunk so
+// consumer-registered fields participate in the schema exactly like generated ones.
+func mergeInputExtraFields(typeName string, fields graphql.InputObjectConfigFieldMap) graphql.InputObjectConfigFieldMap {
+	for name, f := range InputExtraFields[typeName] {
+		fields[name] = f
+	}
+	return fields
+}
+
 // WhereInputParseHooks registers callbacks invoked by Parse<Entity>WhereInput
 // after it builds the typed where-input. Hooks receive the request context, the
 // raw GraphQL input map for that where-input, and the typed where-input (e.g.
