@@ -258,11 +258,14 @@ func (s *TodoTestSuite) TestQueryTodosPagination() {
 		s.Require().NoError(err)
 	}
 
-	// Query page 1: first 2
+	// Query page 1: first 2. Select the per-edge cursor too: Edge.cursor is a
+	// non-nullable field, so a cursor that serializes to null (e.g. a Cursor[T]
+	// instantiation the scalar's Serialize does not handle) surfaces as a
+	// "Cannot return null for non-nullable field" error here.
 	result := s.executeQuery(`
 		query {
 			todos(first: 2) {
-				edges { node { id } }
+				edges { node { id } cursor }
 				pageInfo { endCursor }
 			}
 		}
@@ -275,8 +278,21 @@ func (s *TodoTestSuite) TestQueryTodosPagination() {
 	edges := conn["edges"].([]interface{})
 	s.Require().Len(edges, 2, "should have 2 todos with first: 2")
 
+	// Every edge must carry a non-empty, base64-encoded cursor string.
+	for i, e := range edges {
+		edge := e.(map[string]interface{})
+		cursor, ok := edge["cursor"].(string)
+		s.Require().True(ok, "edge %d cursor should be a string, got %T", i, edge["cursor"])
+		s.Require().NotEmpty(cursor, "edge %d cursor should not be empty", i)
+	}
+
 	endCursor := conn["pageInfo"].(map[string]interface{})["endCursor"].(string)
 	s.Require().NotEmpty(endCursor, "endCursor should not be empty")
+
+	// The last edge's cursor must equal the connection's endCursor.
+	lastEdge := edges[len(edges)-1].(map[string]interface{})
+	s.Require().Equal(endCursor, lastEdge["cursor"].(string),
+		"endCursor should match the last edge cursor")
 
 	// Query page 2: skip past first 2 using cursor, get next 3
 	result = s.executeQuery(fmt.Sprintf(`

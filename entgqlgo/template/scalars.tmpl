@@ -13,13 +13,11 @@ in the LICENSE file in the root directory of this source tree.
 {{- end }}
 
 import (
-	"encoding/base64"
-	"strings"
+	"fmt"
 	"time"
 
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
-	"github.com/vmihailenco/msgpack/v5"
 	"entgo.io/contrib/entgqlgo"
 )
 
@@ -29,42 +27,38 @@ var CursorScalar = graphql.NewScalar(graphql.ScalarConfig{
 	Name:        "Cursor",
 	Description: "A cursor for pagination. Encodes the position in a result set.",
 	Serialize: func(value interface{}) interface{} {
+		// Edge cursors are entgqlgo.Cursor[T] values whose T is the node's ID
+		// type (int, string, uuid.UUID, ...). Go generics make every
+		// instantiation a distinct type, so a per-type switch can never be
+		// exhaustive — Cursor[uuid.UUID] would fall through and serialize to
+		// null, breaking the non-nullable Edge.cursor field. Cursor[T].String()
+		// has a value receiver, so both Cursor[T] and *Cursor[T] satisfy
+		// fmt.Stringer for every T; serialize via that interface to stay
+		// ID-type-agnostic. A bare string (already-encoded cursor) passes through.
 		switch c := value.(type) {
-		case *entgqlgo.Cursor[int]:
-			if c == nil {
-				return nil
-			}
-			return c.String()
-		case entgqlgo.Cursor[int]:
-			return c.String()
-		case *entgqlgo.Cursor[string]:
-			if c == nil {
-				return nil
-			}
-			return c.String()
-		case entgqlgo.Cursor[string]:
-			return c.String()
+		case nil:
+			return nil
 		case string:
 			return c
+		case fmt.Stringer:
+			return c.String()
 		default:
 			return nil
 		}
 	},
+	// ParseValue / ParseLiteral pass the encoded cursor through unchanged. The
+	// generated ParsePaginationArgs decodes it into the correct Cursor[T] for the
+	// node's ID type; decoding here into a fixed Cursor[int] would mistype
+	// non-int-keyed nodes (e.g. uuid.UUID) and silently drop after/before.
 	ParseValue: func(value interface{}) interface{} {
 		if str, ok := value.(string); ok {
-			c := &entgqlgo.Cursor[int]{}
-			if err := c.UnmarshalText([]byte(str)); err == nil {
-				return c
-			}
+			return str
 		}
 		return nil
 	},
 	ParseLiteral: func(valueAST ast.Value) interface{} {
 		if str, ok := valueAST.(*ast.StringValue); ok {
-			c := &entgqlgo.Cursor[int]{}
-			if err := c.UnmarshalText([]byte(str.Value)); err == nil {
-				return c
-			}
+			return str.Value
 		}
 		return nil
 	},
