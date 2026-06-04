@@ -524,7 +524,7 @@ var (
 	CreateCategoryInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "CreateCategoryInput",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			return mergeInputExtraFields("CreateCategoryInput", graphql.InputObjectConfigFieldMap{
 				"text": &graphql.InputObjectFieldConfig{
 					Type: graphql.NewNonNull(graphql.String),
 				},
@@ -556,14 +556,14 @@ var (
 					Type:        graphql.NewList(graphql.NewNonNull(graphql.ID)),
 					Description: "IDs of the todos edges.",
 				},
-			}
+			})
 		}),
 	})
 	// UpdateCategoryInputType is the GraphQL input type for updating a Category.
 	UpdateCategoryInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "UpdateCategoryInput",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			return mergeInputExtraFields("UpdateCategoryInput", graphql.InputObjectConfigFieldMap{
 				"text": &graphql.InputObjectFieldConfig{
 					Type: graphql.String,
 				},
@@ -627,14 +627,14 @@ var (
 					Type:        graphql.Boolean,
 					Description: "Clear all todos edges.",
 				},
-			}
+			})
 		}),
 	})
 	// CreateFriendshipInputType is the GraphQL input type for creating a Friendship.
 	CreateFriendshipInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "CreateFriendshipInput",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			return mergeInputExtraFields("CreateFriendshipInput", graphql.InputObjectConfigFieldMap{
 				"todoID": &graphql.InputObjectFieldConfig{
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "ID of the todo edge.",
@@ -643,14 +643,14 @@ var (
 					Type:        graphql.NewNonNull(graphql.ID),
 					Description: "ID of the category edge.",
 				},
-			}
+			})
 		}),
 	})
 	// CreateTodoInputType is the GraphQL input type for creating a Todo.
 	CreateTodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "CreateTodoInput",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			return mergeInputExtraFields("CreateTodoInput", graphql.InputObjectConfigFieldMap{
 				"status": &graphql.InputObjectFieldConfig{
 					Type: graphql.NewNonNull(TodoStatusEnum),
 				},
@@ -690,14 +690,14 @@ var (
 					Type:        graphql.ID,
 					Description: "ID of the category edge.",
 				},
-			}
+			})
 		}),
 	})
 	// UpdateTodoInputType is the GraphQL input type for updating a Todo.
 	UpdateTodoInputType = graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: "UpdateTodoInput",
 		Fields: graphql.InputObjectConfigFieldMapThunk(func() graphql.InputObjectConfigFieldMap {
-			return graphql.InputObjectConfigFieldMap{
+			return mergeInputExtraFields("UpdateTodoInput", graphql.InputObjectConfigFieldMap{
 				"status": &graphql.InputObjectFieldConfig{
 					Type: TodoStatusEnum,
 				},
@@ -777,7 +777,7 @@ var (
 					Type:        graphql.Boolean,
 					Description: "Clear the category edge.",
 				},
-			}
+			})
 		}),
 	})
 )
