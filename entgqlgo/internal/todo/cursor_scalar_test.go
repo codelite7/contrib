@@ -17,6 +17,7 @@ package todo
 import (
 	"testing"
 
+	"entgo.io/contrib/entgql"
 	"entgo.io/contrib/entgqlgo"
 	"entgo.io/contrib/entgqlgo/internal/todo/ent/gqlgo"
 	"github.com/google/uuid"
@@ -64,6 +65,47 @@ func TestCursorScalarSerializeStringPassthrough(t *testing.T) {
 	require.Equal(t, "abc", gqlgo.CursorScalar.Serialize("abc"))
 	require.Nil(t, gqlgo.CursorScalar.Serialize(nil))
 	require.Nil(t, gqlgo.CursorScalar.Serialize(42))
+}
+
+// TestCursorScalarSerializeMarshaler guards the case where a connection produced
+// by a hand-written ent resolver (e.g. a gqlgen resolver bridged onto the
+// graphql-go schema) carries entgql.Cursor[T] instead of entgqlgo.Cursor[T].
+// entgql.Cursor[T] is NOT a fmt.Stringer (its only string form is MarshalGQL,
+// which writes a QUOTED base64 cursor), so without the graphql.Marshaler branch
+// the scalar serialized it to null and the non-nullable Edge.cursor field failed.
+//
+// The serialized result must (a) be a non-empty, unquoted string and (b) equal
+// the entgqlgo.Cursor encoding of the same {ID, Value}, so a cursor minted by the
+// bridged path is interchangeable with one minted by the generated path
+// (pagination round-trips across stacks).
+func TestCursorScalarSerializeMarshaler(t *testing.T) {
+	id := uuid.New()
+
+	cases := []struct {
+		name  string
+		value interface{}
+	}{
+		{"entgql.Cursor[int] value", entgql.Cursor[int]{ID: 7}},
+		{"entgql.Cursor[int] pointer", &entgql.Cursor[int]{ID: 7}},
+		{"entgql.Cursor[uuid.UUID] value", entgql.Cursor[uuid.UUID]{ID: id}},
+		{"entgql.Cursor[uuid.UUID] pointer", &entgql.Cursor[uuid.UUID]{ID: id}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := gqlgo.CursorScalar.Serialize(tc.value)
+			s, ok := out.(string)
+			require.True(t, ok, "Serialize(%s) must return a string, got %T", tc.name, out)
+			require.NotEmpty(t, s, "Serialize(%s) must return a non-empty cursor", tc.name)
+			require.NotContains(t, s, `"`, "Serialize must strip MarshalGQL's surrounding quotes")
+		})
+	}
+
+	// The bridged (entgql) and generated (entgqlgo) cursors for the same key must
+	// encode identically, so cursors are portable between the two stacks.
+	require.Equal(t,
+		entgqlgo.Cursor[uuid.UUID]{ID: id}.String(),
+		gqlgo.CursorScalar.Serialize(entgql.Cursor[uuid.UUID]{ID: id}),
+	)
 }
 
 // TestCursorScalarParseValuePassthrough confirms ParseValue returns the raw

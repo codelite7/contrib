@@ -17,13 +17,23 @@
 package gqlgo
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"time"
 
 	"entgo.io/contrib/entgqlgo"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 )
+
+// cursorMarshaler is the gqlgen graphql.Marshaler shape implemented by entgql's
+// Cursor[T] (the cursor type carried by hand-written ent connections, e.g. a
+// gqlgen resolver bridged onto the graphql-go schema). It writes the cursor as a
+// quoted base64 string. Declaring the method set locally avoids importing gqlgen.
+type cursorMarshaler interface {
+	MarshalGQL(io.Writer)
+}
 
 // Cursor scalar for graphql-go.
 // Cursors are used for pagination in Relay-style connections.
@@ -39,6 +49,14 @@ var CursorScalar = graphql.NewScalar(graphql.ScalarConfig{
 		// has a value receiver, so both Cursor[T] and *Cursor[T] satisfy
 		// fmt.Stringer for every T; serialize via that interface to stay
 		// ID-type-agnostic. A bare string (already-encoded cursor) passes through.
+		//
+		// A connection produced by a hand-written ent resolver (e.g. a gqlgen
+		// resolver bridged onto the graphql-go schema) carries entgql.Cursor[T]
+		// instead, which is NOT a Stringer but implements graphql.Marshaler
+		// (MarshalGQL writes a quoted base64 cursor identical to
+		// entgqlgo.Cursor.String). Handle that interface too — stripping
+		// MarshalGQL's surrounding quotes — so bridged connections serialize their
+		// cursors instead of returning null.
 		switch c := value.(type) {
 		case nil:
 			return nil
@@ -46,6 +64,10 @@ var CursorScalar = graphql.NewScalar(graphql.ScalarConfig{
 			return c
 		case fmt.Stringer:
 			return c.String()
+		case cursorMarshaler:
+			var buf bytes.Buffer
+			c.MarshalGQL(&buf)
+			return string(bytes.Trim(buf.Bytes(), `"`))
 		default:
 			return nil
 		}
