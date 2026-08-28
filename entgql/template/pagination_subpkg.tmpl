@@ -131,7 +131,7 @@ type {{ $order }} struct {
 						}
 					},
 					{{- else }}
-					toTerm: {{ $f.Field.OrderName }},
+					toTerm: F.{{ $f.Field.StructField }}.Order,
 					{{- end }}
         {{- else if $f.IsNonUniqueEdgeFieldTerm }}
 					column: {{ $f.VarField }},
@@ -182,15 +182,17 @@ type {{ $order }} struct {
 					column: {{ $f.VarField }},
 					toTerm: func(opts ...sql.OrderTermOption) OrderOption {
 						// Use raw string literal for field name to avoid cross-entity import cycles.
-						return {{ $f.Edge.OrderFieldName }}(
-							{{ quote $f.Field.StorageKey }},
-							append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
+						return E.{{ $f.Edge.StructField }}.OrderBy(
+							sql.OrderByField(
+								{{ quote $f.Field.StorageKey }},
+								append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
+							),
 						)
 					},
 				{{- else if $f.IsEdgeCountTerm }}
 					column: {{ $f.VarField }},
 					toTerm: func(opts ...sql.OrderTermOption) OrderOption {
-						return {{ $f.Edge.OrderCountName }}(
+						return E.{{ $f.Edge.StructField }}.OrderByCount(
 							append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
 						)
 					},
@@ -263,7 +265,7 @@ var {{ $defaultOrder }} = &{{ $order }}{
 			return {{ $r }}.ID, nil
 		},
 		column: {{ $node.ID.Constant }},
-		toTerm: {{ $node.ID.OrderName }},
+		toTerm: F.{{ $node.ID.StructField }}.Order,
 		toCursor: func({{ $r }} *{{ $name }}) Cursor {
 			{{- $marshalID := and $idType.Mixed (gqlMarshaler $node.ID) }}
 			return Cursor{ID: {{ $r }}.{{ if $marshalID }}marshalID(){{ else }}ID{{ end }}}
