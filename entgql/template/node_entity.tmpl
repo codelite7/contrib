@@ -62,7 +62,7 @@ func {{ camel $node.Name }}Noder(ctx context.Context, c *Client, id {{ $idType }
 		}
 	{{- end }}
 	query := c.{{ $node.Name }}.Query().
-		Where({{ $node.Package }}.ID({{ if $unmarshalID }}u{{ end }}id))
+		Where({{ $node.Package }}.F.ID.EQ({{ if $unmarshalID }}u{{ end }}id))
 	{{- if $.HasCollectionTemplate }}
 		if fc := graphql.GetFieldContext(ctx); fc != nil {
 			if err := collectField{{ $node.QueryName }}(query, ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, {{ nodeImplementorsVar $node }}...); err != nil {
@@ -85,7 +85,7 @@ func {{ camel $node.Name }}Noders(ctx context.Context, c *Client, ids []{{ $idTy
 		}
 	{{- end }}
 	query := c.{{ $node.Name }}.Query().
-		Where({{ $node.Package }}.IDIn({{ if $unmarshalID }}u{{ end }}ids...))
+		Where({{ $node.Package }}.F.ID.In({{ if $unmarshalID }}u{{ end }}ids...))
 	{{- if $.HasCollectionTemplate }}
 		query, err := {{ $node.QueryName }}CollectFields(query, ctx, {{ nodeImplementorsVar $node }}...)
 		if err != nil {
