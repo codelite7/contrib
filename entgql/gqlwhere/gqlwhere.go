@@ -121,6 +121,10 @@ type step struct {
 	field      fieldOp
 	edge       edgeOp
 	deref      bool // argPtr only: dereference the field value before the call
+	// pMethod is the method index of P on the element type of a HasXWith
+	// slice field ([]*XWhereInput -> *XWhereInput). Resolved here so the
+	// per-element hot loop never does a name lookup.
+	pMethod int
 }
 
 // plan is the resolved, cached walk order for one concrete WhereInput
@@ -240,18 +244,33 @@ func (r *Registry[P]) planFor(structType reflect.Type) *plan {
 		if len(sf.Index) != 1 {
 			continue // not expected in generated (flat) structs; ignore defensively
 		}
+		// The four prologue fields are validated here rather than trusted
+		// at walk time, so a shape drift in the generated struct fails
+		// eagerly in Warm like every other binding mismatch instead of
+		// silently dropping predicates (Predicates) or nil-dereferencing
+		// (Not/Or/And) on the first request.
 		switch sf.Name {
 		case "Predicates":
+			if want := reflect.TypeFor[[]P](); sf.Type != want {
+				panic(fmt.Sprintf("gqlwhere: Predicates: struct field type %s is not %s", sf.Type, want))
+			}
 			pl.predicatesIdx = sf.Index[0]
 			continue
 		case "Not":
+			if sf.Type.Kind() != reflect.Ptr {
+				panic(fmt.Sprintf("gqlwhere: Not: struct field type %s is not a pointer", sf.Type))
+			}
 			pl.notIdx = sf.Index[0]
 			continue
-		case "Or":
-			pl.orIdx = sf.Index[0]
-			continue
-		case "And":
-			pl.andIdx = sf.Index[0]
+		case "Or", "And":
+			if sf.Type.Kind() != reflect.Slice {
+				panic(fmt.Sprintf("gqlwhere: %s: struct field type %s is not a slice", sf.Name, sf.Type))
+			}
+			if sf.Name == "Or" {
+				pl.orIdx = sf.Index[0]
+			} else {
+				pl.andIdx = sf.Index[0]
+			}
 			continue
 		}
 		if !sf.IsExported() {
@@ -284,7 +303,18 @@ func (r *Registry[P]) planFor(structType reflect.Type) *plan {
 		}
 
 		if eo, ok := r.edgeOps[sf.Name]; ok {
-			pl.steps = append(pl.steps, step{fieldIndex: sf.Index[0], name: sf.Name, isEdge: true, edge: eo})
+			st := step{fieldIndex: sf.Index[0], name: sf.Name, isEdge: true, edge: eo}
+			if eo.isWith {
+				if sf.Type.Kind() != reflect.Slice {
+					panic(fmt.Sprintf("gqlwhere: %s: struct field type %s is not a slice", sf.Name, sf.Type))
+				}
+				m, ok := sf.Type.Elem().MethodByName("P")
+				if !ok {
+					panic(fmt.Sprintf("gqlwhere: %s: %s has no P method", sf.Name, sf.Type.Elem()))
+				}
+				st.pMethod = m.Index
+			}
+			pl.steps = append(pl.steps, st)
 			continue
 		}
 
@@ -407,9 +437,11 @@ func (r *Registry[P]) P(input any) (P, error) {
 	}
 
 	if pl.predicatesIdx >= 0 {
-		if preds, ok := v.Field(pl.predicatesIdx).Interface().([]P); ok {
-			predicates = append(predicates, preds...)
-		}
+		// planFor already proved the field's type is []P, so this asserts
+		// rather than testing-and-dropping: a mismatch is a binding bug and
+		// must be as loud as every other one, not a silent loss of the
+		// user's AddPredicates calls.
+		predicates = append(predicates, v.Field(pl.predicatesIdx).Interface().([]P)...)
 	}
 
 	for _, st := range pl.steps {
@@ -435,7 +467,7 @@ func (r *Registry[P]) P(input any) (P, error) {
 			hasEmpty := false
 			for j := 0; j < n; j++ {
 				elem := fv.Index(j)
-				results := elem.MethodByName("P").Call(nil)
+				results := elem.Method(st.pMethod).Call(nil)
 				if errVal := results[1]; !errVal.IsNil() {
 					err := errVal.Interface().(error)
 					if errors.Is(err, ErrEmpty) {

@@ -20,32 +20,26 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 )
 
-// maskNotFound is the generated MaskNotFound function (gql_edge_subpkg_runtime.tmpl),
-// registered once via RegisterMaskNotFound. It lives in generated code
-// because it reads the generated internal.NotFoundError type, which this
-// package cannot import -- same reason notLoaded is threaded through One and
-// Many as a parameter instead. See RegisterMaskNotFound.
-var maskNotFound func(error) error
-
-// RegisterMaskNotFound registers the generated package's MaskNotFound
-// function so One can apply it without this package importing generated
-// code. Called once from the generated gqledges package's init().
-func RegisterMaskNotFound(fn func(error) error) {
-	maskNotFound = fn
-}
-
 // One resolves a unique edge: try the loaded Edges value, fall back to a
-// query when not loaded, and mask a not-found error when mask is true (an
-// optional edge). notLoaded and the mask function itself are generated
-// code and are threaded in rather than called directly -- see
-// RegisterMaskNotFound.
-func One[T any](loaded func() (*T, error), query func() (*T, error), notLoaded func(error) bool, mask bool) (*T, error) {
+// query when not loaded, and apply mask to the result error.
+//
+// notLoaded and mask are both generated code (they test the generated
+// internal.NotLoadedError/NotFoundError types, which this package cannot
+// import) and are threaded in as parameters rather than registered in a
+// package-level var: a binary linking two generated ent schemas has two
+// gqledges packages, and a single global would let the second one's
+// not-found test silently replace the first's.
+//
+// mask is the generated MaskNotFound for an optional edge (a not-found
+// becomes a nil result and a nil error, i.e. GraphQL null) and nil for a
+// required one.
+func One[T any](loaded func() (*T, error), query func() (*T, error), notLoaded func(error) bool, mask func(error) error) (*T, error) {
 	result, err := loaded()
 	if notLoaded(err) {
 		result, err = query()
 	}
-	if mask && maskNotFound != nil {
-		err = maskNotFound(err)
+	if mask != nil {
+		err = mask(err)
 	}
 	return result, err
 }

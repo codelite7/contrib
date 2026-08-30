@@ -675,16 +675,128 @@ func TestPaginate_HappyPath(t *testing.T) {
 	require.Equal(t, nodes[0], conn.Edges[0].Node)
 }
 
-// --- ToEdge -------------------------------------------------
+// --- ToEdge / ToCursor -------------------------------------------------
 
 func TestToEdge_UsesGivenOrderOrFallsBackToDefault(t *testing.T) {
 	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
+	ops := newFakeOps(false, defaultOrder, nil)
 
-	edge := gqlpage.ToEdge(e, nil, defaultOrder)
+	edge := gqlpage.ToEdge(e, nil, ops)
 	require.Equal(t, e, edge.Node)
 	require.Equal(t, e.ID, edge.Cursor.ID)
+	// Parity with the old generated DefaultXOrder.toCursor, which emitted
+	// Cursor{ID: ...} and no Value -- that nil Value is what keeps
+	// entgql.CursorsPredicate on its plain `id > X` branch.
+	require.Nil(t, edge.Cursor.Value)
 
 	nameOrder := &gqlpage.Order[fakeEntity, uuid.UUID]{Direction: entgql.OrderDirectionAsc, Field: fNameField}
-	edge = gqlpage.ToEdge(e, nameOrder, defaultOrder)
+	edge = gqlpage.ToEdge(e, nameOrder, ops)
+	require.Equal(t, e.ID, edge.Cursor.ID)
 	require.Equal(t, "acme", edge.Cursor.Value)
+}
+
+// --- mixed-ID cursors (I-1) -------------------------------------------------
+//
+// On a mixed-ID graph, gqlIDType forces the package-wide cursor ID type to
+// string while the model's own ID field keeps its native type, and the
+// generated Ops.ID is r.marshalID(). These tests instantiate exactly that
+// shape -- ID type param string over a uuid.UUID ID field -- which is what
+// the fixture graphs (todogotype, todopulid) generate. Every cursor below
+// panicked before the fix, because the cursor was built by reflecting on the
+// raw ID struct field and asserting it to the ID type param.
+
+func newMixedIDOps(multiOrder bool, def *gqlpage.Order[fakeEntity, string]) *gqlpage.Ops[fakeQuery, fakeEntity, string] {
+	return &gqlpage.Ops[fakeQuery, fakeEntity, string]{
+		Where:       func(q *fakeQuery, p func(*sql.Selector)) *fakeQuery { q.Wheres = append(q.Wheres, p); return q },
+		Order:       func(q *fakeQuery, o func(*sql.Selector)) *fakeQuery { q.Orders = append(q.Orders, o); return q },
+		Limit:       func(q *fakeQuery, n int) *fakeQuery { q.LimitVal = n; return q },
+		Clone:       func(q *fakeQuery) *fakeQuery { c := *q; return &c },
+		All:         func(q *fakeQuery, _ context.Context) ([]*fakeEntity, error) { return q.AllResult, q.AllErr },
+		Count:       func(q *fakeQuery, _ context.Context) (int, error) { return q.CountResult, q.CountErr },
+		Fields:      func(q *fakeQuery) []string { return q.Ctx.Fields },
+		AppendField: func(q *fakeQuery, f string) { q.Ctx.Fields = append(q.Ctx.Fields, f) },
+		ClearFields: func(q *fakeQuery) { q.Ctx.Fields = nil },
+		// The generated marshalID() for a mixed-ID graph.
+		ID:         func(v *fakeEntity) string { return "gid:" + v.ID.String() },
+		Default:    def,
+		MultiOrder: multiOrder,
+	}
+}
+
+func TestToCursor_MixedID_UsesOpsID(t *testing.T) {
+	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
+	idField := gqlpage.Column[fakeEntity, string]("ID", "id", "ID", noopTerm)
+	nameField := gqlpage.Column[fakeEntity, string]("NAME", "name", "Name", noopTerm)
+	def := &gqlpage.Order[fakeEntity, string]{Direction: entgql.OrderDirectionAsc, Field: idField}
+	ops := newMixedIDOps(false, def)
+
+	t.Run("default order", func(t *testing.T) {
+		pager, err := gqlpage.NewPager(ops, nil, false)
+		require.NoError(t, err)
+		c := pager.ToCursor(e)
+		require.Equal(t, "gid:"+e.ID.String(), c.ID)
+		require.Nil(t, c.Value)
+	})
+
+	t.Run("named order", func(t *testing.T) {
+		opts := []gqlpage.Option[fakeQuery, fakeEntity, string]{
+			gqlpage.WithOrder[fakeQuery, fakeEntity, string](
+				[]*gqlpage.Order[fakeEntity, string]{{Direction: entgql.OrderDirectionAsc, Field: nameField}},
+			),
+		}
+		pager, err := gqlpage.NewPager(ops, opts, false)
+		require.NoError(t, err)
+		c := pager.ToCursor(e)
+		require.Equal(t, "gid:"+e.ID.String(), c.ID)
+		require.Equal(t, "acme", c.Value)
+	})
+
+	t.Run("ToEdge", func(t *testing.T) {
+		edge := gqlpage.ToEdge(e, nil, ops)
+		require.Equal(t, "gid:"+e.ID.String(), edge.Cursor.ID)
+		require.Nil(t, edge.Cursor.Value)
+	})
+}
+
+func TestToCursor_MixedID_MultiOrder(t *testing.T) {
+	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
+	idField := gqlpage.Column[fakeEntity, string]("ID", "id", "ID", noopTerm)
+	nameField := gqlpage.Column[fakeEntity, string]("NAME", "name", "Name", noopTerm)
+	ownerField := gqlpage.Computed[fakeEntity, string]("OWNER_NAME", "owner_name", "owner_name", noopTerm)
+	ops := newMixedIDOps(true, &gqlpage.Order[fakeEntity, string]{Direction: entgql.OrderDirectionAsc, Field: idField})
+
+	opts := []gqlpage.Option[fakeQuery, fakeEntity, string]{
+		gqlpage.WithOrder[fakeQuery, fakeEntity, string]([]*gqlpage.Order[fakeEntity, string]{
+			{Direction: entgql.OrderDirectionAsc, Field: nameField},
+			{Direction: entgql.OrderDirectionAsc, Field: ownerField},
+		}),
+	}
+	pager, err := gqlpage.NewPager(ops, opts, false)
+	require.NoError(t, err)
+
+	c := pager.ToCursor(e)
+	require.Equal(t, "gid:"+e.ID.String(), c.ID)
+	require.Equal(t, []any{"acme", "acme-owner"}, c.Value)
+}
+
+// TestToCursor_DefaultOrderCarriesNoValue pins the non-mixed half of the
+// same parity rule: ordering by the default field must produce an id-only
+// cursor, while ordering by any other field (including a distinct
+// OrderField that happens to share the id column) carries a Value.
+func TestToCursor_DefaultOrderCarriesNoValue(t *testing.T) {
+	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
+	ops := newFakeOps(false, defaultOrder, nil)
+
+	pager, err := gqlpage.NewPager(ops, nil, false)
+	require.NoError(t, err)
+	require.Nil(t, pager.ToCursor(e).Value)
+
+	opts := []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+		gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID](
+			[]*gqlpage.Order[fakeEntity, uuid.UUID]{{Direction: entgql.OrderDirectionAsc, Field: fNameField}},
+		),
+	}
+	pager, err = gqlpage.NewPager(ops, opts, false)
+	require.NoError(t, err)
+	require.Equal(t, "acme", pager.ToCursor(e).Value)
 }

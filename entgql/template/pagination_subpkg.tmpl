@@ -240,7 +240,7 @@ func {{ $query }}Paginate(
 
 // {{ $name }}ToEdge converts {{ $name }} into {{ $names.Edge }}.
 func {{ $name }}ToEdge({{ $r }} *{{ $name }}, order *{{ $names.Order }}) *{{ $names.Edge }} {
-	return gqlpage.ToEdge({{ $r }}, order, {{ $defaultOrder }})
+	return gqlpage.ToEdge({{ $r }}, order, {{ $name }}Ops)
 }
 
 {{ end }}

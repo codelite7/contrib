@@ -239,3 +239,68 @@ func TestCollectPropagatesArmError(t *testing.T) {
 		})
 	}
 }
+
+// --- duplicate GQL names (M-5) ----------------------------------------------
+//
+// Edges and Fields share one GQL-name namespace. The per-entity switch this
+// package replaced turned a duplicate arm into a compile error ("duplicate
+// case in switch"); descriptor-driven, it silently resolved last-wins (or
+// edge-wins across the two tables), so a name collision would quietly route
+// a field to the wrong arm. Spec.index now panics instead — and because
+// every generated Spec is a package-level var, the first Collect in any test
+// binary trips it.
+
+func TestSpecIndexPanicsOnDuplicateGQLName(t *testing.T) {
+	collect := func(q *childQuery, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, field graphql.CollectedField, path []string, satisfies ...string) error {
+		return nil
+	}
+
+	for _, tc := range []struct {
+		name string
+		spec *gqlcollect.Spec
+		want string
+	}{
+		{
+			name: "duplicate edge",
+			spec: &gqlcollect.Spec{Edges: []gqlcollect.Edge{
+				gqlcollect.Unique("owner", "", nil, collect, withUniqueChild),
+				gqlcollect.Named("owner", "", nil, collect, withNamedChild),
+			}},
+			want: `gqlcollect: duplicate GQL name "owner" in spec`,
+		},
+		{
+			name: "duplicate field",
+			spec: &gqlcollect.Spec{Fields: []gqlcollect.Field{
+				{GQL: "name", Column: "name"},
+				{GQL: "name", Column: "other_name"},
+			}},
+			want: `gqlcollect: duplicate GQL name "name" in spec`,
+		},
+		{
+			name: "edge shadowed by field",
+			spec: &gqlcollect.Spec{
+				Edges:  []gqlcollect.Edge{gqlcollect.Unique("owner", "", nil, collect, withUniqueChild)},
+				Fields: []gqlcollect.Field{{GQL: "owner", Column: "owner"}},
+			},
+			want: `gqlcollect: duplicate GQL name "owner" in spec`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.PanicsWithValue(t, tc.want, func() {
+				_ = gqlcollect.Collect(tc.spec, &parentQuery{}, context.Background(),
+					false, &graphql.OperationContext{}, sel(&ast.Field{Name: "name"}), nil)
+			})
+		})
+	}
+}
+
+// TestSpecIndexAcceptsDistinctNames guards against the duplicate check
+// rejecting a legitimate spec.
+func TestSpecIndexAcceptsDistinctNames(t *testing.T) {
+	var calls []collectCall
+	spec := newSpec(&calls)
+	require.NotPanics(t, func() {
+		_ = gqlcollect.Collect(spec, &parentQuery{}, context.Background(),
+			false, &graphql.OperationContext{}, sel(&ast.Field{Name: "name"}), nil)
+	})
+}

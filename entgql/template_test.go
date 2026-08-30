@@ -653,6 +653,9 @@ func TestPaginationSubpkgTemplateExecution(t *testing.T) {
 	require.Contains(t, without, "func TodoQueryPaginate(")
 	require.Contains(t, without, "func TodoToEdge(")
 	require.Contains(t, without, "gqlpage.Paginate(")
+	// ToEdge takes Ops, not just the default order: the cursor ID comes
+	// from Ops.ID (the generated marshalID() on a mixed-ID graph).
+	require.Contains(t, without, "gqlpage.ToEdge(_m, order, TodoOps)")
 
 	// --- with EntGQLExtension: MaxPageSize must reflect the configured value ---
 	graph.Annotations = gen.Annotations{
@@ -1255,6 +1258,10 @@ func TestEdgeSubpkgTemplateContent(t *testing.T) {
 	require.Contains(t, src, "gqledge.Many")
 	require.Contains(t, src, "gqledge.Conn")
 
+	// The not-found mask is a One parameter, not a registered global: an
+	// optional unique edge passes MaskNotFound, a required one passes nil.
+	require.Contains(t, src, "IsNotLoaded, {{if $e.Optional}}MaskNotFound{{else}}nil{{end}})")
+
 	// Verify Relay connection inlined code has expected elements.
 	require.Contains(t, src, "nodePaginationNames")
 	require.Contains(t, src, "Paginate")
@@ -1347,6 +1354,16 @@ func TestEdgeSubpkgTemplateExecution(t *testing.T) {
 	// edge (category/secret -> One) and a relay-connection edge (children -> Conn).
 	require.Contains(t, output, "gqledge.One(")
 	require.Contains(t, output, "gqledge.Conn(")
+
+	// The not-found mask is passed per call, never registered in a
+	// process-global: an optional unique edge passes this package's own
+	// MaskNotFound, a required one passes nil.
+	// Todo's unique edges (parent, category) are all optional, so they pass
+	// this package's own MaskNotFound rather than registering it in a
+	// process-global. The required-edge (nil mask) arm is asserted on the
+	// template source in TestEdgeSubpkgTemplateContent.
+	require.Contains(t, output, "IsNotLoaded, MaskNotFound)")
+	require.NotContains(t, output, "RegisterMaskNotFound")
 
 	// Verify no template call to gql_edge/helper/paginate (it should be inlined).
 	require.NotContains(t, output, "gql_edge/helper/paginate")

@@ -76,7 +76,7 @@ func TestOne_LoadedNoFallback(t *testing.T) {
 	result, err := gqledge.One(
 		func() (*fakeEntity, error) { return user, nil },
 		func() (*fakeEntity, error) { queryCalled = true; return nil, errors.New("must not be called") },
-		isNotLoaded, true,
+		isNotLoaded, maskNotFound,
 	)
 	require.NoError(t, err)
 	require.Same(t, user, result)
@@ -88,65 +88,98 @@ func TestOne_NotLoadedFallsBackToQuery(t *testing.T) {
 	result, err := gqledge.One(
 		func() (*fakeEntity, error) { return nil, notLoadedErr{} },
 		func() (*fakeEntity, error) { return queried, nil },
-		isNotLoaded, false,
+		isNotLoaded, nil,
 	)
 	require.NoError(t, err)
 	require.Same(t, queried, result)
 }
 
 func TestOne_NotFoundMaskedWhenOptional(t *testing.T) {
-	gqledge.RegisterMaskNotFound(maskNotFound)
-	t.Cleanup(func() { gqledge.RegisterMaskNotFound(nil) })
-
 	result, err := gqledge.One(
 		func() (*fakeEntity, error) { return nil, notFoundErr{} },
-		func() (*fakeEntity, error) { panic("must not be called: loaded already returned a non-notLoaded error") },
-		isNotLoaded, true,
+		func() (*fakeEntity, error) {
+			panic("must not be called: loaded already returned a non-notLoaded error")
+		},
+		isNotLoaded, maskNotFound,
 	)
-	require.NoError(t, err, "mask=true must nil out a not-found error")
+	require.NoError(t, err, "a mask func must nil out a not-found error")
 	require.Nil(t, result)
 }
 
 func TestOne_NotFoundUnmaskedWhenRequired(t *testing.T) {
-	gqledge.RegisterMaskNotFound(maskNotFound)
-	t.Cleanup(func() { gqledge.RegisterMaskNotFound(nil) })
-
 	result, err := gqledge.One(
 		func() (*fakeEntity, error) { return nil, notFoundErr{} },
 		func() (*fakeEntity, error) { panic("must not be called") },
-		isNotLoaded, false,
+		isNotLoaded, nil,
 	)
-	require.Error(t, err, "mask=false must leave a not-found error on a required edge")
+	require.Error(t, err, "a nil mask must leave a not-found error on a required edge")
 	require.Nil(t, result)
 }
 
-func TestOne_MaskTrueButGenericError_PassesErrThrough(t *testing.T) {
-	// mask=true must call through to the registered function's actual
-	// not-found detection, not unconditionally nil out whatever error came
-	// back -- a DB/context error on an optional edge must still surface.
-	gqledge.RegisterMaskNotFound(maskNotFound)
-	t.Cleanup(func() { gqledge.RegisterMaskNotFound(nil) })
-
+func TestOne_MaskedButGenericError_PassesErrThrough(t *testing.T) {
+	// The mask func decides; One must not unconditionally nil out whatever
+	// error came back -- a DB/context error on an optional edge must still
+	// surface.
 	dbErr := errors.New("connection refused")
 	result, err := gqledge.One(
 		func() (*fakeEntity, error) { return nil, dbErr },
 		func() (*fakeEntity, error) { panic("must not be called") },
-		isNotLoaded, true,
+		isNotLoaded, maskNotFound,
 	)
-	require.Same(t, dbErr, err, "mask=true must not swallow a non-not-found error")
+	require.Same(t, dbErr, err, "a mask func must not swallow a non-not-found error")
 	require.Nil(t, result)
 }
 
-func TestOne_MaskTrueButUnregistered_PassesErrThrough(t *testing.T) {
-	gqledge.RegisterMaskNotFound(nil)
+// TestOne_MaskIsPerCallNotGlobal pins I-2: the mask used to live in a single
+// package-level var that every generated gqledges package overwrote from its
+// own init(), so in a binary linking two ent schemas the second registration
+// silently decided masking for the first -- an optional edge's not-found then
+// surfaced as a GraphQL error instead of null. Two callers with different
+// not-found types must each get their own answer, interleaved. Under the old
+// global this test could not even be written: whichever init ran last won.
+func TestOne_MaskIsPerCallNotGlobal(t *testing.T) {
+	// A second generated schema's NotFoundError, unrelated to notFoundErr.
+	type otherNotFoundErr struct{ error }
+	otherMask := func(err error) error {
+		var e otherNotFoundErr
+		if errors.As(err, &e) {
+			return nil
+		}
+		return err
+	}
 
-	result, err := gqledge.One(
+	// Schema A's not-found, masked by schema A's mask -> nil.
+	_, err := gqledge.One(
 		func() (*fakeEntity, error) { return nil, notFoundErr{} },
 		func() (*fakeEntity, error) { panic("must not be called") },
-		isNotLoaded, true,
+		isNotLoaded, maskNotFound,
 	)
-	require.Error(t, err, "an unregistered mask function must never silently swallow the error")
-	require.Nil(t, result)
+	require.NoError(t, err)
+
+	// The same error through schema B's mask -> untouched, proving the mask
+	// is the caller's and not a process-wide last-registration-wins var.
+	_, err = gqledge.One(
+		func() (*fakeEntity, error) { return nil, notFoundErr{} },
+		func() (*fakeEntity, error) { panic("must not be called") },
+		isNotLoaded, otherMask,
+	)
+	require.Error(t, err)
+
+	// And schema B's own not-found through schema B's mask -> nil, with
+	// schema A's mask still working right after.
+	_, err = gqledge.One(
+		func() (*fakeEntity, error) { return nil, otherNotFoundErr{errors.New("b: not found")} },
+		func() (*fakeEntity, error) { panic("must not be called") },
+		isNotLoaded, otherMask,
+	)
+	require.NoError(t, err)
+
+	_, err = gqledge.One(
+		func() (*fakeEntity, error) { return nil, notFoundErr{} },
+		func() (*fakeEntity, error) { panic("must not be called") },
+		isNotLoaded, maskNotFound,
+	)
+	require.NoError(t, err)
 }
 
 // --- Many -------------------------------------------------

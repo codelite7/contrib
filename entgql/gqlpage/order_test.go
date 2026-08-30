@@ -54,9 +54,8 @@ func noopTerm(opts ...sql.OrderTermOption) func(*sql.Selector) {
 	return func(*sql.Selector) {}
 }
 
-func TestColumn_ValueAndCursorReadStructField(t *testing.T) {
-	id := uuid.New()
-	e := &fakeEntity{ID: id, Name: "acme"}
+func TestColumn_ValueReadsStructField(t *testing.T) {
+	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
 
 	f := gqlpage.Column[fakeEntity, uuid.UUID]("NAME", "name", "Name", noopTerm)
 
@@ -66,69 +65,30 @@ func TestColumn_ValueAndCursorReadStructField(t *testing.T) {
 
 	require.Equal(t, "name", f.Column())
 	require.Equal(t, "", f.Expression())
-
-	c := f.Cursor(e)
-	require.Equal(t, id, c.ID)
-	require.Equal(t, "acme", c.Value)
 }
 
-func TestColumn_MissingStructFieldPanics(t *testing.T) {
-	e := &fakeEntity{}
-	f := gqlpage.Column[fakeEntity, uuid.UUID]("NOPE", "nope", "DoesNotExist", noopTerm)
-
+// TestColumn_MissingStructFieldPanicsAtConstruction pins M-7: the struct
+// field index is resolved inside Column, so a codegen bug fails while the
+// generated package-level var block is initializing -- before any request --
+// rather than on the first Value/cursor read. A test that only asserted the
+// panic from f.Value would pass against the old lazy resolution too, so the
+// discriminating assertion is that constructing the field is what panics and
+// that no *OrderField ever comes back to be called.
+func TestColumn_MissingStructFieldPanicsAtConstruction(t *testing.T) {
 	require.PanicsWithValue(t,
 		`gqlpage: gqlpage_test.fakeEntity has no field "DoesNotExist"`,
-		func() { _, _ = f.Value(e) },
+		func() {
+			gqlpage.Column[fakeEntity, uuid.UUID]("NOPE", "nope", "DoesNotExist", noopTerm)
+		},
 	)
 }
 
-// TestColumn_MissingStructFieldPanicsEveryCall guards against a regression
-// to a bare sync.Once: Do marks itself done even when f panics, so a caller
-// that recovers the first panic (gqlgen's default resolver middleware does
-// exactly this) must still get a loud panic on every later call, not a
-// silently-nil cached index feeding FieldByIndex(nil) (which returns the
-// whole struct, not a zero value).
-func TestColumn_MissingStructFieldPanicsEveryCall(t *testing.T) {
-	e := &fakeEntity{}
-	f := gqlpage.Column[fakeEntity, uuid.UUID]("NOPE", "nope", "DoesNotExist", noopTerm)
-	const wantMsg = `gqlpage: gqlpage_test.fakeEntity has no field "DoesNotExist"`
-
-	func() {
-		defer func() {
-			r := recover()
-			require.Equal(t, wantMsg, r)
-		}()
-		_, _ = f.Value(e)
-	}()
-
-	require.PanicsWithValue(t, wantMsg, func() { _, _ = f.Value(e) })
-}
-
-// TestColumn_CursorPanicsOnIDTypeMismatch guards the Cursor ID assertion:
-// once fieldIndex.resolve is fixed, fieldValue(f.idIdx, "ID", v) always
-// returns the real ID field's value or panics -- it never returns a
-// zero/whole-struct value. The one remaining way for the ID type assertion
-// to fail is a codegen/wiring bug where OrderField was instantiated with an
-// ID type that doesn't match the entity's actual ID field type. That must
-// panic too, not silently produce a zero-value cursor ID.
-func TestColumn_CursorPanicsOnIDTypeMismatch(t *testing.T) {
-	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
-	// ID type param is string, but fakeEntity.ID is uuid.UUID.
-	f := gqlpage.Column[fakeEntity, string]("NAME", "name", "Name", noopTerm)
-
-	require.PanicsWithValue(t,
-		`gqlpage: *gqlpage_test.fakeEntity.ID is uuid.UUID, not assignable to cursor ID type string`,
-		func() { f.Cursor(e) },
-	)
-}
-
-func TestColumn_FieldIndexResolvedOnceAndCached(t *testing.T) {
+func TestColumn_FieldIndexIsRaceFreeUnderConcurrentUse(t *testing.T) {
 	e := &fakeEntity{Name: "acme"}
 	f := gqlpage.Column[fakeEntity, uuid.UUID]("NAME", "name", "Name", noopTerm)
 
-	// Concurrent first use should not race and every call must observe the
-	// same resolved field, proving the resolution happened exactly once and
-	// the cached result is what's being reused (not re-resolved per call).
+	// The index is resolved once at construction and only read afterwards,
+	// so concurrent first use must neither race (-race) nor disagree.
 	var wg sync.WaitGroup
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
@@ -149,9 +109,10 @@ func TestExpr_OverridesTermAndExpression(t *testing.T) {
 
 	require.Equal(t, `left("name", 256)`, f.Expression())
 
-	// Cursor value still reads the struct field, unaffected by Expr.
-	c := f.Cursor(e)
-	require.Equal(t, "acme", c.Value)
+	// Value still reads the struct field, unaffected by Expr.
+	v, err := f.Value(e)
+	require.NoError(t, err)
+	require.Equal(t, "acme", v)
 
 	for _, tc := range []struct {
 		name string
@@ -174,7 +135,7 @@ func TestExpr_OverridesTermAndExpression(t *testing.T) {
 }
 
 func TestComputed_RoutesThroughValuer(t *testing.T) {
-	e := &fakeEntity{ID: uuid.New()}
+	e := &fakeEntity{}
 	f := gqlpage.Computed[fakeEntity, uuid.UUID]("OWNER_NAME", "owner_name", "owner_name", noopTerm)
 
 	v, err := f.Value(e)
@@ -182,10 +143,6 @@ func TestComputed_RoutesThroughValuer(t *testing.T) {
 	require.Equal(t, "acme-owner", v)
 
 	require.Equal(t, "owner_name", f.Column())
-
-	c := f.Cursor(e)
-	require.Equal(t, e.ID, c.ID)
-	require.Equal(t, "acme-owner", c.Value)
 }
 
 func TestStringAndMarshalGQL(t *testing.T) {
@@ -219,4 +176,36 @@ func TestUnmarshalGQL(t *testing.T) {
 		err := got.UnmarshalGQL("BOGUS")
 		require.EqualError(t, err, "BOGUS is not a valid fakeEntityOrderField")
 	})
+}
+
+// registerOnce is a throwaway entity type so the duplicate-Register test
+// does not collide with fakeEntity's registration in TestUnmarshalGQL.
+type registerOnce struct {
+	ID   uuid.UUID
+	Name string
+}
+
+// TestRegister_PanicsOnDuplicate pins M-2: Register used to silently replace
+// the whole field map for T, so a second registration (two generated packages
+// wired to the same model, a bad merge) would leave UnmarshalGQL resolving
+// against a map nobody expected. It now follows registerNodeResolver's
+// policy. The discriminating half is the second call: under the old code it
+// returned normally and the first field became unresolvable.
+func TestRegister_PanicsOnDuplicate(t *testing.T) {
+	first := gqlpage.Column[registerOnce, uuid.UUID]("NAME", "name", "Name", noopTerm)
+	gqlpage.Register[registerOnce, uuid.UUID](first)
+
+	require.PanicsWithValue(t,
+		"gqlpage: duplicate Register for gqlpage_test.registerOnce",
+		func() {
+			gqlpage.Register[registerOnce, uuid.UUID](
+				gqlpage.Column[registerOnce, uuid.UUID]("OTHER", "other", "ID", noopTerm),
+			)
+		},
+	)
+
+	// The first registration must survive the rejected one.
+	var got gqlpage.OrderField[registerOnce, uuid.UUID]
+	require.NoError(t, got.UnmarshalGQL("NAME"))
+	require.Equal(t, "NAME", got.String())
 }

@@ -136,6 +136,11 @@ type Option[Q any, T any, ID any] func(*Pager[Q, T, ID]) error
 // containing a nil order, since it only ever appends non-nil elements
 // (mirroring the old template, which had no nil check here either); skipping
 // nils here is a harmless superset, not something multi-order relies on.
+//
+// M-3: options accumulate, and a single-order Pager reads order[0], so two
+// WithOrder calls are first-wins where the old generated WithXOrder replaced
+// the pager's order (last-wins). Unreachable from generated code, which
+// always passes exactly one WithOrder.
 func WithOrder[Q any, T any, ID any](order []*Order[T, ID]) Option[Q, T, ID] {
 	return func(pager *Pager[Q, T, ID]) error {
 		for _, o := range order {
@@ -201,16 +206,39 @@ func (p *Pager[Q, T, ID]) ApplyFilter(q *Q) (*Q, error) {
 	return q, nil
 }
 
+// cursorValue is the Value half of a cursor over one order field.
+//
+// The default (ID) order field carries no Value: the old generated
+// toCursor emitted `Cursor{ID: ...}` for it, and that nil Value is what
+// keeps entgql.CursorsPredicate on its plain `id > X` branch instead of a
+// composite (id, id) comparison — which on a mixed-ID graph would compare
+// the id column against the *marshaled* global id.
+func cursorValue[Q any, T any, ID any](ops *Ops[Q, T, ID], f *OrderField[T, ID], v *T) any {
+	if f == ops.Default.Field {
+		return nil
+	}
+	val, _ := f.Value(v)
+	return val
+}
+
+// cursor builds the single-order pagination cursor for v: the entity ID as
+// ops.ID reports it (which is the generated marshalID() on a mixed-ID
+// graph, where T.ID's native type is not the package-wide cursor ID type),
+// plus the order field's value.
+func cursor[Q any, T any, ID any](ops *Ops[Q, T, ID], f *OrderField[T, ID], v *T) entgql.Cursor[ID] {
+	return entgql.Cursor[ID]{ID: ops.ID(v), Value: cursorValue(ops, f, v)}
+}
+
 // ToCursor builds the pagination cursor for v.
 func (p *Pager[Q, T, ID]) ToCursor(v *T) entgql.Cursor[ID] {
 	if p.ops.MultiOrder {
 		cs := make([]any, 0, len(p.order))
 		for _, o := range p.order {
-			cs = append(cs, o.Field.Cursor(v).Value)
+			cs = append(cs, cursorValue(p.ops, o.Field, v))
 		}
 		return entgql.Cursor[ID]{ID: p.ops.ID(v), Value: cs}
 	}
-	return p.order[0].Field.Cursor(v)
+	return cursor(p.ops, p.order[0].Field, v)
 }
 
 // Reverse reports whether the pager is walking the result set backwards
@@ -540,14 +568,15 @@ func Paginate[Q any, T any, ID any](q *Q, ctx context.Context,
 	return conn, nil
 }
 
-// ToEdge converts v into an Edge, using order (or def if order is nil) to
-// build the cursor.
-func ToEdge[T any, ID any](v *T, order *Order[T, ID], def *Order[T, ID]) *Edge[T, ID] {
+// ToEdge converts v into an Edge, using order (or ops.Default if order is
+// nil) to build the cursor. It takes ops rather than just the default order
+// because the cursor ID comes from ops.ID.
+func ToEdge[Q any, T any, ID any](v *T, order *Order[T, ID], ops *Ops[Q, T, ID]) *Edge[T, ID] {
 	if order == nil {
-		order = def
+		order = ops.Default
 	}
 	return &Edge[T, ID]{
 		Node:   v,
-		Cursor: order.Field.Cursor(v),
+		Cursor: cursor(ops, order.Field, v),
 	}
 }

@@ -32,43 +32,20 @@ type Valuer interface {
 	Value(name string) (ent.Value, error)
 }
 
-// fieldIndex resolves a struct field's reflect index lazily and caches it.
-// It is held by pointer inside OrderField so the cache survives value-receiver
-// method calls (OrderField's Value/Cursor/Term methods use a value receiver,
-// like the fields they replace).
-type fieldIndex struct {
-	once sync.Once
-	idx  []int
-}
-
-// resolve looks up name on t once, panicking loudly if the field is absent —
-// a codegen bug here must fail loudly at first use, not silently produce a
-// zero cursor value.
-//
-// sync.Once.Do marks itself done even when f panics, so a caller that
-// recovers the first panic (e.g. gqlgen's default recover middleware) would
-// otherwise leave fi.idx permanently nil; every later call would then feed
-// reflect.Value.FieldByIndex(nil) — which returns the whole struct, not a
-// zero value or a panic — silently corrupting the cursor. Re-check after Do
-// returns and re-panic on every call while unresolved so a recovered first
-// panic can't open that window.
-func (fi *fieldIndex) resolve(t reflect.Type, name string) []int {
-	fi.once.Do(func() {
-		sf, ok := t.FieldByName(name)
-		if !ok {
-			panic(fmt.Sprintf("gqlpage: %s has no field %q", t, name))
-		}
-		fi.idx = sf.Index
-	})
-	if fi.idx == nil {
+// fieldIndex resolves name's reflect index on t, panicking loudly if the
+// field is absent — a codegen bug here must fail at package-init time (every
+// OrderField is built from a package-level var initializer), not on the first
+// request that reads a cursor value.
+func fieldIndex(t reflect.Type, name string) []int {
+	sf, ok := t.FieldByName(name)
+	if !ok {
 		panic(fmt.Sprintf("gqlpage: %s has no field %q", t, name))
 	}
-	return fi.idx
+	return sf.Index
 }
 
-func fieldValue(fi *fieldIndex, name string, v any) ent.Value {
-	rv := reflect.ValueOf(v).Elem()
-	return rv.FieldByIndex(fi.resolve(rv.Type(), name)).Interface()
+func fieldValue(idx []int, v any) ent.Value {
+	return reflect.ValueOf(v).Elem().FieldByIndex(idx).Interface()
 }
 
 // OrderField defines one orderable field of an entity of type T with ID type
@@ -83,8 +60,7 @@ type OrderField[T any, ID any] struct {
 	expression  string
 	structField string
 	toTerm      func(...sql.OrderTermOption) func(*sql.Selector)
-	fieldIdx    *fieldIndex
-	idIdx       *fieldIndex
+	fieldIdx    []int
 }
 
 // Column is the SQL column backing this field (empty for a non-field term
@@ -98,20 +74,6 @@ func (f OrderField[T, ID]) Expression() string { return f.expression }
 // (either the handle's Order method value, or the Expr-supplied literal).
 func (f OrderField[T, ID]) Term(opts ...sql.OrderTermOption) func(*sql.Selector) {
 	return f.toTerm(opts...)
-}
-
-// Cursor builds the pagination cursor for v: its ID plus this field's value.
-func (f OrderField[T, ID]) Cursor(v *T) entgql.Cursor[ID] {
-	val, _ := f.Value(v)
-	idVal := fieldValue(f.idIdx, "ID", v)
-	id, ok := idVal.(ID)
-	if !ok {
-		// Reachable only if T's ID field type doesn't match the ID type
-		// param this OrderField was instantiated with — a codegen/wiring
-		// bug. Loud, not a silent zero-value cursor ID.
-		panic(fmt.Sprintf("gqlpage: %T.ID is %T, not assignable to cursor ID type %T", v, idVal, *new(ID)))
-	}
-	return entgql.Cursor[ID]{ID: id, Value: val}
 }
 
 // String implements fmt.Stringer.
@@ -191,8 +153,7 @@ func Column[T any, ID any](gql, column, structField string,
 		column:      column,
 		structField: structField,
 		toTerm:      term,
-		fieldIdx:    &fieldIndex{},
-		idIdx:       &fieldIndex{},
+		fieldIdx:    fieldIndex(reflect.TypeFor[T](), structField),
 	}
 	for _, opt := range opts {
 		if opt.expression != "" {
@@ -201,7 +162,7 @@ func Column[T any, ID any](gql, column, structField string,
 		}
 	}
 	f.Value = func(t *T) (ent.Value, error) {
-		return fieldValue(f.fieldIdx, structField, t), nil
+		return fieldValue(f.fieldIdx, t), nil
 	}
 	return f
 }
@@ -215,7 +176,6 @@ func Computed[T any, ID any](gql, column, valueField string,
 		gql:    gql,
 		column: column,
 		toTerm: term,
-		idIdx:  &fieldIndex{},
 	}
 	f.Value = func(t *T) (ent.Value, error) {
 		vv, ok := any(t).(Valuer)
@@ -243,9 +203,17 @@ func Register[T any, ID any](fields ...*OrderField[T, ID]) {
 	for _, f := range fields {
 		m[f.gql] = f
 	}
+	t := reflect.TypeFor[T]()
 	registryMu.Lock()
-	registry[reflect.TypeFor[T]()] = m
-	registryMu.Unlock()
+	defer registryMu.Unlock()
+	// Same policy as gen's registerNodeResolver: a second registration for
+	// the same entity is a codegen/wiring bug, and silently replacing the
+	// first one would leave UnmarshalGQL resolving against a map the caller
+	// never sees.
+	if _, ok := registry[t]; ok {
+		panic(fmt.Sprintf("gqlpage: duplicate Register for %s", t))
+	}
+	registry[t] = m
 }
 
 func lookup[T any, ID any](name string) (*OrderField[T, ID], bool) {

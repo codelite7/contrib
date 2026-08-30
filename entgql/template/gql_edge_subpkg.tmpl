@@ -108,7 +108,7 @@ func Register{{ $node.Name }}ClientFromCtx(fn func(context.Context) *{{ $nodePkg
 		func Resolve{{ $node.Name }}{{ $e.StructField }}({{ $r }} *{{ $nodePkg }}.{{ $node.Name }}, ctx context.Context) (*{{ $epkg }}.{{ $e.Type.Name }}, error) {
 			return gqledge.One({{ $r }}.Edges.{{ $e.StructField }}OrErr, func() (*{{ $epkg }}.{{ $e.Type.Name }}, error) {
 				return edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}).Only(ctx)
-			}, IsNotLoaded, {{ if $e.Optional }}true{{ else }}false{{ end }})
+			}, IsNotLoaded, {{ if $e.Optional }}MaskNotFound{{ else }}nil{{ end }})
 		}
 
 	{{ end }}

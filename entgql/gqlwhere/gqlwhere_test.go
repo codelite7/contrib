@@ -537,6 +537,108 @@ func TestWarmCachesPlanForSubsequentUse(t *testing.T) {
 	}
 }
 
+// --- prologue validation (M-4) ---
+//
+// The four prologue fields (Predicates/Not/Or/And) were read at walk time
+// with no plan-time check: a drifted Predicates type silently dropped every
+// user-supplied predicate (the []P assertion just failed), and a drifted
+// Not/Or/And nil-deref'd or panicked opaquely on the first request. Each
+// case below must now fail in Warm, like every other binding mismatch.
+
+type badPredicatesWhereInput struct {
+	Predicates []string // drifted: not []fakeP
+	Not        *badPredicatesWhereInput
+	Or         []*badPredicatesWhereInput
+	And        []*badPredicatesWhereInput
+	Name       *string
+}
+
+type badNotWhereInput struct {
+	Predicates []fakeP
+	Not        []*badNotWhereInput // drifted: slice, not pointer
+	Or         []*badNotWhereInput
+	And        []*badNotWhereInput
+	Name       *string
+}
+
+type badOrWhereInput struct {
+	Predicates []fakeP
+	Not        *badOrWhereInput
+	Or         *badOrWhereInput // drifted: pointer, not slice
+	And        []*badOrWhereInput
+	Name       *string
+}
+
+// noPWhereInput is the neighbor type of a HasXWith field that forgot to
+// generate its P() method.
+type noPWhereInput struct {
+	Predicates []fakeP
+	Not        *noPWhereInput
+	Or         []*noPWhereInput
+	And        []*noPWhereInput
+}
+
+type badEdgeElemWhereInput struct {
+	Predicates   []fakeP
+	Not          *badEdgeElemWhereInput
+	Or           []*badEdgeElemWhereInput
+	And          []*badEdgeElemWhereInput
+	HasOwnerWith []*noPWhereInput
+}
+
+func wantWarmPanic(t *testing.T, prototype any, want string) {
+	t.Helper()
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatalf("expected Warm to panic with %q", want)
+		}
+		if got, ok := r.(string); !ok || !strings.Contains(got, want) {
+			t.Fatalf("Warm panicked with %v, want a message containing %q", r, want)
+		}
+	}()
+	fakeRegistry.Warm(prototype)
+}
+
+func TestWarmValidatesPrologueFields(t *testing.T) {
+	t.Run("Predicates", func(t *testing.T) {
+		wantWarmPanic(t, (*badPredicatesWhereInput)(nil), "gqlwhere: Predicates: struct field type []string is not")
+	})
+	t.Run("Not", func(t *testing.T) {
+		wantWarmPanic(t, (*badNotWhereInput)(nil), "gqlwhere: Not: struct field type")
+	})
+	t.Run("Or", func(t *testing.T) {
+		wantWarmPanic(t, (*badOrWhereInput)(nil), "gqlwhere: Or: struct field type")
+	})
+}
+
+// TestWarmValidatesEdgeElementHasP pins M-1's plan-time half: the P method
+// on a HasXWith element type is now resolved to a method index while the
+// plan is built, so a neighbor type without one fails in Warm instead of
+// panicking opaquely inside the per-element hot loop on the first request
+// that populates that list.
+func TestWarmValidatesEdgeElementHasP(t *testing.T) {
+	wantWarmPanic(t, (*badEdgeElemWhereInput)(nil), "has no P method")
+}
+
+// TestPredicatesAreApplied is the positive half of the Predicates check:
+// AddPredicates-supplied predicates must reach the output, and the walk must
+// no longer be able to drop them silently.
+func TestPredicatesAreApplied(t *testing.T) {
+	resetLog()
+	custom := fakeP(func(*sql.Selector) {})
+	p, err := fakeRegistry.P(&fakeWhereInput{Predicates: []fakeP{custom}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p == nil {
+		t.Fatal("expected non-nil predicate")
+	}
+	if len(callLog) != 0 {
+		t.Fatalf("callLog = %v, want empty (a lone custom predicate needs no combinator)", callLog)
+	}
+}
+
 func equalLogs(got, want []string) bool {
 	if len(got) != len(want) {
 		return false

@@ -15,15 +15,8 @@ package gqledges
 import (
 	"errors"
 
-	"entgo.io/contrib/entgql/gqledge"
 	"{{ $.Config.Package }}/internal"
 )
-
-func init() {
-	// Registered once so gqledge.One can mask a not-found error without
-	// contrib importing this generated package's internal types.
-	gqledge.RegisterMaskNotFound(MaskNotFound)
-}
 
 // IsNotLoaded reports whether err is a not-loaded error from the ent runtime.
 // Local copy to avoid importing root gen (which would create a sibling<->root cycle).
@@ -46,7 +39,9 @@ func IsNotFound(err error) bool {
 }
 
 // MaskNotFound masks a not-found error. Returns nil if err is a not-found error;
-// otherwise returns err unchanged.
+// otherwise returns err unchanged. Passed directly to gqledge.One for optional
+// edges (never registered in a package-level var, so two generated schemas
+// linked into one binary keep their own not-found test).
 func MaskNotFound(err error) error {
 	if IsNotFound(err) {
 		return nil

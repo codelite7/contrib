@@ -30,6 +30,7 @@ package gqlcollect
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -84,15 +85,32 @@ type Spec struct {
 
 func (s *Spec) index() {
 	s.once.Do(func() {
+		// Edges and Fields share one GQL-name namespace (Collect looks the
+		// collected field up in edgeIdx first, then fieldIdx), so a
+		// duplicate across either would silently resolve last-wins/edge-wins.
+		// The per-entity switch this replaced made that a compile error;
+		// panicking here keeps it a build-time-equivalent failure — Spec is
+		// always a package-level var, so the first Collect in any test binary
+		// trips it.
+		seen := make(map[string]struct{}, len(s.Edges)+len(s.Fields))
 		s.edgeIdx = make(map[string]int, len(s.Edges))
 		for i := range s.Edges {
+			claim(seen, s.Edges[i].GQL)
 			s.edgeIdx[s.Edges[i].GQL] = i
 		}
 		s.fieldIdx = make(map[string]int, len(s.Fields))
 		for i := range s.Fields {
+			claim(seen, s.Fields[i].GQL)
 			s.fieldIdx[s.Fields[i].GQL] = i
 		}
 	})
+}
+
+func claim(seen map[string]struct{}, gql string) {
+	if _, dup := seen[gql]; dup {
+		panic(fmt.Sprintf("gqlcollect: duplicate GQL name %q in spec", gql))
+	}
+	seen[gql] = struct{}{}
 }
 
 // Collect is the generic replacement for the per-entity collectField switch.
