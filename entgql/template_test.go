@@ -212,22 +212,31 @@ func TestPaginationSharedTemplateContent(t *testing.T) {
 	require.Contains(t, src, "OrderDirection = entgql.OrderDirection")
 	require.Contains(t, src, "NullsDirection = entgql.NullsDirection")
 
-	// Verify shared functions are present.
-	require.Contains(t, src, "func orderFunc")
+	// Verify shared functions are present. After the gqlpage rewrite, orderFunc
+	// and paginateLimit are gone entirely (dead weight -- paginateLimit's logic
+	// now lives once in gqlpage.PaginateLimit, called per-entity); validateFirstLast,
+	// collectedField and hasCollectedField remain as thin forwarders (kept, not
+	// deleted, because entsearch-generated files in the same root package call
+	// them unqualified).
 	require.Contains(t, src, "func validateFirstLast")
 	require.Contains(t, src, "func collectedField")
 	require.Contains(t, src, "func hasCollectedField")
-	require.Contains(t, src, "func paginateLimit")
+	require.NotContains(t, src, "func orderFunc")
+	require.NotContains(t, src, "func paginateLimit")
 
-	// Verify shared constants are present.
-	// errInvalidPagination is a literal string constant in the template.
-	require.Contains(t, src, "errInvalidPagination")
-	// The field constants (edgesField, nodeField, etc.) are generated via a range
-	// over list "edges" "node" "pageInfo" "totalCount", so check the list items.
+	// Verify the forwarders delegate to gqlpage rather than reimplementing the logic.
+	require.Contains(t, src, "gqlpage.ValidateFirstLast(first, last)")
+	require.Contains(t, src, "gqlpage.CollectedField(ctx, path...)")
+	require.Contains(t, src, "gqlpage.HasCollectedField(ctx, path...)")
+	// errInvalidPagination/errcode are gone with the inlined validateFirstLast body.
+	require.NotContains(t, src, "errInvalidPagination")
+
+	// Verify shared constants are present. Only edgesField/nodeField remain (the
+	// consumer, search_pagination.go, never references pageInfoField/totalCountField).
+	// The field constants are generated via a range over list "edges" "node", so
+	// check the list items.
 	require.Contains(t, src, `"edges"`)
 	require.Contains(t, src, `"node"`)
-	require.Contains(t, src, `"pageInfo"`)
-	require.Contains(t, src, `"totalCount"`)
 	// Verify the Field suffix pattern is in the template.
 	require.Contains(t, src, `Field = "`)
 
@@ -271,19 +280,24 @@ func TestPaginationSharedTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "OrderDirection = entgql.OrderDirection")
 	require.Contains(t, output, "NullsDirection = entgql.NullsDirection")
 
-	// Verify shared functions are generated.
-	require.Contains(t, output, "func orderFunc(")
+	// Verify shared functions are generated. orderFunc/paginateLimit are gone
+	// (see TestPaginationSharedTemplateContent); validateFirstLast, collectedField
+	// and hasCollectedField remain as forwarders to gqlpage.
 	require.Contains(t, output, "func validateFirstLast(")
 	require.Contains(t, output, "func collectedField(")
 	require.Contains(t, output, "func hasCollectedField(")
-	require.Contains(t, output, "func paginateLimit(")
+	require.NotContains(t, output, "func orderFunc(")
+	require.NotContains(t, output, "func paginateLimit(")
+	require.Contains(t, output, "gqlpage.ValidateFirstLast(first, last)")
+	require.Contains(t, output, "gqlpage.CollectedField(ctx, path...)")
+	require.Contains(t, output, "gqlpage.HasCollectedField(ctx, path...)")
 
 	// Verify shared constants are generated.
-	require.Contains(t, output, `errInvalidPagination`)
+	require.NotContains(t, output, `errInvalidPagination`)
 	require.Contains(t, output, `edgesField = "edges"`)
 	require.Contains(t, output, `nodeField = "node"`)
-	require.Contains(t, output, `pageInfoField = "pageInfo"`)
-	require.Contains(t, output, `totalCountField = "totalCount"`)
+	require.NotContains(t, output, `pageInfoField`)
+	require.NotContains(t, output, `totalCountField`)
 
 	// Verify NO per-entity code is present (e.g., no TodoConnection, TodoEdge, todoPager).
 	require.False(t, strings.Contains(output, "TodoConnection"),
@@ -427,7 +441,7 @@ func TestPaginationEntityTemplateContent(t *testing.T) {
 	require.Contains(t, src, "Paginate")       // QueryPaginate var forwarder
 
 	// Verify the template is a thin shim (no struct body, no method implementations).
-	require.NotContains(t, src, "}} struct")   // No Edge/Connection struct declarations
+	require.NotContains(t, src, "}} struct") // No Edge/Connection struct declarations
 	require.NotContains(t, src, "applyOrder")
 	require.NotContains(t, src, "applyCursors")
 	require.NotContains(t, src, "applyFilter")
