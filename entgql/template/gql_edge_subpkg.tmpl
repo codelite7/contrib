@@ -93,7 +93,7 @@ func Register{{ $node.Name }}ClientFromCtx(fn func(context.Context) *{{ $nodePkg
 				}
 				{{- /* Ensure the "edges" field is marshaled as "[]" in case it is empty. */}}
 				conn := &{{ $epkg }}.{{ $conn }}{Edges: []*{{ $epkg }}.{{ $edge }}{}, TotalCount: totalCount}
-				conn.Build(nodes, pager, after, first, before, last)
+				conn.Build(nodes, pager.ToCursor, pager.Reverse(), after, first, before, last)
 				return conn, nil
 			}
 			return {{ $epkg }}.{{ print $names.Node "QueryPaginate" }}(edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}), ctx, after, first, before, last, opts...)
