@@ -158,7 +158,7 @@ func TestUnmarshalGQL(t *testing.T) {
 	t.Run("rejects non-string", func(t *testing.T) {
 		var got gqlpage.OrderField[fakeEntity, uuid.UUID]
 		err := got.UnmarshalGQL(123)
-		require.EqualError(t, err, "enum int must be a string")
+		require.EqualError(t, err, "fakeEntityOrderField int must be a string")
 	})
 
 	t.Run("rejects unknown name", func(t *testing.T) {

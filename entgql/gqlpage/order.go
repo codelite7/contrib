@@ -109,7 +109,7 @@ func (f OrderField[T, ID]) MarshalGQL(w io.Writer) {
 func (f *OrderField[T, ID]) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
-		return fmt.Errorf("enum %T must be a string", v)
+		return fmt.Errorf("%sOrderField %T must be a string", reflect.TypeFor[T]().Name(), v)
 	}
 	found, ok := lookup[T, ID](str)
 	if !ok {
