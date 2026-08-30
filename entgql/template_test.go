@@ -586,6 +586,81 @@ func TestPaginationEntityTemplateMultipleEntities(t *testing.T) {
 	require.NotContains(t, catOutput, "TodoConnection")
 }
 
+func TestPaginationSubpkgTemplateExecution(t *testing.T) {
+	// PaginationSubpkgTemplate (798 lines, the single biggest change in the
+	// gqlpage rewrite) has no dedicated content/execution test elsewhere --
+	// TestGenerateSplitPagination only ever renders the root thin shim, since
+	// it runs against a tmpDir with no entity sub-package directory. Render
+	// the subpkg template directly for Todo (MultiOrder, plus edge-term order
+	// fields CHILDREN_COUNT/PARENT_STATUS/CATEGORY_TEXT, so EdgeTermColumns is
+	// exercised) and assert on the emitted text, once with the
+	// EntGQLExtension annotation present and once absent -- gemini's app
+	// always sets it, so the absent path (R11: MaxPageSize must render as the
+	// literal 0, not be skipped or panic) is otherwise never exercised by any
+	// real regen.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	render := func() string {
+		var buf bytes.Buffer
+		err := PaginationSubpkgTemplate.ExecuteTemplate(&buf, "gql_pagination_subpkg", struct {
+			*gen.Graph
+			Node *gen.Type
+		}{graph, todoNode})
+		require.NoError(t, err)
+		return buf.String()
+	}
+
+	// --- without EntGQLExtension: MaxPageSize must render as 0 ---
+	without := render()
+	require.Contains(t, without, "package todo")
+
+	// Five type aliases, all using "=" (gqlpage generic instantiations, not
+	// hand-rolled struct/type declarations).
+	require.Contains(t, without, "TodoEdge            = gqlpage.Edge[Todo,")
+	require.Contains(t, without, "TodoConnection      = gqlpage.Connection[Todo,")
+	require.Contains(t, without, "TodoOrder           = gqlpage.Order[Todo,")
+	require.Contains(t, without, "TodoOrderField      = gqlpage.OrderField[Todo,")
+	require.Contains(t, without, "TodoPaginateOption    = gqlpage.Option[TodoQuery, Todo,")
+
+	// The Ops literal, with MultiOrder, MaxPageSize and (Todo has edge-term
+	// order fields) EdgeTermColumns.
+	require.Contains(t, without, "var TodoOps = &gqlpage.Ops[TodoQuery, Todo,")
+	require.Contains(t, without, "MultiOrder:  true")
+	require.Contains(t, without, "MaxPageSize: 0")
+	require.Contains(t, without, "EdgeTermColumns:")
+
+	// Thin forwarders.
+	require.Contains(t, without, "func WithTodoOrder(")
+	require.Contains(t, without, "func WithTodoFilter(")
+	require.Contains(t, without, "func NewTodoPager(")
+	require.Contains(t, without, "func TodoQueryPaginate(")
+	require.Contains(t, without, "func TodoToEdge(")
+	require.Contains(t, without, "gqlpage.Paginate(")
+
+	// --- with EntGQLExtension: MaxPageSize must reflect the configured value ---
+	graph.Annotations = gen.Annotations{
+		ExtensionAnnotation{}.Name(): ExtensionAnnotation{MaxPageSize: 50},
+	}
+	with := render()
+	require.Contains(t, with, "MaxPageSize: 50")
+	require.NotContains(t, with, "MaxPageSize: 0")
+}
+
 func TestFilterFields(t *testing.T) {
 	fields, err := filterFields([]*gen.Field{
 		{
