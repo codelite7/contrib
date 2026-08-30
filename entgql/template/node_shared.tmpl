@@ -91,6 +91,70 @@ func registerNodeResolver(table string, r nodeResolver) {
 	nodeResolvers[table] = r
 }
 
+// noderOf implements the single-id half of a per-entity byID resolver. Q is the
+// entity's query-builder type and T its model type; both are inferred from the
+// only/collect arguments at call sites, so callers need not instantiate them
+// explicitly. where is expected to already have the id (or its unmarshaled
+// form) bound via closure, since the id's native type can differ from the
+// package-wide {{ $idType }} once mixed-id normalization is in play. collect is
+// nil when the schema has no collection template, in which case field
+// collection is skipped entirely.
+func noderOf[T Noder, Q any](
+	ctx context.Context,
+	q *Q,
+	where func(*Q) *Q,
+	collect func(*Q, context.Context, bool, *graphql.OperationContext, graphql.CollectedField, []string, ...string) error,
+	only func(*Q, context.Context) (T, error),
+	implementors []string,
+) (Noder, error) {
+	q = where(q)
+	if collect != nil {
+		if fc := graphql.GetFieldContext(ctx); fc != nil {
+			if err := collect(q, ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, implementors...); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return only(q, ctx)
+}
+
+// nodersOf implements the batch half of a per-entity byIDs resolver, fanning
+// the query results back out into idmap the same way the per-entity code used
+// to. whereIn, like where above, is expected to already have the ids bound
+// via closure. collectAll is nil when the schema has no collection template.
+// key extracts the {{ $idType }} to fan out on: node.ID normally, or
+// node.marshalID() for mixed-id entities whose native id type differs from
+// {{ $idType }}.
+func nodersOf[T Noder, Q any](
+	ctx context.Context,
+	idmap map[{{ $idType }}][]*Noder,
+	q *Q,
+	whereIn func(*Q) *Q,
+	collectAll func(*Q, context.Context, ...string) (*Q, error),
+	all func(*Q, context.Context) ([]T, error),
+	key func(T) {{ $idType }},
+	implementors []string,
+) error {
+	q = whereIn(q)
+	if collectAll != nil {
+		var err error
+		q, err = collectAll(q, ctx, implementors...)
+		if err != nil {
+			return err
+		}
+	}
+	nodes, err := all(q, ctx)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		for _, noder := range idmap[key(node)] {
+			*noder = node
+		}
+	}
+	return nil
+}
+
 {{- if $.Config.FeatureEnabled "sql/globalid" }}
 // Each node has a range of 1<<32 ids. Pre-computing a map of node starting
 // value to node type ensures node type resolution happens in O(1) complexity.
