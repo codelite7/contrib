@@ -295,6 +295,20 @@ func (r *Registry[P]) planFor(structType reflect.Type) *plan {
 	return actual.(*plan)
 }
 
+// Warm eagerly resolves and caches the plan for prototype's element type, so
+// a binding mismatch (a WhereInput struct field with no matching registered
+// op, or an incompatible type) panics at package-init time rather than on
+// the first request that walks that type. prototype is a typed nil, e.g.
+// (*CompanyWhereInput)(nil). Returns r for chaining onto a NewRegistry call.
+func (r *Registry[P]) Warm(prototype any) *Registry[P] {
+	t := reflect.TypeOf(prototype)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	r.planFor(t)
+	return r
+}
+
 // isNilable reports whether v's kind supports IsNil.
 func isNilable(v reflect.Value) bool {
 	switch v.Kind() {
@@ -303,6 +317,44 @@ func isNilable(v reflect.Value) bool {
 	default:
 		return false
 	}
+}
+
+// combine implements the shared Or/And prologue shape: vals is the
+// []*XWhereInput slice value (i.Or or i.And); fieldName is "or" or "and",
+// used only in the wrapped-error text; agg is r.or or r.and. n==1 unwraps
+// the single child directly (agg is never called); n>1 resolves every
+// child, silently dropping ones whose own error is r.empty, and calls agg
+// on the survivors when at least one remains. ok reports whether p should
+// be appended to the caller's predicates; it is false both when vals is
+// empty and when every child collapsed to r.empty.
+func (r *Registry[P]) combine(vals reflect.Value, fieldName string, agg func(...P) P) (p P, ok bool, err error) {
+	switch n := vals.Len(); {
+	case n == 1:
+		child, err := r.P(vals.Index(0).Interface())
+		if err != nil {
+			if !errors.Is(err, r.empty) {
+				return p, false, fmt.Errorf("%w: field '%s'", err, fieldName)
+			}
+			return p, false, nil
+		}
+		return child, true, nil
+	case n > 1:
+		children := make([]P, 0, n)
+		for j := 0; j < n; j++ {
+			child, err := r.P(vals.Index(j).Interface())
+			if err != nil {
+				if !errors.Is(err, r.empty) {
+					return p, false, fmt.Errorf("%w: field '%s'", err, fieldName)
+				}
+				continue
+			}
+			children = append(children, child)
+		}
+		if len(children) > 0 {
+			return agg(children...), true, nil
+		}
+	}
+	return p, false, nil
 }
 
 // P walks input (a *XWhereInput) and returns the combined predicate.
@@ -335,62 +387,22 @@ func (r *Registry[P]) P(input any) (P, error) {
 	}
 
 	if pl.orIdx >= 0 {
-		orVal := v.Field(pl.orIdx)
-		switch n := orVal.Len(); {
-		case n == 1:
-			p, err := r.P(orVal.Index(0).Interface())
-			if err != nil {
-				if !errors.Is(err, r.empty) {
-					return zero, fmt.Errorf("%w: field 'or'", err)
-				}
-			} else {
-				predicates = append(predicates, p)
-			}
-		case n > 1:
-			or := make([]P, 0, n)
-			for j := 0; j < n; j++ {
-				p, err := r.P(orVal.Index(j).Interface())
-				if err != nil {
-					if !errors.Is(err, r.empty) {
-						return zero, fmt.Errorf("%w: field 'or'", err)
-					}
-					continue
-				}
-				or = append(or, p)
-			}
-			if len(or) > 0 {
-				predicates = append(predicates, r.or(or...))
-			}
+		p, ok, err := r.combine(v.Field(pl.orIdx), "or", r.or)
+		if err != nil {
+			return zero, err
+		}
+		if ok {
+			predicates = append(predicates, p)
 		}
 	}
 
 	if pl.andIdx >= 0 {
-		andVal := v.Field(pl.andIdx)
-		switch n := andVal.Len(); {
-		case n == 1:
-			p, err := r.P(andVal.Index(0).Interface())
-			if err != nil {
-				if !errors.Is(err, r.empty) {
-					return zero, fmt.Errorf("%w: field 'and'", err)
-				}
-			} else {
-				predicates = append(predicates, p)
-			}
-		case n > 1:
-			and := make([]P, 0, n)
-			for j := 0; j < n; j++ {
-				p, err := r.P(andVal.Index(j).Interface())
-				if err != nil {
-					if !errors.Is(err, r.empty) {
-						return zero, fmt.Errorf("%w: field 'and'", err)
-					}
-					continue
-				}
-				and = append(and, p)
-			}
-			if len(and) > 0 {
-				predicates = append(predicates, r.and(and...))
-			}
+		p, ok, err := r.combine(v.Field(pl.andIdx), "and", r.and)
+		if err != nil {
+			return zero, err
+		}
+		if ok {
+			predicates = append(predicates, p)
 		}
 	}
 

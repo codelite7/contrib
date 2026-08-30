@@ -3,6 +3,7 @@ package gqlwhere
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -486,6 +487,53 @@ func TestFieldOrder(t *testing.T) {
 	}
 	if !equalLogs(callLog, want) {
 		t.Fatalf("callLog = %v, want %v", callLog, want)
+	}
+}
+
+// badWhereInput has a field ("Bogus") with no matching registered op on
+// fakeF/fakeE, simulating a codegen bug in a generated WhereInput struct.
+type badWhereInput struct {
+	Predicates []fakeP
+	Not        *badWhereInput
+	Or         []*badWhereInput
+	And        []*badWhereInput
+	Bogus      *string
+}
+
+func TestWarmPanicsAtConstructionOnUnregisteredField(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected Warm to panic on a field with no registered op")
+		}
+	}()
+	fakeRegistry.Warm((*badWhereInput)(nil))
+}
+
+// TestWarmCachesPlanForSubsequentUse asserts that Warm populates the same
+// plan cache Registry.P reads from, so a later P() call for that type reuses
+// the plan Warm already built instead of building it again.
+func TestWarmCachesPlanForSubsequentUse(t *testing.T) {
+	reg := NewRegistry[fakeP](
+		fakeF{Tags: sliceField{col: "tags"}, Name: stringField{col: "name"}},
+		fakeE{Owner: edgeHandle{name: "owner"}},
+		fakeNot, fakeAnd, fakeOr,
+		NewEmptyError("warm: empty predicate FakeWhereInput"),
+	).Warm((*fakeWhereInput)(nil))
+
+	structType := reflect.TypeOf(fakeWhereInput{})
+	warmed, ok := reg.plans.Load(structType)
+	if !ok {
+		t.Fatal("Warm did not populate the plan cache")
+	}
+
+	resetLog()
+	if _, err := reg.P(&fakeWhereInput{Name: strp("x")}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	afterP, ok := reg.plans.Load(structType)
+	if !ok || afterP != warmed {
+		t.Fatal("P() rebuilt the plan instead of reusing the one Warm cached")
 	}
 }
 
