@@ -1247,10 +1247,13 @@ func TestEdgeSubpkgTemplateContent(t *testing.T) {
 	// Verify it references $.Node.
 	require.Contains(t, src, "$.Node")
 
-	// Verify all three edge types are handled.
+	// Verify all three edge types are handled, collapsed onto gqledge's
+	// generic One/Many/Conn runtime (lever E-1).
 	require.Contains(t, src, "isRelayConn")
 	require.Contains(t, src, "IsNotLoaded")
-	require.Contains(t, src, "MaskNotFound")
+	require.Contains(t, src, "gqledge.One")
+	require.Contains(t, src, "gqledge.Many")
+	require.Contains(t, src, "gqledge.Conn")
 
 	// Verify Relay connection inlined code has expected elements.
 	require.Contains(t, src, "nodePaginationNames")
@@ -1338,6 +1341,12 @@ func TestEdgeSubpkgTemplateExecution(t *testing.T) {
 	// Verify import statements.
 	require.Contains(t, output, `"context"`)
 	require.Contains(t, output, `"github.com/99designs/gqlgen/graphql"`)
+	require.Contains(t, output, `"entgo.io/contrib/entgql/gqledge"`)
+
+	// Verify the generic runtime calls (lever E-1): Todo has both a unique
+	// edge (category/secret -> One) and a relay-connection edge (children -> Conn).
+	require.Contains(t, output, "gqledge.One(")
+	require.Contains(t, output, "gqledge.Conn(")
 
 	// Verify no template call to gql_edge/helper/paginate (it should be inlined).
 	require.NotContains(t, output, "gql_edge/helper/paginate")
