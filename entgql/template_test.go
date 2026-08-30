@@ -661,6 +661,88 @@ func TestPaginationSubpkgTemplateExecution(t *testing.T) {
 	require.NotContains(t, with, "MaxPageSize: 0")
 }
 
+func TestMutationInputSiblingTemplateExecution(t *testing.T) {
+	// mutation_input_sibling.tmpl no longer hand-rolls each Mutate() body --
+	// it emits a `mutate:"<op>:<name>"` struct tag per field/edge and
+	// delegates to gqlinput.Mutate (Task 7 of the entgql codegen-reduction
+	// project). The struct-tag correctness -- right op, right descriptor
+	// name, right pairing/order -- has no other coverage anywhere in this
+	// repo, so assert directly on the rendered text for Todo, which exercises
+	// every op the walker supports except fa/AppendField (Todo has no
+	// JSON-slice field annotated for it; that pairing is covered by
+	// gqlinput's own tests and by the Task 7 gemini parity harness against a
+	// real entity that has one).
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	inputs := []*MutationDescriptor{
+		{Type: todoNode, IsCreate: true},
+		{Type: todoNode, IsCreate: false},
+	}
+	var buf bytes.Buffer
+	err = MutationInputSiblingTemplate.Execute(&buf, struct {
+		*gen.Graph
+		EntityName string
+		Inputs     []*MutationDescriptor
+	}{graph, "Todo", inputs})
+	require.NoError(t, err)
+	out := buf.String()
+
+	// gqlinput, not the old entbuilder.ToAny-based dispatch.
+	require.Contains(t, out, `"entgo.io/contrib/entgql/gqlinput"`)
+	require.NotContains(t, out, "entbuilder")
+
+	// Every Mutate body collapses to a single delegating call, and the old
+	// per-field/edge dispatch (SetField/ClearField/... calls) is gone from
+	// the template entirely.
+	require.Contains(t, out, "func (i CreateTodoInput) Mutate(m *todo.TodoMutation) {\n        gqlinput.Mutate(i, m)\n    }")
+	require.Contains(t, out, "func (i UpdateTodoInput) Mutate(m *todo.TodoMutation) {\n        gqlinput.Mutate(i, m)\n    }")
+	require.NotContains(t, out, "SetField(")
+	require.NotContains(t, out, "ClearField(")
+	require.NotContains(t, out, "SetEdgeID(")
+
+	// "text" is required (NotEmpty, no Default/Optional) on create: no
+	// pointer, no ClearOp -- the unconditional f: path.
+	require.Contains(t, out, "Text string `mutate:\"f:text\"`")
+	require.NotContains(t, out, "ClearText")
+
+	// "init" is Optional on update: fc: immediately precedes f: for the same
+	// descriptor name, on adjacent lines -- the Clear-then-Set declaration
+	// order the walker's buildPlan relies on.
+	require.Contains(t, out, "ClearInit bool `mutate:\"fc:init\"`\n            Init map[string]interface {} `mutate:\"f:init\"`")
+
+	// "children" (non-unique, To Todo) on create: ea: with the []<id-type>ID
+	// naming.
+	require.Contains(t, out, "ChildIDs []int `mutate:\"ea:children\"`")
+	// On update: ec: then ea: then er:, adjacent, same descriptor name.
+	require.Contains(t, out, "ClearChildren bool `mutate:\"ec:children\"`\n                    AddChildIDs []int `mutate:\"ea:children\"`\n                    RemoveChildIDs []int `mutate:\"er:children\"`")
+
+	// "parent" (unique, self-referential, optional) on update: ec: then e:,
+	// adjacent, same descriptor name -- the edge analogue of the fc:/f: test
+	// above.
+	require.Contains(t, out, "ClearParent bool `mutate:\"ec:parent\"`\n                ParentID *int `mutate:\"e:parent\"`")
+
+	// "category" (unique, Immutable) is excluded from the update input
+	// entirely, but still present -- unpaired with a Clear -- on create.
+	require.Contains(t, out, "CategoryID *int `mutate:\"e:category\"`")
+	require.Equal(t, 1, strings.Count(out, "category"),
+		"the immutable category edge must appear only in CreateTodoInput, not UpdateTodoInput")
+}
+
 func TestFilterFields(t *testing.T) {
 	fields, err := filterFields([]*gen.Field{
 		{
