@@ -364,6 +364,15 @@ func TestApplyOrder_DirectionAndNullsDirection(t *testing.T) {
 		{"asc/nulls-last reversed", true, entgql.OrderDirectionAsc, entgql.NullsLast, true, true, false},
 		{"desc/nulls-first forward", false, entgql.OrderDirectionDesc, entgql.NullsFirst, true, true, false},
 		{"desc/nulls-first reversed", true, entgql.OrderDirectionDesc, entgql.NullsFirst, false, false, true},
+		// Unset (""): NullsDirection.OrderTermOption()/.Reverse() only
+		// special-case NullsLast/NullsFirst respectively, so "" and
+		// NullsLast are indistinguishable forward -- but diverge reversed:
+		// "".Reverse() == NullsLast (not the special case) while
+		// NullsLast.Reverse() == NullsFirst (the special case). A stray
+		// NullsLast default added to ApplyOrder would flip the reversed
+		// row's NullsFirst from false to true.
+		{"unset-nulls forward", false, entgql.OrderDirectionAsc, "", false, false, true},
+		{"unset-nulls reversed", true, entgql.OrderDirectionAsc, "", true, false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			recordedTerms = nil
