@@ -1065,6 +1065,138 @@ func TestCollectionSubpkgTemplateNoWhereInput(t *testing.T) {
 	require.NotContains(t, output, "BillProductWhereInput")
 }
 
+// renderCollectionSubpkg executes gql_collection_subpkg for one node of the todo
+// fixture graph and returns the rendered source.
+func renderCollectionSubpkg(t *testing.T, name string) string {
+	t.Helper()
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{Storage: s})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == name {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node, "%s node should exist in the schema", name)
+
+	var buf bytes.Buffer
+	err = CollectionSubpkgTemplate.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+		HasPaginationSubpkg   bool
+	}{graph, node, true, true})
+	require.NoError(t, err)
+	return buf.String()
+}
+
+// TestCollectionSubpkgTemplateSpecTable pins the descriptor table the subpkg
+// template emits after lever D: collectField<X>Query is a one-line delegation to
+// gqlcollect.Collect and every switch arm became a table entry.
+func TestCollectionSubpkgTemplateSpecTable(t *testing.T) {
+	output := renderCollectionSubpkg(t, "Todo")
+
+	// The recursive helper is now a single delegation.
+	require.Contains(t, output, "return gqlcollect.Collect(specTodoQuery, _q, ctx, oneNode, opCtx, collected, path, satisfies...)")
+	require.Contains(t, output, `"entgo.io/contrib/entgql/gqlcollect"`)
+
+	// No switch scaffolding survives in the per-entity file.
+	require.NotContains(t, output, "switch field.Name")
+	require.NotContains(t, output, "unknownSeen")
+	require.NotContains(t, output, "fieldSeen")
+	require.NotContains(t, output, "selectedFields")
+
+	// The table itself, including the collision note the map-based runtime made
+	// necessary (the old switch got duplicate-case detection from the compiler).
+	// The table is assigned in init(), never as a var initializer: as a var it
+	// would name other entities' collectField helpers, which name their own
+	// tables, and Go rejects that variable-initialization cycle.
+	require.Contains(t, output, "var specTodoQuery *gqlcollect.Spec")
+	require.Contains(t, output, "func init() {")
+	require.Contains(t, output, "specTodoQuery = &gqlcollect.Spec{")
+	require.NotContains(t, output, "var specTodoQuery = &gqlcollect.Spec{")
+	// The registration lever B-2 needs moved into that same init().
+	require.Contains(t, output, "todo.RegisterTodoQueryCollectFieldFn(collectFieldTodoQuery)")
+	require.Contains(t, output, "silently lets the edge shadow the field")
+	require.Contains(t, output, "IDColumn: todo.FieldID,")
+
+	// Unique edge without an FK column, and one with.
+	require.Contains(t, output, `gqlcollect.Unique("parent", "", todo.Implementors, collectFieldTodoQuery, edges.WithTodoParent),`)
+	require.Contains(t, output, `gqlcollect.Unique("category", todo.FieldCategoryID, category.Implementors, collectFieldCategoryQuery, edges.WithTodoCategory),`)
+
+	// Relay-connection edge: one table line pointing at the generated arm.
+	require.Contains(t, output, `gqlcollect.Custom("children", collectTodoChildren),`)
+
+	// Scalar fields, plus the two arms that match but select nothing.
+	require.Contains(t, output, `{GQL: "text", Column: todo.FieldText},`)
+	require.Contains(t, output, `{GQL: "id"},`)
+	require.Contains(t, output, `{GQL: "__typename"},`)
+
+	// An edge exposed under several GraphQL names gets one entry per name.
+	require.Contains(t, output, `{GQL: "categoryID", Column: todo.FieldCategoryID},`)
+	require.Contains(t, output, `{GQL: "categoryX", Column: todo.FieldCategoryID},`)
+
+	// Select is emitted because Todo has scalar fields.
+	require.Contains(t, output, "Select: func(parent any, columns []string) {")
+	require.Contains(t, output, "parent.(*todo.TodoQuery).Select(columns...)")
+
+	// A non-unique, non-paginated edge becomes Named.
+	oneToMany := renderCollectionSubpkg(t, "OneToMany")
+	require.Contains(t, oneToMany, `gqlcollect.Named("children", "", onetomany.Implementors, collectFieldOneToManyQuery, edges.WithNamedOneToManyChildren),`)
+}
+
+// TestCollectionSubpkgTemplateCustomArm pins the generated relay-connection arm:
+// its ArmFn signature, the "continue" -> "return nil" conversion, the positional
+// TotalCount slot, and the M2M-vs-FK fork that is the reason it stays generated.
+func TestCollectionSubpkgTemplateCustomArm(t *testing.T) {
+	output := renderCollectionSubpkg(t, "Todo")
+
+	// ArmFn signature, with the parent asserted back to its concrete query type.
+	require.Contains(t, output, "func collectTodoChildren(parent any, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, field graphql.CollectedField, path []string, satisfies []string) error {")
+	require.Contains(t, output, "_q := parent.(*todo.TodoQuery)")
+
+	// gqlcollect.Custom hands the arm a path that already ends in the alias, so
+	// the arm must not append it again.
+	require.NotContains(t, output, "path  = append(path, alias)")
+	require.Contains(t, output, "alias = field.Alias")
+
+	// The switch's "continue" is a bare "return nil" inside an ArmFn: the arm
+	// returns without attaching. A stray "continue" here would be a compile
+	// error, but a "return err" or a fallthrough to attach would not.
+	require.Contains(t, output, "if ignoredEdges || (args.first != nil && *args.first == 0) || (args.last != nil && *args.last == 0) {\n\t\treturn nil\n\t}")
+
+	// mayAddCondition moved to the runtime package.
+	require.Contains(t, output, "gqlcollect.MayAddCondition(satisfies, todo.Implementors)...")
+	require.NotContains(t, output, "mayAddCondition(satisfies")
+
+	// The TotalCount slot is the edge's position in the entity's collected
+	// edges: parent=0, children=1, category=2.
+	require.Contains(t, output, "nodes[i].Edges.TotalCount[1][alias] = n")
+	require.NotContains(t, output, "nodes[i].Edges.TotalCount[0][alias] = n")
+
+	// FK fork: group-by on the edge column, and LimitPerRow on the same column.
+	require.Contains(t, output, "query.GroupBy(todo.ChildrenColumn).Aggregate(Count())")
+	require.Contains(t, output, "modify := entgql.LimitPerRow(todo.ChildrenColumn, limit, pager.OrderExpr(query))")
+
+	// The arm attaches last, under the alias.
+	require.Contains(t, output, "edges.WithNamedTodoChildren(_q, alias, func(wq *todo.TodoQuery) {")
+
+	// M2M fork: join table plus the indexed PK constant, never an FK column.
+	// User.groups is a forward M2M (index 0), so the join uses PrimaryKey[1].
+	user := renderCollectionSubpkg(t, "User")
+	require.Contains(t, user, "joinT := sql.Table(user.GroupsTable)")
+	require.Contains(t, user, "s.Join(joinT).On(s.C(group.FieldID), joinT.C(user.GroupsPrimaryKey[1]))")
+	require.Contains(t, user, "s.Where(sql.InValues(joinT.C(user.GroupsPrimaryKey[0]), ids...))")
+	require.Contains(t, user, "modify := entgql.LimitPerRow(user.GroupsPrimaryKey[0], limit, pager.OrderExpr(query))")
+	// ...while User.friendships is an FK edge in the same file, so both forks
+	// must be present and must not be confused for one another.
+	require.Contains(t, user, "modify := entgql.LimitPerRow(user.FriendshipsColumn, limit, pager.OrderExpr(query))")
+}
+
 func TestEdgeEntityTemplateParsed(t *testing.T) {
 	// Verify the EdgeEntityTemplate was parsed successfully during init().
 	require.NotNil(t, EdgeEntityTemplate, "EdgeEntityTemplate should be parsed during init()")

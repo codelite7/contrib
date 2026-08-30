@@ -1221,7 +1221,7 @@ func (e *Extension) generateCollectionSubpkgFile(g *gen.Graph, n *gen.Type) erro
 }
 
 // generateCollectionSubpkgRuntimeFile emits the shared runtime helpers (Cursor, Count,
-// paginateLimit, validateFirstLast, hasCollectedField, fieldArgs, mayAddCondition, etc.)
+// paginateLimit, validateFirstLast, hasCollectedField, fieldArgs, etc.)
 // into gen/gqlcollections/runtime.go. Emitted once per generation.
 func (e *Extension) generateCollectionSubpkgRuntimeFile(g *gen.Graph) error {
 	subPkgDir := filepath.Join(g.Target, "gqlcollections")

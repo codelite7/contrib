@@ -140,7 +140,7 @@ var (
 
 	// CollectionSubpkgRuntimeTemplate generates the shared runtime helpers (Cursor,
 	// Count, paginateLimit, validateFirstLast, hasCollectedField, fieldArgs,
-	// mayAddCondition, etc.) in gen/gqlcollections/runtime.go (lever B-3d). Emitted
+	// etc.) in gen/gqlcollections/runtime.go (lever B-3d). Emitted
 	// once per generation, not per-entity.
 	// Initialized in init() to avoid initialization order issues.
 	CollectionSubpkgRuntimeTemplate *template.Template
