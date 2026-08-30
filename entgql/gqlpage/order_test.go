@@ -69,6 +69,46 @@ func TestColumn_MissingStructFieldPanics(t *testing.T) {
 	)
 }
 
+// TestColumn_MissingStructFieldPanicsEveryCall guards against a regression
+// to a bare sync.Once: Do marks itself done even when f panics, so a caller
+// that recovers the first panic (gqlgen's default resolver middleware does
+// exactly this) must still get a loud panic on every later call, not a
+// silently-nil cached index feeding FieldByIndex(nil) (which returns the
+// whole struct, not a zero value).
+func TestColumn_MissingStructFieldPanicsEveryCall(t *testing.T) {
+	e := &fakeEntity{}
+	f := gqlpage.Column[fakeEntity, uuid.UUID]("NOPE", "nope", "DoesNotExist", noopTerm)
+	const wantMsg = `gqlpage: gqlpage_test.fakeEntity has no field "DoesNotExist"`
+
+	func() {
+		defer func() {
+			r := recover()
+			require.Equal(t, wantMsg, r)
+		}()
+		_, _ = f.Value(e)
+	}()
+
+	require.PanicsWithValue(t, wantMsg, func() { _, _ = f.Value(e) })
+}
+
+// TestColumn_CursorPanicsOnIDTypeMismatch guards the Cursor ID assertion:
+// once fieldIndex.resolve is fixed, fieldValue(f.idIdx, "ID", v) always
+// returns the real ID field's value or panics -- it never returns a
+// zero/whole-struct value. The one remaining way for the ID type assertion
+// to fail is a codegen/wiring bug where OrderField was instantiated with an
+// ID type that doesn't match the entity's actual ID field type. That must
+// panic too, not silently produce a zero-value cursor ID.
+func TestColumn_CursorPanicsOnIDTypeMismatch(t *testing.T) {
+	e := &fakeEntity{ID: uuid.New(), Name: "acme"}
+	// ID type param is string, but fakeEntity.ID is uuid.UUID.
+	f := gqlpage.Column[fakeEntity, string]("NAME", "name", "Name", noopTerm)
+
+	require.PanicsWithValue(t,
+		`gqlpage: *gqlpage_test.fakeEntity.ID is uuid.UUID, not assignable to cursor ID type string`,
+		func() { f.Cursor(e) },
+	)
+}
+
 func TestColumn_FieldIndexResolvedOnceAndCached(t *testing.T) {
 	e := &fakeEntity{Name: "acme"}
 	f := gqlpage.Column[fakeEntity, uuid.UUID]("NAME", "name", "Name", noopTerm)

@@ -44,6 +44,14 @@ type fieldIndex struct {
 // resolve looks up name on t once, panicking loudly if the field is absent —
 // a codegen bug here must fail loudly at first use, not silently produce a
 // zero cursor value.
+//
+// sync.Once.Do marks itself done even when f panics, so a caller that
+// recovers the first panic (e.g. gqlgen's default recover middleware) would
+// otherwise leave fi.idx permanently nil; every later call would then feed
+// reflect.Value.FieldByIndex(nil) — which returns the whole struct, not a
+// zero value or a panic — silently corrupting the cursor. Re-check after Do
+// returns and re-panic on every call while unresolved so a recovered first
+// panic can't open that window.
 func (fi *fieldIndex) resolve(t reflect.Type, name string) []int {
 	fi.once.Do(func() {
 		sf, ok := t.FieldByName(name)
@@ -52,6 +60,9 @@ func (fi *fieldIndex) resolve(t reflect.Type, name string) []int {
 		}
 		fi.idx = sf.Index
 	})
+	if fi.idx == nil {
+		panic(fmt.Sprintf("gqlpage: %s has no field %q", t, name))
+	}
 	return fi.idx
 }
 
@@ -92,7 +103,14 @@ func (f OrderField[T, ID]) Term(opts ...sql.OrderTermOption) func(*sql.Selector)
 // Cursor builds the pagination cursor for v: its ID plus this field's value.
 func (f OrderField[T, ID]) Cursor(v *T) entgql.Cursor[ID] {
 	val, _ := f.Value(v)
-	id, _ := fieldValue(f.idIdx, "ID", v).(ID)
+	idVal := fieldValue(f.idIdx, "ID", v)
+	id, ok := idVal.(ID)
+	if !ok {
+		// Reachable only if T's ID field type doesn't match the ID type
+		// param this OrderField was instantiated with — a codegen/wiring
+		// bug. Loud, not a silent zero-value cursor ID.
+		panic(fmt.Sprintf("gqlpage: %T.ID is %T, not assignable to cursor ID type %T", v, idVal, *new(ID)))
+	}
 	return entgql.Cursor[ID]{ID: id, Value: val}
 }
 
