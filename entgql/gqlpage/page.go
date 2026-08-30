@@ -94,6 +94,9 @@ type Ops[Q any, T any, ID any] struct {
 	ID          func(*T) ID
 	Default     *Order[T, ID]
 	MultiOrder  bool
+	// MaxPageSize is the entity's EntGQLExtension MaxPageSize annotation, or
+	// 0 if absent. Paginate passes it straight through to PaginateLimit.
+	MaxPageSize int
 	// EdgeTermColumns are the columns of non-column order terms (the old
 	// $byEdges switch). ApplyOrder/OrderExpr must not AppendFieldOnce these.
 	EdgeTermColumns []string
@@ -124,15 +127,26 @@ type Pager[Q any, T any, ID any] struct {
 // Option configures a Pager.
 type Option[Q any, T any, ID any] func(*Pager[Q, T, ID]) error
 
-// WithOrder configures pagination ordering.
+// WithOrder configures pagination ordering. Nil elements are skipped rather
+// than validated/appended: the single-order forwarder (gql_edge_subpkg.tmpl)
+// calls WithOrder unconditionally and wraps a nil orderBy argument (the
+// common case -- no orderBy in the GraphQL query) into a one-element slice
+// holding a nil *Order. R12: NewPager's existing empty-order fallback to
+// ops.Default then applies. Multi-order codegen never builds a slice
+// containing a nil order, since it only ever appends non-nil elements
+// (mirroring the old template, which had no nil check here either); skipping
+// nils here is a harmless superset, not something multi-order relies on.
 func WithOrder[Q any, T any, ID any](order []*Order[T, ID]) Option[Q, T, ID] {
 	return func(pager *Pager[Q, T, ID]) error {
 		for _, o := range order {
+			if o == nil {
+				continue
+			}
 			if err := o.Direction.Validate(); err != nil {
 				return err
 			}
+			pager.order = append(pager.order, o)
 		}
-		pager.order = append(pager.order, order...)
 		return nil
 	}
 }
@@ -437,13 +451,24 @@ func HasCollectedField(ctx context.Context, path ...string) bool {
 
 // PaginateLimit computes the query LIMIT for the given first/last
 // connection arguments: one more than requested, so Connection.Build can
-// detect and report an additional page.
-func PaginateLimit(first, last *int) int {
+// detect and report an additional page. max is the entity's MaxPageSize
+// annotation (Ops.MaxPageSize); max <= 0 means no cap -- reproducing the
+// old codegen exactly, which omitted the const and the clamp entirely when
+// the annotation was absent.
+//
+// Uncapped, no first/last yields limit == 0 (Paginate then skips
+// ops.Limit): an unbounded SELECT. Capped, a missing/oversized first or
+// last is clamped to max+1, which is also what guarantees callers like the
+// nested-edge collection path get a positive limit out of this function.
+func PaginateLimit(first, last *int, max int) int {
 	var limit int
 	if first != nil {
 		limit = *first + 1
 	} else if last != nil {
 		limit = *last + 1
+	}
+	if max > 0 && (limit == 0 || limit > max+1) {
+		limit = max + 1
 	}
 	return limit
 }
@@ -495,7 +520,7 @@ func Paginate[Q any, T any, ID any](q *Q, ctx context.Context,
 	if q, err = pager.ApplyCursors(q, after, before); err != nil {
 		return nil, err
 	}
-	limit := PaginateLimit(first, last)
+	limit := PaginateLimit(first, last, ops.MaxPageSize)
 	if limit != 0 {
 		q = ops.Limit(q, limit)
 	}

@@ -36,8 +36,21 @@ func (e *fakeEntity) Value(name string) (ent.Value, error) {
 	return nil, fmt.Errorf("fakeEntity: unknown field %q", name)
 }
 
-// noopTerm stands in for a handle's Order method value (F.Name.Order).
-func noopTerm(...sql.OrderTermOption) func(*sql.Selector) {
+// recordedTerms captures the sql.OrderTermOptions each noopTerm call
+// resolved, in call order. Field.Term(opts...) invokes the stored term
+// function synchronously -- before the func(*sql.Selector) it returns is
+// ever called -- so appending here reflects exactly what ApplyOrder/
+// OrderExpr resolved for direction/nulls-direction, including under
+// reverse, without needing to render SQL. Reset it (recordedTerms = nil)
+// at the top of any test that inspects it.
+var recordedTerms []*sql.OrderTermOptions
+
+// noopTerm stands in for a handle's Order method value (F.Name.Order). It
+// records the resolved options into recordedTerms instead of (or in
+// addition to) doing nothing, so tests can assert on the direction/
+// nulls-direction ApplyOrder or OrderExpr actually computed.
+func noopTerm(opts ...sql.OrderTermOption) func(*sql.Selector) {
+	recordedTerms = append(recordedTerms, sql.NewOrderTermOptions(opts...))
 	return func(*sql.Selector) {}
 }
 

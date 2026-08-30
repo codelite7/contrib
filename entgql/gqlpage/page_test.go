@@ -126,9 +126,28 @@ func TestValidateFirstLast(t *testing.T) {
 
 func TestPaginateLimit(t *testing.T) {
 	first, last := 10, 20
-	require.Equal(t, 11, gqlpage.PaginateLimit(&first, nil))
-	require.Equal(t, 21, gqlpage.PaginateLimit(nil, &last))
-	require.Equal(t, 0, gqlpage.PaginateLimit(nil, nil))
+	require.Equal(t, 11, gqlpage.PaginateLimit(&first, nil, 0))
+	require.Equal(t, 21, gqlpage.PaginateLimit(nil, &last, 0))
+	require.Equal(t, 0, gqlpage.PaginateLimit(nil, nil, 0))
+}
+
+// TestPaginateLimit_MaxPageSize covers ruling R11: max <= 0 means no cap,
+// reproducing the old codegen exactly for an entity with no MaxPageSize
+// annotation. Without a cap, no first/last yields limit == 0, which is what
+// makes Paginate skip ops.Limit entirely -- an unbounded SELECT -- so that
+// case matters as much as the oversized-first case.
+func TestPaginateLimit_MaxPageSize(t *testing.T) {
+	small, huge := 10, 100000
+
+	// capped-from-zero: no first/last, max > 0 must not leave limit at 0.
+	require.Equal(t, 51, gqlpage.PaginateLimit(nil, nil, 50))
+	// capped-from-oversized: first is clamped to max+1.
+	require.Equal(t, 51, gqlpage.PaginateLimit(&huge, nil, 50))
+	// uncapped passthrough under the cap: max > 0 but under it, untouched.
+	require.Equal(t, 11, gqlpage.PaginateLimit(&small, nil, 50))
+	// max <= 0 disables the clamp entirely, even for an oversized first.
+	require.Equal(t, 100001, gqlpage.PaginateLimit(&huge, nil, 0))
+	require.Equal(t, 0, gqlpage.PaginateLimit(nil, nil, -1))
 }
 
 // --- Connection.Build -------------------------------------------------
@@ -204,6 +223,28 @@ func TestConnectionBuild_AfterBeforeSetPageInfoFlags(t *testing.T) {
 
 	require.True(t, c.PageInfo.HasNextPage)     // before != nil
 	require.True(t, c.PageInfo.HasPreviousPage) // after != nil
+}
+
+// --- WithOrder / NewPager -------------------------------------------------
+
+// TestWithOrder_NilElementFallsBackToDefault guards R12: gql_edge_subpkg's
+// single-order forwarder calls WithOrder unconditionally, wrapping a nil
+// orderBy argument -- the common case, no orderBy in the GraphQL query --
+// into a one-element slice holding a nil *Order. That must not panic; it
+// must behave exactly like omitting WithOrder, falling back to ops.Default.
+func TestWithOrder_NilElementFallsBackToDefault(t *testing.T) {
+	ops := newFakeOps(false, defaultOrder, nil)
+	pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+		gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{nil}),
+	}, false)
+	require.NoError(t, err)
+
+	require.NotPanics(t, func() {
+		pager.ApplyOrder(&fakeQuery{})
+	})
+	// order.Field == defaultOrder.Field (both fIDField): no fallback term.
+	q := pager.ApplyOrder(&fakeQuery{})
+	require.Len(t, q.Orders, 1)
 }
 
 // --- ApplyOrder -------------------------------------------------
@@ -302,6 +343,48 @@ func TestApplyOrder_MultiOrderFlagNotInferredFromLength(t *testing.T) {
 	})
 }
 
+// TestApplyOrder_DirectionAndNullsDirection pins the actual direction and
+// nulls-direction ApplyOrder resolves, both forward and reversed. Without
+// this, inverting `if p.reverse`, dropping the nullsDirection option from
+// the Term() call, or adding a stray NullsLast default all leave a
+// count-only assertion (require.Len(q.Orders, n)) green -- wrong ordering
+// direction is exactly the failure mode this task was flagged riskiest
+// for. Uses fIDField (== defaultOrder.Field) so single-order's
+// pointer-identity check suppresses the fallback term, leaving exactly one
+// recorded term to inspect.
+func TestApplyOrder_DirectionAndNullsDirection(t *testing.T) {
+	for _, tc := range []struct {
+		name                               string
+		reverse                            bool
+		dir                                entgql.OrderDirection
+		nulls                              entgql.NullsDirection
+		wantDesc, wantNullsFirst, wantLast bool
+	}{
+		{"asc/nulls-last forward", false, entgql.OrderDirectionAsc, entgql.NullsLast, false, false, true},
+		{"asc/nulls-last reversed", true, entgql.OrderDirectionAsc, entgql.NullsLast, true, true, false},
+		{"desc/nulls-first forward", false, entgql.OrderDirectionDesc, entgql.NullsFirst, true, true, false},
+		{"desc/nulls-first reversed", true, entgql.OrderDirectionDesc, entgql.NullsFirst, false, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recordedTerms = nil
+			ops := newFakeOps(false, defaultOrder, nil)
+			pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+				gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
+					{Direction: tc.dir, NullsDirection: tc.nulls, Field: fIDField},
+				}),
+			}, tc.reverse)
+			require.NoError(t, err)
+
+			pager.ApplyOrder(&fakeQuery{})
+
+			require.Len(t, recordedTerms, 1)
+			require.Equal(t, tc.wantDesc, recordedTerms[0].Desc, "Desc")
+			require.Equal(t, tc.wantNullsFirst, recordedTerms[0].NullsFirst, "NullsFirst")
+			require.Equal(t, tc.wantLast, recordedTerms[0].NullsLast, "NullsLast")
+		})
+	}
+}
+
 // --- OrderExpr -------------------------------------------------
 
 func TestOrderExpr_PlainColumn(t *testing.T) {
@@ -379,39 +462,139 @@ func TestOrderExpr_MultiOrder(t *testing.T) {
 
 // --- ApplyCursors -------------------------------------------------
 
-func TestApplyCursors_UsesExpressionPredicateWhenFieldHasExpression(t *testing.T) {
-	ops := newFakeOps(false, defaultOrder, nil)
-	pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
-		gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
-			{Direction: entgql.OrderDirectionAsc, Field: fExprField},
-		}),
-	}, false)
-	require.NoError(t, err)
-
-	after := &entgql.Cursor[uuid.UUID]{ID: uuid.New(), Value: "acme"}
-	q, err := pager.ApplyCursors(&fakeQuery{}, after, nil)
-	require.NoError(t, err)
-	require.Len(t, q.Wheres, 1)
-
+// renderWhere applies a single recorded WHERE predicate to a fresh
+// Selector and returns the rendered SQL text -- the only way to observe
+// the comparison operator (">" vs "<") that `direction` actually produced.
+func renderWhere(t *testing.T, p func(*sql.Selector)) string {
+	t.Helper()
 	s := sql.Dialect("postgres").Select("id").From(sql.Table("fakes"))
-	q.Wheres[0](s)
+	p(s)
 	sqlText, _ := s.Query()
-	require.Contains(t, sqlText, `left("name", 256)`)
+	return sqlText
+}
+
+func TestApplyCursors_UsesExpressionPredicateWhenFieldHasExpression(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		reverse     bool
+		wantCompare string
+	}{
+		{"forward: greater-than", false, ">"},
+		{"reversed: less-than", true, "<"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ops := newFakeOps(false, defaultOrder, nil)
+			pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+				gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
+					{Direction: entgql.OrderDirectionAsc, Field: fExprField},
+				}),
+			}, tc.reverse)
+			require.NoError(t, err)
+
+			after := &entgql.Cursor[uuid.UUID]{ID: uuid.New(), Value: "acme"}
+			q, err := pager.ApplyCursors(&fakeQuery{}, after, nil)
+			require.NoError(t, err)
+			require.Len(t, q.Wheres, 1)
+
+			sqlText := renderWhere(t, q.Wheres[0])
+			require.Contains(t, sqlText, `left("name", 256)`)
+			require.Contains(t, sqlText, tc.wantCompare)
+		})
+	}
 }
 
 func TestApplyCursors_PlainColumnPredicate(t *testing.T) {
-	ops := newFakeOps(false, defaultOrder, nil)
-	pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
-		gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
-			{Direction: entgql.OrderDirectionAsc, Field: fNameField},
-		}),
-	}, false)
-	require.NoError(t, err)
+	for _, tc := range []struct {
+		name        string
+		reverse     bool
+		wantCompare string
+	}{
+		{"forward: greater-than", false, ">"},
+		{"reversed: less-than", true, "<"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ops := newFakeOps(false, defaultOrder, nil)
+			pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+				gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
+					{Direction: entgql.OrderDirectionAsc, Field: fNameField},
+				}),
+			}, tc.reverse)
+			require.NoError(t, err)
 
-	after := &entgql.Cursor[uuid.UUID]{ID: uuid.New(), Value: "acme"}
-	q, err := pager.ApplyCursors(&fakeQuery{}, after, nil)
-	require.NoError(t, err)
-	require.Len(t, q.Wheres, 1)
+			after := &entgql.Cursor[uuid.UUID]{ID: uuid.New(), Value: "acme"}
+			q, err := pager.ApplyCursors(&fakeQuery{}, after, nil)
+			require.NoError(t, err)
+			require.Len(t, q.Wheres, 1)
+
+			sqlText := renderWhere(t, q.Wheres[0])
+			require.Contains(t, sqlText, tc.wantCompare)
+		})
+	}
+}
+
+// TestApplyCursors_MultiOrder covers the MultiCursorsPredicate block
+// (page.go's MultiOrder branch of ApplyCursors), previously untested: the
+// idDirection flip on p.reverse, and the parallel fields/directions/
+// nullsDirections slices + FieldID that multiPredicate builds from.
+func TestApplyCursors_MultiOrder(t *testing.T) {
+	// A cursor with no Value exercises the ID-only branch directly --
+	// idDirection is the only thing that can flip the comparison here,
+	// isolating it from the field-value comparison logic below.
+	t.Run("ID-only cursor: idDirection flips with reverse", func(t *testing.T) {
+		for _, tc := range []struct {
+			name        string
+			reverse     bool
+			wantCompare string
+		}{
+			{"forward: greater-than", false, ">"},
+			{"reversed: less-than", true, "<"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				ops := newFakeOps(true, defaultOrder, nil)
+				pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+					gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
+						{Direction: entgql.OrderDirectionAsc, Field: fNameField},
+					}),
+				}, tc.reverse)
+				require.NoError(t, err)
+
+				after := &entgql.Cursor[uuid.UUID]{ID: uuid.New()} // Value nil.
+				q, err := pager.ApplyCursors(&fakeQuery{}, after, nil)
+				require.NoError(t, err)
+				require.Len(t, q.Wheres, 1)
+
+				sqlText := renderWhere(t, q.Wheres[0])
+				require.Contains(t, sqlText, `"id"`)
+				require.Contains(t, sqlText, tc.wantCompare)
+			})
+		}
+	})
+
+	// A cursor with a Value slice exercises multiPredicate: Fields must
+	// list every order term's column in order, Directions/NullsDirections
+	// must be the same length (a mismatch is a length-check error from
+	// multiPredicate, so require.NoError here already guards that wiring),
+	// and FieldID (the default/ID order column) must be auto-appended.
+	t.Run("value cursor: fields/directions wired, FieldID auto-appended", func(t *testing.T) {
+		ops := newFakeOps(true, defaultOrder, []string{"owner_name"})
+		pager, err := gqlpage.NewPager(ops, []gqlpage.Option[fakeQuery, fakeEntity, uuid.UUID]{
+			gqlpage.WithOrder[fakeQuery, fakeEntity, uuid.UUID]([]*gqlpage.Order[fakeEntity, uuid.UUID]{
+				{Direction: entgql.OrderDirectionAsc, Field: fNameField},
+				{Direction: entgql.OrderDirectionDesc, Field: fOwnerField},
+			}),
+		}, false)
+		require.NoError(t, err)
+
+		after := &entgql.Cursor[uuid.UUID]{ID: uuid.New(), Value: []any{"acme", "acme-owner"}}
+		q, err := pager.ApplyCursors(&fakeQuery{}, after, nil)
+		require.NoError(t, err)
+		require.Len(t, q.Wheres, 1)
+
+		sqlText := renderWhere(t, q.Wheres[0])
+		require.Contains(t, sqlText, "name")
+		require.Contains(t, sqlText, "owner_name")
+		require.Contains(t, sqlText, `"id"`) // FieldID, auto-appended since not already among the order fields.
+	})
 }
 
 // --- Paginate -------------------------------------------------
