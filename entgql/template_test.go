@@ -16,11 +16,13 @@ package entgql
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
+	"entgo.io/ent/schema/field"
 	"github.com/stretchr/testify/require"
 )
 
@@ -741,6 +743,61 @@ func TestMutationInputSiblingTemplateExecution(t *testing.T) {
 	require.Contains(t, out, "CategoryID *int `mutate:\"e:category\"`")
 	require.Equal(t, 1, strings.Count(out, "category"),
 		"the immutable category edge must appear only in CreateTodoInput, not UpdateTodoInput")
+}
+
+func TestMutationInputSiblingTemplateExecution_AppendPairing(t *testing.T) {
+	// Fix for a review finding on Task 7: TestMutationInputSiblingTemplateExecution's
+	// Todo fixture has no JSON-slice field, so it structurally never emits an
+	// fa: tag -- the append-guard/value pairing this template must preserve
+	// (gqlinput's buildPlan pairs an fa:<name> field with the nearest
+	// preceding f:<name> field of the SAME descriptor name, by declaration
+	// order) had no persisted coverage of what THIS TEMPLATE emits. Can't add
+	// a JSON-slice field to the todo schema (entgql/internal/todo* fixtures
+	// must not be regenerated), so build one synthetic append-eligible field
+	// directly instead. Reuses a loaded graph purely for its Config
+	// (Header/Package) -- nothing else graph-wide is needed on this path.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	widget := &gen.Type{
+		Name: "Widget",
+		Fields: []*gen.Field{
+			{
+				Name: "tags",
+				Type: &field.TypeInfo{
+					Type:     field.TypeJSON,
+					Ident:    "[]string",
+					Nillable: true,
+					RType:    &field.RType{Kind: reflect.Slice},
+				},
+			},
+		},
+	}
+	inputs := []*MutationDescriptor{
+		{Type: widget, IsCreate: false}, // AppendOp only ever fires on update.
+	}
+	var buf bytes.Buffer
+	err = MutationInputSiblingTemplate.Execute(&buf, struct {
+		*gen.Graph
+		EntityName string
+		Inputs     []*MutationDescriptor
+	}{graph, "Widget", inputs})
+	require.NoError(t, err)
+	out := buf.String()
+
+	// The invariant that matters: f:tags immediately precedes fa:tags, same
+	// descriptor name, value-then-append order -- exactly what buildPlan
+	// requires to pair them (it panics otherwise). Discriminating against
+	// all three failure modes at once: wrong op letter, diverged name, or
+	// swapped order would all fail this single Contains.
+	require.Contains(t, out,
+		"Tags []string `mutate:\"f:tags\"`\n                AppendTags []string `mutate:\"fa:tags\"`",
+		"f:tags must be immediately followed by its paired fa:tags, same descriptor name")
 }
 
 func TestFilterFields(t *testing.T) {
