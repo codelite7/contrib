@@ -161,15 +161,40 @@ func TestMutate_NilSliceSkipsAppendAndEdgeIDOps(t *testing.T) {
 	in := mixedInput{
 		Tags:       []string{"only-set"},
 		AppendTags: nil, // guard nil: AppendField must not fire
+		// AddChildIDs/RemoveChildIDs left nil (zero value): AddEdgeIDs/RemoveEdgeIDs must not fire
 	}
 
 	r := &recorder{}
 	Mutate(in, r)
 
 	for _, c := range r.calls {
-		if c.method == "AppendField" {
+		switch c.method {
+		case "AppendField":
 			t.Fatalf("AppendField fired despite nil guard field: %#v", c)
+		case "AddEdgeIDs":
+			t.Fatalf("AddEdgeIDs fired despite nil slice field: %#v", c)
+		case "RemoveEdgeIDs":
+			t.Fatalf("RemoveEdgeIDs fired despite nil slice field: %#v", c)
 		}
+	}
+}
+
+// requiredEdgeInput isolates the unconditional SetEdgeID case: a non-pointer
+// edge-ID field, as generated for a required (non-optional) unique edge on a
+// Create input (e.g. app_change_request.go's AppID). Its zero value must
+// still fire SetEdgeID unconditionally, mirroring opSetField's Age:0 case.
+type requiredEdgeInput struct {
+	ParentID widgetID `mutate:"e:parent"`
+}
+
+func TestMutate_UnconditionalSetEdgeIDFiresAtZeroValue(t *testing.T) {
+	in := requiredEdgeInput{} // zero value
+	r := &recorder{}
+	Mutate(in, r)
+
+	want := []call{{"SetEdgeID", "parent", []any{widgetID(0)}}}
+	if !reflect.DeepEqual(r.calls, want) {
+		t.Fatalf("calls = %#v, want %#v", r.calls, want)
 	}
 }
 
