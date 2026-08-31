@@ -60,7 +60,7 @@ func {{ camel $node.Name }}Noder(ctx context.Context, c *Client, id {{ $idType }
 	{{- end }}
 	return noderOf(ctx, c.{{ $node.Name }}.Query(),
 		func(q *{{ $node.QueryName }}) *{{ $node.QueryName }} {
-			return q.Where({{ $node.Package }}.F.ID.EQ({{ if $unmarshalID }}u{{ end }}id))
+			return q.Where({{ $node.Package }}.Field.ID.EQ({{ if $unmarshalID }}u{{ end }}id))
 		},
 		{{ if $.HasCollectionTemplate }}collectField{{ $node.QueryName }}{{ else }}nil{{ end }},
 		(*{{ $node.QueryName }}).Only,
@@ -81,7 +81,7 @@ func {{ camel $node.Name }}Noders(ctx context.Context, c *Client, ids []{{ $idTy
 	{{- end }}
 	return nodersOf(ctx, idmap, c.{{ $node.Name }}.Query(),
 		func(q *{{ $node.QueryName }}) *{{ $node.QueryName }} {
-			return q.Where({{ $node.Package }}.F.ID.In({{ if $unmarshalID }}u{{ end }}ids...))
+			return q.Where({{ $node.Package }}.Field.ID.In({{ if $unmarshalID }}u{{ end }}ids...))
 		},
 		{{ if $.HasCollectionTemplate }}{{ $node.QueryName }}CollectFields{{ else }}nil{{ end }},
 		(*{{ $node.QueryName }}).All,

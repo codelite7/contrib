@@ -73,9 +73,9 @@ type (
 			{{- end }}
 			{{- if $f.IsFieldTerm }}
 				{{- if $f.HasExpression }}
-		{{ $var }} = gqlpage.Column[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.Field.Constant }}, "{{ $f.Field.StructField }}", F.{{ $f.Field.StructField }}.Order, gqlpage.Expr(`{{ $f.Expression }}`))
+		{{ $var }} = gqlpage.Column[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.Field.Constant }}, "{{ $f.Field.StructField }}", Field.{{ $f.Field.StructField }}.Order, gqlpage.Expr(`{{ $f.Expression }}`))
 				{{- else }}
-		{{ $var }} = gqlpage.Column[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.Field.Constant }}, "{{ $f.Field.StructField }}", F.{{ $f.Field.StructField }}.Order)
+		{{ $var }} = gqlpage.Column[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.Field.Constant }}, "{{ $f.Field.StructField }}", Field.{{ $f.Field.StructField }}.Order)
 				{{- end }}
 			{{- else if $f.IsNonUniqueEdgeFieldTerm }}
 		{{ $var }} = gqlpage.Computed[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.VarField }}, {{ $f.VarField }}, func(opts ...sql.OrderTermOption) func(*sql.Selector) {
@@ -124,7 +124,7 @@ type (
 			{{- else if $f.IsEdgeFieldTerm }}
 		{{ $var }} = gqlpage.Computed[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.VarField }}, {{ $f.VarField }}, func(opts ...sql.OrderTermOption) func(*sql.Selector) {
 			// Use raw string literal for field name to avoid cross-entity import cycles.
-			return E.{{ $f.Edge.StructField }}.OrderBy(
+			return Edge.{{ $f.Edge.StructField }}.OrderBy(
 				sql.OrderByField(
 					{{ quote $f.Field.StorageKey }},
 					append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
@@ -133,7 +133,7 @@ type (
 		})
 			{{- else if $f.IsEdgeCountTerm }}
 		{{ $var }} = gqlpage.Computed[{{ $name }}, {{ $idType }}]("{{ $f.GQL }}", {{ $f.VarField }}, {{ $f.VarField }}, func(opts ...sql.OrderTermOption) func(*sql.Selector) {
-			return E.{{ $f.Edge.StructField }}.OrderByCount(
+			return Edge.{{ $f.Edge.StructField }}.OrderByCount(
 				append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
 			)
 		})
@@ -153,7 +153,7 @@ type (
 // {{ $defaultOrder }} is the default ordering of {{ $node.Name }}.
 var {{ $defaultOrder }} = &{{ $names.Order }}{
 	Direction: entgql.OrderDirectionAsc,
-	Field:     gqlpage.Column[{{ $name }}, {{ $idType }}]("ID", {{ $node.ID.Constant }}, "ID", F.{{ $node.ID.StructField }}.Order),
+	Field:     gqlpage.Column[{{ $name }}, {{ $idType }}]("ID", {{ $node.ID.Constant }}, "ID", Field.{{ $node.ID.StructField }}.Order),
 }
 
 // collectFieldFn{{ $query }} is set by the gqlcollections sibling subpackage via Register{{ $query }}CollectFieldFn.
