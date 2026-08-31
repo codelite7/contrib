@@ -16,11 +16,13 @@ package entgql
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
+	"entgo.io/ent/schema/field"
 	"github.com/stretchr/testify/require"
 )
 
@@ -212,22 +214,31 @@ func TestPaginationSharedTemplateContent(t *testing.T) {
 	require.Contains(t, src, "OrderDirection = entgql.OrderDirection")
 	require.Contains(t, src, "NullsDirection = entgql.NullsDirection")
 
-	// Verify shared functions are present.
-	require.Contains(t, src, "func orderFunc")
+	// Verify shared functions are present. After the gqlpage rewrite, orderFunc
+	// and paginateLimit are gone entirely (dead weight -- paginateLimit's logic
+	// now lives once in gqlpage.PaginateLimit, called per-entity); validateFirstLast,
+	// collectedField and hasCollectedField remain as thin forwarders (kept, not
+	// deleted, because entsearch-generated files in the same root package call
+	// them unqualified).
 	require.Contains(t, src, "func validateFirstLast")
 	require.Contains(t, src, "func collectedField")
 	require.Contains(t, src, "func hasCollectedField")
-	require.Contains(t, src, "func paginateLimit")
+	require.NotContains(t, src, "func orderFunc")
+	require.NotContains(t, src, "func paginateLimit")
 
-	// Verify shared constants are present.
-	// errInvalidPagination is a literal string constant in the template.
-	require.Contains(t, src, "errInvalidPagination")
-	// The field constants (edgesField, nodeField, etc.) are generated via a range
-	// over list "edges" "node" "pageInfo" "totalCount", so check the list items.
+	// Verify the forwarders delegate to gqlpage rather than reimplementing the logic.
+	require.Contains(t, src, "gqlpage.ValidateFirstLast(first, last)")
+	require.Contains(t, src, "gqlpage.CollectedField(ctx, path...)")
+	require.Contains(t, src, "gqlpage.HasCollectedField(ctx, path...)")
+	// errInvalidPagination/errcode are gone with the inlined validateFirstLast body.
+	require.NotContains(t, src, "errInvalidPagination")
+
+	// Verify shared constants are present. Only edgesField/nodeField remain (the
+	// consumer, search_pagination.go, never references pageInfoField/totalCountField).
+	// The field constants are generated via a range over list "edges" "node", so
+	// check the list items.
 	require.Contains(t, src, `"edges"`)
 	require.Contains(t, src, `"node"`)
-	require.Contains(t, src, `"pageInfo"`)
-	require.Contains(t, src, `"totalCount"`)
 	// Verify the Field suffix pattern is in the template.
 	require.Contains(t, src, `Field = "`)
 
@@ -271,19 +282,24 @@ func TestPaginationSharedTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "OrderDirection = entgql.OrderDirection")
 	require.Contains(t, output, "NullsDirection = entgql.NullsDirection")
 
-	// Verify shared functions are generated.
-	require.Contains(t, output, "func orderFunc(")
+	// Verify shared functions are generated. orderFunc/paginateLimit are gone
+	// (see TestPaginationSharedTemplateContent); validateFirstLast, collectedField
+	// and hasCollectedField remain as forwarders to gqlpage.
 	require.Contains(t, output, "func validateFirstLast(")
 	require.Contains(t, output, "func collectedField(")
 	require.Contains(t, output, "func hasCollectedField(")
-	require.Contains(t, output, "func paginateLimit(")
+	require.NotContains(t, output, "func orderFunc(")
+	require.NotContains(t, output, "func paginateLimit(")
+	require.Contains(t, output, "gqlpage.ValidateFirstLast(first, last)")
+	require.Contains(t, output, "gqlpage.CollectedField(ctx, path...)")
+	require.Contains(t, output, "gqlpage.HasCollectedField(ctx, path...)")
 
 	// Verify shared constants are generated.
-	require.Contains(t, output, `errInvalidPagination`)
+	require.NotContains(t, output, `errInvalidPagination`)
 	require.Contains(t, output, `edgesField = "edges"`)
 	require.Contains(t, output, `nodeField = "node"`)
-	require.Contains(t, output, `pageInfoField = "pageInfo"`)
-	require.Contains(t, output, `totalCountField = "totalCount"`)
+	require.NotContains(t, output, `pageInfoField`)
+	require.NotContains(t, output, `totalCountField`)
 
 	// Verify NO per-entity code is present (e.g., no TodoConnection, TodoEdge, todoPager).
 	require.False(t, strings.Contains(output, "TodoConnection"),
@@ -427,7 +443,7 @@ func TestPaginationEntityTemplateContent(t *testing.T) {
 	require.Contains(t, src, "Paginate")       // QueryPaginate var forwarder
 
 	// Verify the template is a thin shim (no struct body, no method implementations).
-	require.NotContains(t, src, "}} struct")   // No Edge/Connection struct declarations
+	require.NotContains(t, src, "}} struct") // No Edge/Connection struct declarations
 	require.NotContains(t, src, "applyOrder")
 	require.NotContains(t, src, "applyCursors")
 	require.NotContains(t, src, "applyFilter")
@@ -570,6 +586,221 @@ func TestPaginationEntityTemplateMultipleEntities(t *testing.T) {
 	require.Contains(t, catOutput, "category.CategoryConnection")
 	require.NotContains(t, catOutput, "TodoEdge")
 	require.NotContains(t, catOutput, "TodoConnection")
+}
+
+func TestPaginationSubpkgTemplateExecution(t *testing.T) {
+	// PaginationSubpkgTemplate (798 lines, the single biggest change in the
+	// gqlpage rewrite) has no dedicated content/execution test elsewhere --
+	// TestGenerateSplitPagination only ever renders the root thin shim, since
+	// it runs against a tmpDir with no entity sub-package directory. Render
+	// the subpkg template directly for Todo (MultiOrder, plus edge-term order
+	// fields CHILDREN_COUNT/PARENT_STATUS/CATEGORY_TEXT, so EdgeTermColumns is
+	// exercised) and assert on the emitted text, once with the
+	// EntGQLExtension annotation present and once absent -- gemini's app
+	// always sets it, so the absent path (R11: MaxPageSize must render as the
+	// literal 0, not be skipped or panic) is otherwise never exercised by any
+	// real regen.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	render := func() string {
+		var buf bytes.Buffer
+		err := PaginationSubpkgTemplate.ExecuteTemplate(&buf, "gql_pagination_subpkg", struct {
+			*gen.Graph
+			Node *gen.Type
+		}{graph, todoNode})
+		require.NoError(t, err)
+		return buf.String()
+	}
+
+	// --- without EntGQLExtension: MaxPageSize must render as 0 ---
+	without := render()
+	require.Contains(t, without, "package todo")
+
+	// Five type aliases, all using "=" (gqlpage generic instantiations, not
+	// hand-rolled struct/type declarations).
+	require.Contains(t, without, "TodoEdge            = gqlpage.Edge[Todo,")
+	require.Contains(t, without, "TodoConnection      = gqlpage.Connection[Todo,")
+	require.Contains(t, without, "TodoOrder           = gqlpage.Order[Todo,")
+	require.Contains(t, without, "TodoOrderField      = gqlpage.OrderField[Todo,")
+	require.Contains(t, without, "TodoPaginateOption    = gqlpage.Option[TodoQuery, Todo,")
+
+	// The Ops literal, with MultiOrder, MaxPageSize and (Todo has edge-term
+	// order fields) EdgeTermColumns.
+	require.Contains(t, without, "var TodoOps = &gqlpage.Ops[TodoQuery, Todo,")
+	require.Contains(t, without, "MultiOrder:  true")
+	require.Contains(t, without, "MaxPageSize: 0")
+	require.Contains(t, without, "EdgeTermColumns:")
+
+	// Thin forwarders.
+	require.Contains(t, without, "func WithTodoOrder(")
+	require.Contains(t, without, "func WithTodoFilter(")
+	require.Contains(t, without, "func NewTodoPager(")
+	require.Contains(t, without, "func TodoQueryPaginate(")
+	require.Contains(t, without, "func TodoToEdge(")
+	require.Contains(t, without, "gqlpage.Paginate(")
+	// ToEdge takes Ops, not just the default order: the cursor ID comes
+	// from Ops.ID (the generated marshalID() on a mixed-ID graph).
+	require.Contains(t, without, "gqlpage.ToEdge(_m, order, TodoOps)")
+
+	// --- with EntGQLExtension: MaxPageSize must reflect the configured value ---
+	graph.Annotations = gen.Annotations{
+		ExtensionAnnotation{}.Name(): ExtensionAnnotation{MaxPageSize: 50},
+	}
+	with := render()
+	require.Contains(t, with, "MaxPageSize: 50")
+	require.NotContains(t, with, "MaxPageSize: 0")
+}
+
+func TestMutationInputSiblingTemplateExecution(t *testing.T) {
+	// mutation_input_sibling.tmpl no longer hand-rolls each Mutate() body --
+	// it emits a `mutate:"<op>:<name>"` struct tag per field/edge and
+	// delegates to gqlinput.Mutate (Task 7 of the entgql codegen-reduction
+	// project). The struct-tag correctness -- right op, right descriptor
+	// name, right pairing/order -- has no other coverage anywhere in this
+	// repo, so assert directly on the rendered text for Todo, which exercises
+	// every op the walker supports except fa/AppendField (Todo has no
+	// JSON-slice field annotated for it; that pairing is covered by
+	// gqlinput's own tests and by the Task 7 gemini parity harness against a
+	// real entity that has one).
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	var todoNode *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == "Todo" {
+			todoNode = n
+			break
+		}
+	}
+	require.NotNil(t, todoNode, "Todo node should exist in the schema")
+
+	inputs := []*MutationDescriptor{
+		{Type: todoNode, IsCreate: true},
+		{Type: todoNode, IsCreate: false},
+	}
+	var buf bytes.Buffer
+	err = MutationInputSiblingTemplate.Execute(&buf, struct {
+		*gen.Graph
+		EntityName string
+		Inputs     []*MutationDescriptor
+	}{graph, "Todo", inputs})
+	require.NoError(t, err)
+	out := buf.String()
+
+	// gqlinput, not the old entbuilder.ToAny-based dispatch.
+	require.Contains(t, out, `"entgo.io/contrib/entgql/gqlinput"`)
+	require.NotContains(t, out, "entbuilder")
+
+	// Every Mutate body collapses to a single delegating call, and the old
+	// per-field/edge dispatch (SetField/ClearField/... calls) is gone from
+	// the template entirely.
+	require.Contains(t, out, "func (i CreateTodoInput) Mutate(m *todo.TodoMutation) {\n        gqlinput.Mutate(i, m)\n    }")
+	require.Contains(t, out, "func (i UpdateTodoInput) Mutate(m *todo.TodoMutation) {\n        gqlinput.Mutate(i, m)\n    }")
+	require.NotContains(t, out, "SetField(")
+	require.NotContains(t, out, "ClearField(")
+	require.NotContains(t, out, "SetEdgeID(")
+
+	// "text" is required (NotEmpty, no Default/Optional) on create: no
+	// pointer, no ClearOp -- the unconditional f: path.
+	require.Contains(t, out, "Text string `mutate:\"f:text\"`")
+	require.NotContains(t, out, "ClearText")
+
+	// "init" is Optional on update: fc: immediately precedes f: for the same
+	// descriptor name, on adjacent lines -- the Clear-then-Set declaration
+	// order the walker's buildPlan relies on.
+	require.Contains(t, out, "ClearInit bool `mutate:\"fc:init\"`\n            Init map[string]interface {} `mutate:\"f:init\"`")
+
+	// "children" (non-unique, To Todo) on create: ea: with the []<id-type>ID
+	// naming.
+	require.Contains(t, out, "ChildIDs []int `mutate:\"ea:children\"`")
+	// On update: ec: then ea: then er:, adjacent, same descriptor name.
+	require.Contains(t, out, "ClearChildren bool `mutate:\"ec:children\"`\n                    AddChildIDs []int `mutate:\"ea:children\"`\n                    RemoveChildIDs []int `mutate:\"er:children\"`")
+
+	// "parent" (unique, self-referential, optional) on update: ec: then e:,
+	// adjacent, same descriptor name -- the edge analogue of the fc:/f: test
+	// above.
+	require.Contains(t, out, "ClearParent bool `mutate:\"ec:parent\"`\n                ParentID *int `mutate:\"e:parent\"`")
+
+	// "category" (unique, Immutable) is excluded from the update input
+	// entirely, but still present -- unpaired with a Clear -- on create.
+	require.Contains(t, out, "CategoryID *int `mutate:\"e:category\"`")
+	require.Equal(t, 1, strings.Count(out, "category"),
+		"the immutable category edge must appear only in CreateTodoInput, not UpdateTodoInput")
+}
+
+func TestMutationInputSiblingTemplateExecution_AppendPairing(t *testing.T) {
+	// Fix for a review finding on Task 7: TestMutationInputSiblingTemplateExecution's
+	// Todo fixture has no JSON-slice field, so it structurally never emits an
+	// fa: tag -- the append-guard/value pairing this template must preserve
+	// (gqlinput's buildPlan pairs an fa:<name> field with the nearest
+	// preceding f:<name> field of the SAME descriptor name, by declaration
+	// order) had no persisted coverage of what THIS TEMPLATE emits. Can't add
+	// a JSON-slice field to the todo schema (entgql/internal/todo* fixtures
+	// must not be regenerated), so build one synthetic append-eligible field
+	// directly instead. Reuses a loaded graph purely for its Config
+	// (Header/Package) -- nothing else graph-wide is needed on this path.
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{
+		Storage: s,
+	})
+	require.NoError(t, err)
+
+	widget := &gen.Type{
+		Name: "Widget",
+		Fields: []*gen.Field{
+			{
+				Name: "tags",
+				Type: &field.TypeInfo{
+					Type:     field.TypeJSON,
+					Ident:    "[]string",
+					Nillable: true,
+					RType:    &field.RType{Kind: reflect.Slice},
+				},
+			},
+		},
+	}
+	inputs := []*MutationDescriptor{
+		{Type: widget, IsCreate: false}, // AppendOp only ever fires on update.
+	}
+	var buf bytes.Buffer
+	err = MutationInputSiblingTemplate.Execute(&buf, struct {
+		*gen.Graph
+		EntityName string
+		Inputs     []*MutationDescriptor
+	}{graph, "Widget", inputs})
+	require.NoError(t, err)
+	out := buf.String()
+
+	// The invariant that matters: f:tags immediately precedes fa:tags, same
+	// descriptor name, value-then-append order -- exactly what buildPlan
+	// requires to pair them (it panics otherwise). Discriminating against
+	// all three failure modes at once: wrong op letter, diverged name, or
+	// swapped order would all fail this single Contains.
+	require.Contains(t, out,
+		"Tags []string `mutate:\"f:tags\"`\n                AppendTags []string `mutate:\"fa:tags\"`",
+		"f:tags must be immediately followed by its paired fa:tags, same descriptor name")
 }
 
 func TestFilterFields(t *testing.T) {
@@ -837,6 +1068,138 @@ func TestCollectionSubpkgTemplateNoWhereInput(t *testing.T) {
 	require.NotContains(t, output, "BillProductWhereInput")
 }
 
+// renderCollectionSubpkg executes gql_collection_subpkg for one node of the todo
+// fixture graph and returns the rendered source.
+func renderCollectionSubpkg(t *testing.T, name string) string {
+	t.Helper()
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+	graph, err := entc.LoadGraph("./internal/todo/ent/schema", &gen.Config{Storage: s})
+	require.NoError(t, err)
+
+	var node *gen.Type
+	for _, n := range graph.Nodes {
+		if n.Name == name {
+			node = n
+			break
+		}
+	}
+	require.NotNil(t, node, "%s node should exist in the schema", name)
+
+	var buf bytes.Buffer
+	err = CollectionSubpkgTemplate.ExecuteTemplate(&buf, "gql_collection_subpkg", struct {
+		*gen.Graph
+		Node                  *gen.Type
+		HasWhereInputTemplate bool
+		HasPaginationSubpkg   bool
+	}{graph, node, true, true})
+	require.NoError(t, err)
+	return buf.String()
+}
+
+// TestCollectionSubpkgTemplateSpecTable pins the descriptor table the subpkg
+// template emits after lever D: collectField<X>Query is a one-line delegation to
+// gqlcollect.Collect and every switch arm became a table entry.
+func TestCollectionSubpkgTemplateSpecTable(t *testing.T) {
+	output := renderCollectionSubpkg(t, "Todo")
+
+	// The recursive helper is now a single delegation.
+	require.Contains(t, output, "return gqlcollect.Collect(specTodoQuery, _q, ctx, oneNode, opCtx, collected, path, satisfies...)")
+	require.Contains(t, output, `"entgo.io/contrib/entgql/gqlcollect"`)
+
+	// No switch scaffolding survives in the per-entity file.
+	require.NotContains(t, output, "switch field.Name")
+	require.NotContains(t, output, "unknownSeen")
+	require.NotContains(t, output, "fieldSeen")
+	require.NotContains(t, output, "selectedFields")
+
+	// The table itself, including the collision note the map-based runtime made
+	// necessary (the old switch got duplicate-case detection from the compiler).
+	// The table is assigned in init(), never as a var initializer: as a var it
+	// would name other entities' collectField helpers, which name their own
+	// tables, and Go rejects that variable-initialization cycle.
+	require.Contains(t, output, "var specTodoQuery *gqlcollect.Spec")
+	require.Contains(t, output, "func init() {")
+	require.Contains(t, output, "specTodoQuery = &gqlcollect.Spec{")
+	require.NotContains(t, output, "var specTodoQuery = &gqlcollect.Spec{")
+	// The registration lever B-2 needs moved into that same init().
+	require.Contains(t, output, "todo.RegisterTodoQueryCollectFieldFn(collectFieldTodoQuery)")
+	require.Contains(t, output, "silently lets the edge shadow the field")
+	require.Contains(t, output, "IDColumn: todo.FieldID,")
+
+	// Unique edge without an FK column, and one with.
+	require.Contains(t, output, `gqlcollect.Unique("parent", "", todo.Implementors, collectFieldTodoQuery, edges.WithTodoParent),`)
+	require.Contains(t, output, `gqlcollect.Unique("category", todo.FieldCategoryID, category.Implementors, collectFieldCategoryQuery, edges.WithTodoCategory),`)
+
+	// Relay-connection edge: one table line pointing at the generated arm.
+	require.Contains(t, output, `gqlcollect.Custom("children", collectTodoChildren),`)
+
+	// Scalar fields, plus the two arms that match but select nothing.
+	require.Contains(t, output, `{GQL: "text", Column: todo.FieldText},`)
+	require.Contains(t, output, `{GQL: "id"},`)
+	require.Contains(t, output, `{GQL: "__typename"},`)
+
+	// An edge exposed under several GraphQL names gets one entry per name.
+	require.Contains(t, output, `{GQL: "categoryID", Column: todo.FieldCategoryID},`)
+	require.Contains(t, output, `{GQL: "categoryX", Column: todo.FieldCategoryID},`)
+
+	// Select is emitted because Todo has scalar fields.
+	require.Contains(t, output, "Select: func(parent any, columns []string) {")
+	require.Contains(t, output, "parent.(*todo.TodoQuery).Select(columns...)")
+
+	// A non-unique, non-paginated edge becomes Named.
+	oneToMany := renderCollectionSubpkg(t, "OneToMany")
+	require.Contains(t, oneToMany, `gqlcollect.Named("children", "", onetomany.Implementors, collectFieldOneToManyQuery, edges.WithNamedOneToManyChildren),`)
+}
+
+// TestCollectionSubpkgTemplateCustomArm pins the generated relay-connection arm:
+// its ArmFn signature, the "continue" -> "return nil" conversion, the positional
+// TotalCount slot, and the M2M-vs-FK fork that is the reason it stays generated.
+func TestCollectionSubpkgTemplateCustomArm(t *testing.T) {
+	output := renderCollectionSubpkg(t, "Todo")
+
+	// ArmFn signature, with the parent asserted back to its concrete query type.
+	require.Contains(t, output, "func collectTodoChildren(parent any, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, field graphql.CollectedField, path []string, satisfies []string) error {")
+	require.Contains(t, output, "_q := parent.(*todo.TodoQuery)")
+
+	// gqlcollect.Custom hands the arm a path that already ends in the alias, so
+	// the arm must not append it again.
+	require.NotContains(t, output, "path  = append(path, alias)")
+	require.Contains(t, output, "alias = field.Alias")
+
+	// The switch's "continue" is a bare "return nil" inside an ArmFn: the arm
+	// returns without attaching. A stray "continue" here would be a compile
+	// error, but a "return err" or a fallthrough to attach would not.
+	require.Contains(t, output, "if ignoredEdges || (args.first != nil && *args.first == 0) || (args.last != nil && *args.last == 0) {\n\t\treturn nil\n\t}")
+
+	// mayAddCondition moved to the runtime package.
+	require.Contains(t, output, "gqlcollect.MayAddCondition(satisfies, todo.Implementors)...")
+	require.NotContains(t, output, "mayAddCondition(satisfies")
+
+	// The TotalCount slot is the edge's position in the entity's collected
+	// edges: parent=0, children=1, category=2.
+	require.Contains(t, output, "nodes[i].Edges.TotalCount[1][alias] = n")
+	require.NotContains(t, output, "nodes[i].Edges.TotalCount[0][alias] = n")
+
+	// FK fork: group-by on the edge column, and LimitPerRow on the same column.
+	require.Contains(t, output, "query.GroupBy(todo.ChildrenColumn).Aggregate(Count())")
+	require.Contains(t, output, "modify := entgql.LimitPerRow(todo.ChildrenColumn, limit, pager.OrderExpr(query))")
+
+	// The arm attaches last, under the alias.
+	require.Contains(t, output, "edges.WithNamedTodoChildren(_q, alias, func(wq *todo.TodoQuery) {")
+
+	// M2M fork: join table plus the indexed PK constant, never an FK column.
+	// User.groups is a forward M2M (index 0), so the join uses PrimaryKey[1].
+	user := renderCollectionSubpkg(t, "User")
+	require.Contains(t, user, "joinT := sql.Table(user.GroupsTable)")
+	require.Contains(t, user, "s.Join(joinT).On(s.C(group.FieldID), joinT.C(user.GroupsPrimaryKey[1]))")
+	require.Contains(t, user, "s.Where(sql.InValues(joinT.C(user.GroupsPrimaryKey[0]), ids...))")
+	require.Contains(t, user, "modify := entgql.LimitPerRow(user.GroupsPrimaryKey[0], limit, pager.OrderExpr(query))")
+	// ...while User.friendships is an FK edge in the same file, so both forks
+	// must be present and must not be confused for one another.
+	require.Contains(t, user, "modify := entgql.LimitPerRow(user.FriendshipsColumn, limit, pager.OrderExpr(query))")
+}
+
 func TestEdgeEntityTemplateParsed(t *testing.T) {
 	// Verify the EdgeEntityTemplate was parsed successfully during init().
 	require.NotNil(t, EdgeEntityTemplate, "EdgeEntityTemplate should be parsed during init()")
@@ -887,10 +1250,17 @@ func TestEdgeSubpkgTemplateContent(t *testing.T) {
 	// Verify it references $.Node.
 	require.Contains(t, src, "$.Node")
 
-	// Verify all three edge types are handled.
+	// Verify all three edge types are handled, collapsed onto gqledge's
+	// generic One/Many/Conn runtime (lever E-1).
 	require.Contains(t, src, "isRelayConn")
 	require.Contains(t, src, "IsNotLoaded")
-	require.Contains(t, src, "MaskNotFound")
+	require.Contains(t, src, "gqledge.One")
+	require.Contains(t, src, "gqledge.Many")
+	require.Contains(t, src, "gqledge.Conn")
+
+	// The not-found mask is a One parameter, not a registered global: an
+	// optional unique edge passes MaskNotFound, a required one passes nil.
+	require.Contains(t, src, "IsNotLoaded, {{if $e.Optional}}MaskNotFound{{else}}nil{{end}})")
 
 	// Verify Relay connection inlined code has expected elements.
 	require.Contains(t, src, "nodePaginationNames")
@@ -978,6 +1348,22 @@ func TestEdgeSubpkgTemplateExecution(t *testing.T) {
 	// Verify import statements.
 	require.Contains(t, output, `"context"`)
 	require.Contains(t, output, `"github.com/99designs/gqlgen/graphql"`)
+	require.Contains(t, output, `"entgo.io/contrib/entgql/gqledge"`)
+
+	// Verify the generic runtime calls (lever E-1): Todo has both a unique
+	// edge (category/secret -> One) and a relay-connection edge (children -> Conn).
+	require.Contains(t, output, "gqledge.One(")
+	require.Contains(t, output, "gqledge.Conn(")
+
+	// The not-found mask is passed per call, never registered in a
+	// process-global: an optional unique edge passes this package's own
+	// MaskNotFound, a required one passes nil.
+	// Todo's unique edges (parent, category) are all optional, so they pass
+	// this package's own MaskNotFound rather than registering it in a
+	// process-global. The required-edge (nil mask) arm is asserted on the
+	// template source in TestEdgeSubpkgTemplateContent.
+	require.Contains(t, output, "IsNotLoaded, MaskNotFound)")
+	require.NotContains(t, output, "RegisterMaskNotFound")
 
 	// Verify no template call to gql_edge/helper/paginate (it should be inlined).
 	require.NotContains(t, output, "gql_edge/helper/paginate")
@@ -1563,8 +1949,15 @@ func TestNodeEntityTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "func todoNoder(ctx context.Context, c *Client, id int) (Noder, error)")
 	require.Contains(t, output, "func todoNoders(ctx context.Context, c *Client, ids []int")
 	require.Contains(t, output, "c.Todo.Query()")
-	require.Contains(t, output, "todo.ID(id)")
-	require.Contains(t, output, "todo.IDIn(ids...)")
+	require.Contains(t, output, "todo.F.ID.EQ(id)")
+	require.Contains(t, output, "todo.F.ID.In(ids...)")
+
+	// Verify the per-entity arms delegate to the generic root-gen helpers
+	// instead of duplicating the noder/noders bodies.
+	require.Contains(t, output, "return noderOf(ctx, c.Todo.Query(),")
+	require.Contains(t, output, "return nodersOf(ctx, idmap, c.Todo.Query(),")
+	require.Contains(t, output, "(*TodoQuery).Only")
+	require.Contains(t, output, "(*TodoQuery).All")
 
 	// Verify collectField is present since HasCollectionTemplate=true.
 	require.Contains(t, output, "collectField")

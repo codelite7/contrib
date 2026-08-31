@@ -26,7 +26,10 @@ package gqledges
 import (
 	"context"
 
+	"entgo.io/contrib/entgql/gqledge"
+	{{- if $relayEdges }}
 	"github.com/99designs/gqlgen/graphql"
+	{{- end }}
 	"{{ $.Config.Package }}/{{ $nodePkg }}"
 	"{{ $.Config.Package }}/edges"
 	{{- /* Import edge-type subpackages for return types (e.g. *user.User) and for relay-connection edges so we can call New<Edge>Pager. */}}
@@ -58,15 +61,13 @@ func Register{{ $node.Name }}ClientFromCtx(fn func(context.Context) *{{ $nodePkg
 {{ range $i, $e := filterEdges $node.Edges (skipMode "type") }}
 	{{- $epkg := $e.Type.Package }}
 	{{ if isRelayConn $e }}
-		{{- /* Inlined gql_edge/helper/paginate logic */ -}}
+		{{- /* Inlined gql_edge/helper/paginate logic, collapsed onto gqledge.Conn. */ -}}
 		{{ $names := nodePaginationNames $e.Type }}
 		{{ $order := $names.Order }}
 		{{ $multiOrder := $e.Type.Annotations.EntGQL.MultiOrder }}
 		{{ $whereInput := $names.WhereInput }}
-		{{- $edge := $names.Edge }}
 		{{ $conn := $names.Connection }}
 		{{ $opt := print $names.Node "PaginateOption" }}
-		{{ $newPager := print $epkg ".New" $names.Node "Pager" }}
 
 		// Resolve{{ $node.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge of a {{ $node.Name }}.
 		func Resolve{{ $node.Name }}{{ $e.StructField }}({{ $r }} *{{ $nodePkg }}.{{ $node.Name }},
@@ -85,43 +86,29 @@ func Register{{ $node.Name }}ClientFromCtx(fn func(context.Context) *{{ $nodePkg
 			{{- /* May be nil if the totalCount was not loaded. */}}
 			alias := graphql.GetFieldContext(ctx).Field.Alias
 			totalCount, hasTotalCount := {{ $r }}.Edges.TotalCount[{{ $i }}][alias]
-			{{- /* Nodes were loaded, totalCount was loaded, or both. */}}
-			if nodes, err := {{ $r }}.Named{{ $e.StructField }}(alias); err == nil || hasTotalCount {
-				pager, err := {{ $newPager }}(opts, last != nil)
-				if err != nil {
-					return nil, err
-				}
-				{{- /* Ensure the "edges" field is marshaled as "[]" in case it is empty. */}}
-				conn := &{{ $epkg }}.{{ $conn }}{Edges: []*{{ $epkg }}.{{ $edge }}{}, TotalCount: totalCount}
-				conn.Build(nodes, pager, after, first, before, last)
-				return conn, nil
-			}
-			return {{ $epkg }}.{{ print $names.Node "QueryPaginate" }}(edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}), ctx, after, first, before, last, opts...)
+			return gqledge.Conn(ctx, {{ $epkg }}.{{ $names.Node }}Ops, opts, alias, totalCount, hasTotalCount,
+				{{ $r }}.Named{{ $e.StructField }},
+				func() *{{ $epkg }}.{{ $names.Node }}Query {
+					return edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }})
+				},
+				after, first, before, last,
+			)
 		}
 
 	{{ else if not $e.Unique }}
 		// Resolve{{ $node.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge of a {{ $node.Name }}.
-		func Resolve{{ $node.Name }}{{ $e.StructField }}({{ $r }} *{{ $nodePkg }}.{{ $node.Name }}, ctx context.Context) (result []*{{ $epkg }}.{{ $e.Type.Name }}, err error) {
-			if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Alias != "" {
-				result, err = {{ $r }}.Named{{ $e.StructField }}(graphql.GetFieldContext(ctx).Field.Alias)
-			} else {
-				{{- /* For regular edges (not Relay connections), we fallback to .Edges field in case the context is not GraphQL */}}
-				result, err = {{ $r }}.Edges.{{ $e.StructField }}OrErr()
-			}
-			if IsNotLoaded(err) {
-				result, err = edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}).All(ctx)
-			}
-			return result, err
+		func Resolve{{ $node.Name }}{{ $e.StructField }}({{ $r }} *{{ $nodePkg }}.{{ $node.Name }}, ctx context.Context) ([]*{{ $epkg }}.{{ $e.Type.Name }}, error) {
+			return gqledge.Many(ctx, {{ $r }}.Named{{ $e.StructField }}, {{ $r }}.Edges.{{ $e.StructField }}OrErr, func() ([]*{{ $epkg }}.{{ $e.Type.Name }}, error) {
+				return edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}).All(ctx)
+			}, IsNotLoaded)
 		}
 
 	{{ else }}
 		// Resolve{{ $node.Name }}{{ $e.StructField }} resolves the {{ $e.Name }} edge of a {{ $node.Name }}.
 		func Resolve{{ $node.Name }}{{ $e.StructField }}({{ $r }} *{{ $nodePkg }}.{{ $node.Name }}, ctx context.Context) (*{{ $epkg }}.{{ $e.Type.Name }}, error) {
-			result, err := {{ $r }}.Edges.{{ $e.StructField }}OrErr()
-			if IsNotLoaded(err) {
-				result, err = edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}).Only(ctx)
-			}
-			return result, {{ if $e.Optional }}MaskNotFound(err){{ else }}err{{ end }}
+			return gqledge.One({{ $r }}.Edges.{{ $e.StructField }}OrErr, func() (*{{ $epkg }}.{{ $e.Type.Name }}, error) {
+				return edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}).Only(ctx)
+			}, IsNotLoaded, {{ if $e.Optional }}MaskNotFound{{ else }}nil{{ end }})
 		}
 
 	{{ end }}

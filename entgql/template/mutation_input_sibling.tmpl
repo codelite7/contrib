@@ -20,7 +20,7 @@ package mutationinputs
 {{- $pkg := $entityNode.Type.Package }}
 
 import (
-    "entgo.io/ent/runtime/entbuilder"
+    "entgo.io/contrib/entgql/gqlinput"
     "{{ $.Config.Package }}/{{ $pkg }}"
 )
 
@@ -37,27 +37,27 @@ import (
     type {{ $input }} struct {
         {{- range $f := $fields }}
             {{- if $f.ClearOp }}
-                {{ print "Clear" $f.StructField }} bool
+                {{ print "Clear" $f.StructField }} bool `mutate:"fc:{{ $f.Name }}"`
             {{- end }}
-            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }}
+            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"f:{{ $f.Name }}"`
             {{- if $f.AppendOp }}
-                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }}
+                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"fa:{{ $f.Name }}"`
             {{- end }}
         {{- end }}
         {{- range $e := $edges }}
             {{- if and (not $n.IsCreate) $e.Optional }}
-                {{ $e.MutationClear }} bool
+                {{ $e.MutationClear }} bool `mutate:"ec:{{ $e.Name }}"`
             {{- end }}
             {{- if $e.Unique }}
                 {{- $structField := print (pascal $e.Name) "ID" }}
-                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }}
+                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }} `mutate:"e:{{ $e.Name }}"`
             {{- else }}
                 {{- if $n.IsCreate }}
                     {{- $structField := print (singular $e.Name | pascal) "IDs" }}
-                    {{ $structField }} []{{ $e.Type.ID.Type }}
+                    {{ $structField }} []{{ $e.Type.ID.Type }} `mutate:"ea:{{ $e.Name }}"`
                 {{- else }}
-                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }}
-                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }}
+                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }} `mutate:"ea:{{ $e.Name }}"`
+                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }} `mutate:"er:{{ $e.Name }}"`
                 {{- end }}
             {{- end }}
         {{- end }}
@@ -65,66 +65,10 @@ import (
     }
 
     // Mutate applies the {{ $input }} on the {{ $n.MutationName }} builder.
-    // Calls the generic entbuilder.Mutation API by descriptor field/edge name
-    // (snake_case) because the per-PR-6 Mutation is a generic alias
-    // entbuilder.Mutation[T, I] and the typed Set<X>/Clear<X> methods live on
-    // the typed Create/Update builders instead. Errors from SetField etc. can
-    // only fire on descriptor mismatch (a codegen bug, not a runtime
-    // condition), so we discard them rather than threading an error return
-    // through every consumer of Mutate.
+    // Field/edge routing is driven by the `mutate` struct tags above; see
+    // entgo.io/contrib/entgql/gqlinput.
     func (i {{ $input }}) Mutate(m *{{ $pkg }}.{{ $n.MutationName }}) {
-        {{- /* The order of the operators is purposefully sorted: Clear, Set and Append */}}
-        {{- range $f := $fields }}
-            {{- if $f.ClearOp }}
-                if i.{{ print "Clear" $f.StructField }} {
-                    _ = m.ClearField("{{ $f.Name }}")
-                }
-            {{- end }}
-            {{- if or $f.Type.Nillable $f.IsPointer }}
-                if v := i.{{ $f.StructField }}; v != nil {
-                    _ = m.SetField("{{ $f.Name }}", {{ if $f.IsPointer }}*{{ end }}v)
-                }
-            {{- else }}
-                _ = m.SetField("{{ $f.Name }}", i.{{ $f.StructField }})
-            {{- end }}
-            {{- if $f.AppendOp }}
-                if i.{{ $f.MutationAppend }} != nil {
-                    _ = m.AppendField("{{ $f.Name }}", {{ if $f.IsPointer }}*{{ end }}i.{{ $f.StructField }})
-                }
-            {{- end }}
-        {{- end }}
-        {{- range $e := $edges }}
-           {{- if and (not $n.IsCreate) $e.Optional }}
-                if i.{{ $e.MutationClear }} {
-                    _ = m.ClearEdge("{{ $e.Name }}")
-                }
-            {{- end }}
-            {{- if $e.Unique }}
-                {{- $structField := print (pascal $e.Name) "ID" }}
-                {{- if or (not $n.IsCreate) $e.Optional }}
-                    if v := i.{{ $structField }}; v != nil {
-                        _ = m.SetEdgeID("{{ $e.Name }}", *v)
-                    }
-                {{- else }}
-                    _ = m.SetEdgeID("{{ $e.Name }}", i.{{ $structField }})
-                {{- end }}
-            {{- else }}
-                {{- if $n.IsCreate }}
-                    {{- $structField := print (singular $e.Name | pascal) "IDs" }}
-                    if v := i.{{ $structField }}; len(v) > 0 {
-                        _ = m.AddEdgeIDs("{{ $e.Name }}", entbuilder.ToAny(v)...)
-                    }
-                {{- else }}
-                    if v := i.{{ $e.MutationAdd }}; len(v) > 0 {
-                        _ = m.AddEdgeIDs("{{ $e.Name }}", entbuilder.ToAny(v)...)
-                    }
-                    if v := i.{{ $e.MutationRemove }}; len(v) > 0 {
-                        _ = m.RemoveEdgeIDs("{{ $e.Name }}", entbuilder.ToAny(v)...)
-                    }
-                {{- end }}
-            {{- end }}
-        {{- end }}
-
+        gqlinput.Mutate(i, m)
     }
 
     {{- range $b := $n.Builders }}

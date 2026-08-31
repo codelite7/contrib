@@ -16,6 +16,7 @@ package gqlcollections
 {{ $nodePkg := $node.Package }}
 {{ $query := $node.QueryName }}
 {{ $receiver := $node.QueryReceiver }}
+{{ $spec := print "spec" $query }}
 
 {{- $collects := fieldCollections (filterEdges $node.Edges (skipMode "type")) }}
 {{- $fields := filterFields $node.Fields (skipMode "type") }}
@@ -25,6 +26,7 @@ import (
 	"fmt"
 
 	"entgo.io/contrib/entgql"
+	"entgo.io/contrib/entgql/gqlcollect"
 	"entgo.io/ent/dialect/sql"
 	"github.com/99designs/gqlgen/graphql"
 	"{{ $.Config.Package }}/{{ $nodePkg }}"
@@ -67,209 +69,222 @@ func CollectField{{ $query }}({{ $receiver }} *{{ $nodePkg }}.{{ $query }}, ctx 
 
 // collectField{{ $query }} is the recursive helper for {{ $query }}CollectFields.
 func collectField{{ $query }}({{ $receiver }} *{{ $nodePkg }}.{{ $query }}, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, collected graphql.CollectedField, path []string, satisfies ...string) error {
-	path = append([]string(nil), path...)
-	{{- if or $collects $fields }}
-		{{- if $fields }}
-		var (
-			unknownSeen bool
-			fieldSeen = make(map[string]struct{}, len({{ $nodePkg }}.Columns))
-			selectedFields =
-			{{- if $node.HasOneFieldID -}}
-				[]string{ {{ $nodePkg }}.{{ $node.ID.Constant }} }
-			{{- else -}}
-				make([]string, 0, len({{ $nodePkg }}.Columns))
+	return gqlcollect.Collect({{ $spec }}, {{ $receiver }}, ctx, oneNode, opCtx, collected, path, satisfies...)
+}
+
+// {{ $spec }} is {{ $query }}'s field-collection descriptor table. It is assigned in init()
+// rather than as a var initializer because it names other entities' collectField helpers,
+// which name their own tables — a variable-initialization cycle Go rejects. NOTE: unlike the
+// switch it replaces, an edge and a field sharing a GraphQL name is no longer a compile
+// error; the map-indexed table silently lets the edge shadow the field.
+var {{ $spec }} *gqlcollect.Spec
+
+func init() {
+	{{ $spec }} = &gqlcollect.Spec{
+	{{- if $node.HasOneFieldID }}
+	IDColumn: {{ $nodePkg }}.{{ $node.ID.Constant }},
+	{{- end }}
+	{{- if $collects }}
+	Edges: []gqlcollect.Edge{
+		{{- range $fc := $collects }}
+			{{- $e := $fc.Edge }}
+			{{- $epkg := $e.Type.Package }}
+			{{- /* An edge only owns an FK column when it is unique (gen.Edge.Field requires
+			       OwnFK), so a relay-connection arm never carries one. */}}
+			{{- $fk := "" }}{{ with $e.Field }}{{ $fk = print $nodePkg "." .Constant }}{{ end }}
+			{{- range $name := $fc.Mapping }}
+				{{- if isRelayConn $e }}
+		gqlcollect.Custom("{{ $name }}", collect{{ $node.Name }}{{ $e.StructField }}),
+				{{- else if $e.Unique }}
+		gqlcollect.Unique("{{ $name }}", {{ if $fk }}{{ $fk }}{{ else }}""{{ end }}, {{ $epkg }}.Implementors, collectField{{ $e.Type.QueryName }}, edges.With{{ $node.Name }}{{ $e.StructField }}),
+				{{- else }}
+		gqlcollect.Named("{{ $name }}", {{ if $fk }}{{ $fk }}{{ else }}""{{ end }}, {{ $epkg }}.Implementors, collectField{{ $e.Type.QueryName }}, edges.WithNamed{{ $node.Name }}{{ $e.StructField }}),
+				{{- end }}
 			{{- end }}
-		)
 		{{- end }}
-		for _, field := range graphql.CollectFields(opCtx, collected.Selections, satisfies) {
-			switch field.Name {
-				{{- range $i, $fc := $collects }}
-					{{- $e := $fc.Edge }}
-					{{- $epkg := $e.Type.Package }}
-					{{- /* If the edge is unique, we inherit the cardinality of the parent. */}}
-					{{ $oneNode := "false" }}{{- if $e.Unique }}{{ $oneNode = "oneNode" }}{{ end }}
-					case {{ range $i, $value := $fc.Mapping }}{{ if $i }}, {{ end }}"{{ $value }}"{{ end }}:
-						var (
-							alias = field.Alias
-							path  = append(path, alias)
-							query = (&{{ $epkg }}.{{ $e.Type.ClientName }}{Config: {{ $receiver }}.Config}).Query()
-						)
-						{{- if isRelayConn $e }}
-							{{- $tnames := nodePaginationNames $e.Type }}
-							{{- $tname := $tnames.Node }}
-							{{- $edgeArgsFunc := print "new" $tname "PaginateArgs" }}
-							args := {{ $edgeArgsFunc }}(fieldArgs(ctx, {{ if and $.HasWhereInputTemplate (hasWhereInput $e) }}new(whereinputs.{{ $tnames.WhereInput }}){{ else }}nil{{ end }}, path...))
-							if err := validateFirstLast(args.first, args.last); err != nil {
-								return fmt.Errorf("validate first and last in path %q: %w", path, err)
-							}
-							{{- $newPager := print $epkg ".New" $tname "Pager" }}
-							pager, err := {{ $newPager }}(args.opts, args.last != nil)
-							if err != nil {
-								return fmt.Errorf("create new pager in path %q: %w", path, err)
-							}
-							if query, err = pager.ApplyFilter(query); err != nil {
-								return err
-							}
-							ignoredEdges := !hasCollectedField(ctx, append(path, edgesField)...)
-							if hasCollectedField(ctx, append(path, totalCountField)...) || hasCollectedField(ctx, append(path, pageInfoField)...) {
-								{{- /* Only add loadTotal query when needs */}}
-								hasPagination := args.after != nil || args.first != nil || args.before != nil || args.last != nil
-								if hasPagination || ignoredEdges {
-									query := query.Clone()
-									{{- /* totalCount may be greater than len(nodes). */}}
-									{{ $receiver }}.AppendLoadTotal(func(ctx context.Context, nodes []*{{ $nodePkg }}.{{ $node.Name }}) error {
-										ids := make([]driver.Value, len(nodes))
-										for i := range nodes {
-											ids[i] = nodes[i].{{ $node.ID.StructField }}
-										}
-										{{- if $e.M2M }}
-											{{- $fk1idx := 1 }}{{- $fk2idx := 0 }}{{ if $e.IsInverse }}{{ $fk1idx = 0 }}{{ $fk2idx = 1 }}{{ end }}
-											{{- $edgeid := print $epkg "." $e.Type.ID.Constant }}
-											{{- $nodeid := print $nodePkg "." $e.PKConstant "[" $fk2idx "]" }}
-											var v []struct{
-												NodeID {{ $node.ID.Type }} `sql:"{{ index $e.Rel.Columns $fk2idx }}"`
-												Count int `sql:"count"`
-											}
-											query.Where(func(s *sql.Selector) {
-												joinT := sql.Table({{ $nodePkg }}.{{ $e.TableConstant }})
-												s.Join(joinT).On(s.C({{ $edgeid }}), joinT.C({{ $nodePkg }}.{{ $e.PKConstant }}[{{ $fk1idx }}]))
-												s.Where(sql.InValues(joinT.C({{ $nodePkg }}.{{ $e.PKConstant }}[{{ $fk2idx }}]), ids...))
-												s.Select(joinT.C({{ $nodeid }}), sql.Count("*"))
-												s.GroupBy(joinT.C({{ $nodeid }}))
-											})
-											if err := query.Select().Scan(ctx, &v); err != nil {
-												return err
-											}
-										{{- else }}
-											var v []struct{
-												NodeID {{ $node.ID.Type }} `sql:"{{ $e.Rel.Column }}"`
-												Count int `sql:"count"`
-											}
-											{{- $fk := print $nodePkg "." $e.ColumnConstant }}
-											query.Where(func(s *sql.Selector) {
-												s.Where(sql.InValues(s.C({{ $fk }}), ids...))
-											})
-											if err := query.GroupBy({{ $fk }}).Aggregate(Count()).Scan(ctx, &v); err != nil {
-												return err
-											}
-										{{- end }}
-											{{- /* Add support for scanning into maps in dialect/sqlscan. */}}
-											m := make(map[{{ $node.ID.Type }}]int, len(v))
-											for i := range v {
-												m[v[i].NodeID] = v[i].Count
-											}
-											for i := range nodes {
-												n := m[nodes[i].{{ $node.ID.StructField }}]
-												if nodes[i].Edges.TotalCount[{{ $i }}] == nil {
-													nodes[i].Edges.TotalCount[{{ $i }}] = make(map[string]int)
-												}
-												nodes[i].Edges.TotalCount[{{ $i }}][alias] = n
-											}
-										return nil
-									})
-								} else {
-									{{- /* All records will be loaded, so just count it */}}
-									{{ $receiver }}.AppendLoadTotal(func(_ context.Context, nodes []*{{ $nodePkg }}.{{ $node.Name }}) error {
-										for i := range nodes {
-											n := len(nodes[i].Edges.{{ $e.StructField }})
-											if nodes[i].Edges.TotalCount[{{ $i }}] == nil {
-												nodes[i].Edges.TotalCount[{{ $i }}] = make(map[string]int)
-											}
-											nodes[i].Edges.TotalCount[{{ $i }}][alias] = n
-										}
-										return nil
-									})
-								}
-							}
-							if ignoredEdges || (args.first != nil && *args.first == 0) || (args.last != nil && *args.last == 0) {
-								{{- /* Skip querying edges if "edges" "node" was not required. */}}
-								continue
-							}
-							if query, err = pager.ApplyCursors(query, args.after, args.before); err != nil {
-								return err
-							}
-							path = append(path, edgesField, nodeField)
-							if field := collectedField(ctx, path...); field != nil {
-								if err := collectField{{ $e.Type.QueryName }}(query, ctx, {{ $oneNode }}, opCtx, *field, path, mayAddCondition(satisfies, {{ $epkg }}.Implementors)...); err != nil {
-									return err
-								}
-							}
-							if limit := paginateLimit(args.first, args.last); limit > 0 {
-								{{- /* Limit per row is not required, as there is only node returned by the top query. */}}
-								if oneNode {
-									pager.ApplyOrder(query.Limit(limit))
-								} else {
-									{{- $fk := print $nodePkg "." $fc.Edge.ColumnConstant }}
-									{{- if $e.M2M }}
-										{{- $i := 0 }}{{ if $e.IsInverse }}{{ $i = 1 }}{{ end }}
-										{{- $fk = print $nodePkg "." $e.PKConstant "[" $i "]" }}
-									{{- end }}
-									modify := entgql.LimitPerRow({{ $fk }}, limit, pager.OrderExpr(query))
-									query.AppendModifier(modify)
-								}
-							} else {
-								query = pager.ApplyOrder(query)
-							}
-						{{- else }}
-							if err := collectField{{ $e.Type.QueryName }}(query, ctx, {{ $oneNode }}, opCtx, field, path, mayAddCondition(satisfies, {{ $epkg }}.Implementors)...); err != nil {
-								return err
-							}
-						{{- end }}
-						{{- if $e.Unique }}
-							edges.With{{ $node.Name }}{{ $e.StructField }}({{ $receiver }}, func(sub *{{ $epkg }}.{{ $e.Type.QueryName }}) {
-								*sub = *query
-							})
-						{{- else }}
-							edges.WithNamed{{ $node.Name }}{{ $e.StructField }}({{ $receiver }}, alias, func(wq *{{ $epkg }}.{{ $e.Type.QueryName }}) {
-								*wq = *query
-							})
-						{{- end }}
-						{{- with $e.Field }}
-							if _, ok := fieldSeen[{{ $nodePkg }}.{{ .Constant }}]; !ok {
-								selectedFields = append(selectedFields, {{ $nodePkg }}.{{ .Constant }})
-								fieldSeen[{{ $nodePkg }}.{{ .Constant }}] = struct{}{}
-							}
-						{{- end }}
+	},
+	{{- end }}
+	{{- if $fields }}
+	Fields: []gqlcollect.Field{
+		{{- range $f := $fields }}
+			{{- with fieldMapping $f }}
+				{{- range $m := . }}
+		{GQL: "{{ $m }}", Column: {{ $nodePkg }}.{{ $f.Constant }}},
 				{{- end }}
-				{{- range $f := $fields }}
-					{{- with fieldMapping $f }}
-						case {{ range $i, $m := . }}{{ if $i }}, {{ end }}"{{ $m }}"{{ end }}:
-							if _, ok := fieldSeen[{{ $nodePkg }}.{{ $f.Constant }}]; !ok {
-								selectedFields = append(selectedFields, {{ $nodePkg }}.{{ $f.Constant }})
-								fieldSeen[{{ $nodePkg }}.{{ $f.Constant }}] = struct{}{}
-							}
-					{{- end }}
+			{{- end }}
+		{{- end }}
+		{{- if $node.HasOneFieldID }}
+			{{- with fieldMapping $node.ID }}
+				{{- range $m := . }}
+		{{- /* Spec.IDColumn already seeds the ID column; this entry only marks the
+		       name as known so it does not trip unknownSeen. */}}
+		{GQL: "{{ $m }}"},
 				{{- end }}
-				{{- if $fields }}
-					{{- if $node.HasOneFieldID -}}
-						{{- with fieldMapping $node.ID }}
-						case {{ range $i, $m := . }}{{ if $i }}, {{ end }}"{{ $m }}"{{ end }}:
-						{{- end }}
-					{{- end -}}
-				case "__typename":
-				default:
-					unknownSeen = true
+			{{- end }}
+		{{- end }}
+		{GQL: "__typename"},
+	},
+	Select: func(parent any, columns []string) {
+		parent.(*{{ $nodePkg }}.{{ $query }}).Select(columns...)
+	},
+	{{- end }}
+	}
+	{{- if $.HasPaginationSubpkg }}
+	// Register collectField into the entity subpackage so that the subpackage's Paginate
+	// function can call it without a direct import cycle (subpkg -> gen -> subpkg).
+	// This registration pattern is required by lever B-2 (pagination + node -> per-entity subpackages).
+	{{ $nodePkg }}.Register{{ $query }}CollectFieldFn(collectField{{ $query }})
+	{{- end }}
+}
+
+{{- /* Relay-connection arms stay generated: the body forks on M2M vs FK inside
+       AppendLoadTotal, indexes Edges.TotalCount positionally, and threads per-entity
+       pager and paginate-args types. $i must remain the index into $collects — it is
+       the TotalCount slot. */}}
+{{- range $i, $fc := $collects }}
+	{{- $e := $fc.Edge }}
+	{{- if isRelayConn $e }}
+		{{- $epkg := $e.Type.Package }}
+		{{- $oneNode := "false" }}{{ if $e.Unique }}{{ $oneNode = "oneNode" }}{{ end }}
+		{{- $tnames := nodePaginationNames $e.Type }}
+		{{- $tname := $tnames.Node }}
+		{{- $edgeArgsFunc := print "new" $tname "PaginateArgs" }}
+
+// collect{{ $node.Name }}{{ $e.StructField }} is the "{{ $e.Name }}" relay-connection arm, reached
+// through gqlcollect.Custom: path already ends in the alias and satisfies is un-widened.
+func collect{{ $node.Name }}{{ $e.StructField }}(parent any, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, field graphql.CollectedField, path []string, satisfies []string) error {
+	{{ $receiver }} := parent.(*{{ $nodePkg }}.{{ $query }})
+	var (
+		alias = field.Alias
+		query = (&{{ $epkg }}.{{ $e.Type.ClientName }}{Config: {{ $receiver }}.Config}).Query()
+	)
+	args := {{ $edgeArgsFunc }}(fieldArgs(ctx, {{ if and $.HasWhereInputTemplate (hasWhereInput $e) }}new(whereinputs.{{ $tnames.WhereInput }}){{ else }}nil{{ end }}, path...))
+	if err := validateFirstLast(args.first, args.last); err != nil {
+		return fmt.Errorf("validate first and last in path %q: %w", path, err)
+	}
+	{{- $newPager := print $epkg ".New" $tname "Pager" }}
+	pager, err := {{ $newPager }}(args.opts, args.last != nil)
+	if err != nil {
+		return fmt.Errorf("create new pager in path %q: %w", path, err)
+	}
+	if query, err = pager.ApplyFilter(query); err != nil {
+		return err
+	}
+	ignoredEdges := !hasCollectedField(ctx, append(path, edgesField)...)
+	if hasCollectedField(ctx, append(path, totalCountField)...) || hasCollectedField(ctx, append(path, pageInfoField)...) {
+		{{- /* Only add loadTotal query when needs */}}
+		hasPagination := args.after != nil || args.first != nil || args.before != nil || args.last != nil
+		if hasPagination || ignoredEdges {
+			query := query.Clone()
+			{{- /* totalCount may be greater than len(nodes). */}}
+			{{ $receiver }}.AppendLoadTotal(func(ctx context.Context, nodes []*{{ $nodePkg }}.{{ $node.Name }}) error {
+				ids := make([]driver.Value, len(nodes))
+				for i := range nodes {
+					ids[i] = nodes[i].{{ $node.ID.StructField }}
+				}
+				{{- if $e.M2M }}
+					{{- $fk1idx := 1 }}{{- $fk2idx := 0 }}{{ if $e.IsInverse }}{{ $fk1idx = 0 }}{{ $fk2idx = 1 }}{{ end }}
+					{{- $edgeid := print $epkg "." $e.Type.ID.Constant }}
+					{{- $nodeid := print $nodePkg "." $e.PKConstant "[" $fk2idx "]" }}
+					var v []struct{
+						NodeID {{ $node.ID.Type }} `sql:"{{ index $e.Rel.Columns $fk2idx }}"`
+						Count int `sql:"count"`
+					}
+					query.Where(func(s *sql.Selector) {
+						joinT := sql.Table({{ $nodePkg }}.{{ $e.TableConstant }})
+						s.Join(joinT).On(s.C({{ $edgeid }}), joinT.C({{ $nodePkg }}.{{ $e.PKConstant }}[{{ $fk1idx }}]))
+						s.Where(sql.InValues(joinT.C({{ $nodePkg }}.{{ $e.PKConstant }}[{{ $fk2idx }}]), ids...))
+						s.Select(joinT.C({{ $nodeid }}), sql.Count("*"))
+						s.GroupBy(joinT.C({{ $nodeid }}))
+					})
+					if err := query.Select().Scan(ctx, &v); err != nil {
+						return err
+					}
+				{{- else }}
+					var v []struct{
+						NodeID {{ $node.ID.Type }} `sql:"{{ $e.Rel.Column }}"`
+						Count int `sql:"count"`
+					}
+					{{- $fk := print $nodePkg "." $e.ColumnConstant }}
+					query.Where(func(s *sql.Selector) {
+						s.Where(sql.InValues(s.C({{ $fk }}), ids...))
+					})
+					if err := query.GroupBy({{ $fk }}).Aggregate(Count()).Scan(ctx, &v); err != nil {
+						return err
+					}
 				{{- end }}
-			}
+					{{- /* Add support for scanning into maps in dialect/sqlscan. */}}
+					m := make(map[{{ $node.ID.Type }}]int, len(v))
+					for i := range v {
+						m[v[i].NodeID] = v[i].Count
+					}
+					for i := range nodes {
+						n := m[nodes[i].{{ $node.ID.StructField }}]
+						if nodes[i].Edges.TotalCount[{{ $i }}] == nil {
+							nodes[i].Edges.TotalCount[{{ $i }}] = make(map[string]int)
+						}
+						nodes[i].Edges.TotalCount[{{ $i }}][alias] = n
+					}
+				return nil
+			})
+		} else {
+			{{- /* All records will be loaded, so just count it */}}
+			{{ $receiver }}.AppendLoadTotal(func(_ context.Context, nodes []*{{ $nodePkg }}.{{ $node.Name }}) error {
+				for i := range nodes {
+					n := len(nodes[i].Edges.{{ $e.StructField }})
+					if nodes[i].Edges.TotalCount[{{ $i }}] == nil {
+						nodes[i].Edges.TotalCount[{{ $i }}] = make(map[string]int)
+					}
+					nodes[i].Edges.TotalCount[{{ $i }}][alias] = n
+				}
+				return nil
+			})
 		}
-		{{- if $fields }}
-			{{- /* In case the schema was extended, a non-selected field might be used by a custom resolver. */}}
-			if !unknownSeen {
-				{{ $receiver }}.Select(selectedFields...)
-			}
-		{{- end }}
+	}
+	if ignoredEdges || (args.first != nil && *args.first == 0) || (args.last != nil && *args.last == 0) {
+		{{- /* Skip querying edges if "edges" "node" was not required. This is the switch
+		       arm's "continue": return without attaching. */}}
+		return nil
+	}
+	if query, err = pager.ApplyCursors(query, args.after, args.before); err != nil {
+		return err
+	}
+	path = append(path, edgesField, nodeField)
+	if field := collectedField(ctx, path...); field != nil {
+		if err := collectField{{ $e.Type.QueryName }}(query, ctx, {{ $oneNode }}, opCtx, *field, path, gqlcollect.MayAddCondition(satisfies, {{ $epkg }}.Implementors)...); err != nil {
+			return err
+		}
+	}
+	if limit := paginateLimit(args.first, args.last); limit > 0 {
+		{{- /* Limit per row is not required, as there is only node returned by the top query. */}}
+		if oneNode {
+			pager.ApplyOrder(query.Limit(limit))
+		} else {
+			{{- $fk := print $nodePkg "." $fc.Edge.ColumnConstant }}
+			{{- if $e.M2M }}
+				{{- $pkidx := 0 }}{{ if $e.IsInverse }}{{ $pkidx = 1 }}{{ end }}
+				{{- $fk = print $nodePkg "." $e.PKConstant "[" $pkidx "]" }}
+			{{- end }}
+			modify := entgql.LimitPerRow({{ $fk }}, limit, pager.OrderExpr(query))
+			query.AppendModifier(modify)
+		}
+	} else {
+		query = pager.ApplyOrder(query)
+	}
+	{{- if $e.Unique }}
+	edges.With{{ $node.Name }}{{ $e.StructField }}({{ $receiver }}, func(sub *{{ $epkg }}.{{ $e.Type.QueryName }}) {
+		*sub = *query
+	})
+	{{- else }}
+	edges.WithNamed{{ $node.Name }}{{ $e.StructField }}({{ $receiver }}, alias, func(wq *{{ $epkg }}.{{ $e.Type.QueryName }}) {
+		*wq = *query
+	})
 	{{- end }}
 	return nil
 }
-
-{{- if $.HasPaginationSubpkg }}
-// init registers the collectField function into the entity subpackage so that the subpackage's
-// Paginate function can call it without a direct import cycle (subpkg -> gen -> subpkg).
-// This registration pattern is required by lever B-2 (pagination + node -> per-entity subpackages).
-func init() {
-	{{ $nodePkg }}.Register{{ $query }}CollectFieldFn(collectField{{ $query }})
-}
+	{{- end }}
 {{- end }}
+
 
 {{ $names := nodePaginationNames $node -}}
 {{- $name := $names.Node -}}

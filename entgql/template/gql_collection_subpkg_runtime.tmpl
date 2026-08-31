@@ -278,19 +278,8 @@ func normalizeInputEnums(v reflect.Value) error {
 	return nil
 }
 
-// mayAddCondition appends another type condition to the satisfies list
-// if it does not exist in the list.
-func mayAddCondition(satisfies []string, typeCond []string) []string {
-Cond:
-	for _, c := range typeCond {
-		for _, s := range satisfies {
-			if c == s {
-				continue Cond
-			}
-		}
-		satisfies = append(satisfies, c)
-	}
-	return satisfies
-}
+{{/* mayAddCondition now lives in entgql/gqlcollect as MayAddCondition — the
+     generated relay arms call it there, and gqlcollect.Collect applies it to
+     every other arm. */}}
 
 {{ end }}

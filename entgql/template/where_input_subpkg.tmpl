@@ -28,23 +28,14 @@ package whereinputs
 {{ $filteredEdges := filterEdges $n.Edges (skipMode "where_input") }}
 
 import (
-    "errors"
-    "fmt"
-
-    entsql "entgo.io/ent/dialect/sql"
-    "entgo.io/ent/runtime/wherehelpers"
+    "entgo.io/contrib/entgql/gqlwhere"
     "{{ $.Config.Package }}/predicate"
     "{{ $.Config.Package }}/{{ $n.Package }}"
-    {{- /* Import edge type packages for edge predicates */}}
-    {{- range $e := $filteredEdges }}
-        {{- if ne $e.Type.Package $n.Package }}
-            "{{ $.Config.Package }}/{{ $e.Type.Package }}"
-        {{- end }}
-    {{- end }}
 )
 
 {{ $name := $names.Node }}
 {{ $input := $names.WhereInput }}
+{{ $err := printf "ErrEmpty%s" $input }}
 // {{ $input }} represents a where input for filtering {{ $n.Name }} queries.
 type {{ $input }} struct {
     Predicates []predicate.{{ $n.Name }} `json:"-"`
@@ -87,164 +78,35 @@ type {{ $input }} struct {
     {{- end }}
 }
 
+// ErrEmpty{{ $input }} is returned in case the {{ $input }} is empty.
+var {{ $err }} = gqlwhere.NewEmptyError("{{ base $.Config.Package }}: empty predicate {{ $input }}")
+
+var registry{{ $input }} = gqlwhere.NewRegistry[predicate.{{ $n.Name }}](
+	{{ $n.Package }}.F, {{ $n.Package }}.E,
+	{{ $n.Package }}.Not, {{ $n.Package }}.And, {{ $n.Package }}.Or,
+	{{ $err }},
+).Warm((*{{ $input }})(nil))
+
 // AddPredicates adds custom predicates to the where input to be used during the filtering phase.
 func (i *{{ $input }}) AddPredicates(predicates ...predicate.{{ $n.Name }}) {
-    i.Predicates = append(i.Predicates, predicates...)
+	i.Predicates = append(i.Predicates, predicates...)
 }
-
-{{ $err := printf "ErrEmpty%s" $input }}
 
 // Filter applies the {{ $input }} filter on the {{ $n.QueryName }} builder.
 func (i *{{ $input }}) Filter(q *{{ $n.Package }}.{{ $n.QueryName }}) (*{{ $n.Package }}.{{ $n.QueryName }}, error) {
-    if i == nil {
-        return q, nil
-    }
-    p, err := i.P()
-    if err != nil {
-        {{- /* Skip empty predicate errors, including those wrapped by nested And/Or/Not clauses. */}}
-        if errors.Is(err, {{ $err }}) {
-           return q, nil
-        }
-        return nil, err
-    }
-    return q.Where(p), nil
+	if i == nil {
+		return q, nil
+	}
+	p, err := registry{{ $input }}.FilterP(i)
+	if err != nil || p == nil {
+		return q, err
+	}
+	return q.Where(p), nil
 }
-
-// {{ $err }} is returned in case the {{ $input }} is empty.
-var {{ $err }} = errors.New("{{ base $.Config.Package }}: empty predicate {{ $input }}")
 
 // P returns a predicate for filtering {{ plural $n.Name | lower }}.
 // An error is returned if the input is empty or invalid.
 func (i *{{ $input }}) P() (predicate.{{ $n.Name }}, error) {
-    var predicates []predicate.{{ $n.Name }}
-    if i.Not != nil {
-        p, err := i.Not.P()
-        if err != nil {
-            if !errors.Is(err, {{ $err }}) {
-                return nil, fmt.Errorf("%w: field 'not'", err)
-            }
-        } else {
-            predicates = append(predicates, {{ $n.Package }}.Not(p))
-        }
-    }
-    switch n := len(i.Or); {
-    case n == 1:
-        p, err := i.Or[0].P()
-        if err != nil {
-            if !errors.Is(err, {{ $err }}) {
-                return nil, fmt.Errorf("%w: field 'or'", err)
-            }
-        } else {
-            predicates = append(predicates, p)
-        }
-    case n > 1:
-        or := make([]predicate.{{ $n.Name }}, 0, n)
-        for _, w := range i.Or {
-            p, err := w.P()
-            if err != nil {
-                if !errors.Is(err, {{ $err }}) {
-                    return nil, fmt.Errorf("%w: field 'or'", err)
-                }
-                continue
-            }
-            or = append(or, p)
-        }
-        if len(or) > 0 {
-            predicates = append(predicates, {{ $n.Package }}.Or(or...))
-        }
-    }
-    switch n := len(i.And); {
-    case n == 1:
-        p, err := i.And[0].P()
-        if err != nil {
-            if !errors.Is(err, {{ $err }}) {
-                return nil, fmt.Errorf("%w: field 'and'", err)
-            }
-        } else {
-            predicates = append(predicates, p)
-        }
-    case n > 1:
-        and := make([]predicate.{{ $n.Name }}, 0, n)
-        for _, w := range i.And {
-            p, err := w.P()
-            if err != nil {
-                if !errors.Is(err, {{ $err }}) {
-                    return nil, fmt.Errorf("%w: field 'and'", err)
-                }
-                continue
-            }
-            and = append(and, p)
-        }
-        if len(and) > 0 {
-            predicates = append(predicates, {{ $n.Package }}.And(and...))
-        }
-    }
-    predicates = append(predicates, i.Predicates...)
-    {{- range $f := $comparableFields }}
-        {{- range $op := safeOps $f }}
-            {{- $func := print $f.StructField $op.Name }}
-            {{- $field := $func }}
-            {{- /* We name the <Field>EQ() filter as <Field>(), because it's nicer (e.g. "name_eq" -> "name") */}}
-            {{- if eq $op.Name "EQ" }}
-                {{- $field = $f.StructField }}
-            {{- end }}
-            {{- if $op.Niladic }}
-                predicates = wherehelpers.AppendBool(predicates, i.{{ $field }}, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }})
-            {{- else if $op.Variadic }}
-                predicates = wherehelpers.AppendSlice(predicates, i.{{ $field }}, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }})
-            {{- else if $f.Type.RType.IsPtr }}
-                {{- /* Field's underlying type is already a pointer-like (map/slice/etc).
-                       Wrap with a function literal so AppendPtr's deref produces the right type. */}}
-                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, func(v {{ $f.Type.String }}) predicate.{{ $n.Name }} { return {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }}(v) })
-            {{- else }}
-                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }})
-            {{- end }}
-        {{- end }}
-    {{- end }}
-    {{ range $e := $filteredEdges }}
-        {{- $func := print "Has" $e.StructField }}
-        if i.{{ $func }} != nil {
-            p := {{ $n.Package }}.E.{{ $e.StructField }}.Has()
-            if !*i.{{ $func }} {
-                p = {{ $n.Package }}.Not(p)
-            }
-            predicates = append(predicates, p)
-        }
-        {{- $func = print $func "With" }}
-        {{- $edgeNames := nodePaginationNames $e.Type }}
-        if len(i.{{ $func }}) > 0 {
-            with := make([]predicate.{{ $e.Type.Name }}, 0, len(i.{{ $func }}))
-            hasEmptyPredicate := false
-            for _, w := range i.{{ $func }} {
-                p, err := w.P()
-                if err != nil {
-                    // An empty nested predicate (e.g. hasContactListWith: {idIn:[]}) means
-                    // "IN empty set" — nothing can match. Emit a never-match predicate instead of
-                    // propagating the error past Filter()'s empty-predicate guard.
-                    if errors.Is(err, {{ printf "ErrEmpty%s" $edgeNames.WhereInput }}) {
-                        hasEmptyPredicate = true
-                        break
-                    }
-                    return nil, fmt.Errorf("%w: field '{{ $func }}'", err)
-                }
-                with = append(with, p)
-            }
-            if hasEmptyPredicate {
-                predicates = append(predicates, predicate.{{ $n.Name }}(func(s *entsql.Selector) {
-                    s.Where(entsql.False())
-                }))
-            } else {
-                predicates = append(predicates, {{ $n.Package }}.E.{{ $e.StructField }}.HasWith(with...))
-            }
-        }
-    {{- end }}
-    switch len(predicates) {
-    case 0:
-        return nil, {{ $err }}
-    case 1:
-        return predicates[0], nil
-    default:
-        return {{ $n.Package }}.And(predicates...), nil
-    }
+	return registry{{ $input }}.P(i)
 }
 {{ end }}

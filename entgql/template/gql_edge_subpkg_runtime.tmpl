@@ -39,7 +39,9 @@ func IsNotFound(err error) bool {
 }
 
 // MaskNotFound masks a not-found error. Returns nil if err is a not-found error;
-// otherwise returns err unchanged.
+// otherwise returns err unchanged. Passed directly to gqledge.One for optional
+// edges (never registered in a package-level var, so two generated schemas
+// linked into one binary keep their own not-found test).
 func MaskNotFound(err error) error {
 	if IsNotFound(err) {
 		return nil
