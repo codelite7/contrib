@@ -162,7 +162,7 @@ func (c *Client) noder(ctx context.Context, table string, id {{ $idType }}) (Nod
 				}
 			{{- end }}
 			query := c.{{ $n.Name }}.Query().
-				Where({{ $n.Package }}.F.ID.EQ({{ if $unmarshalID }}u{{ end }}id))
+				Where({{ $n.Package }}.Field.ID.EQ({{ if $unmarshalID }}u{{ end }}id))
 			{{- if hasTemplate "gql_collection" }}
 				if fc := graphql.GetFieldContext(ctx); fc != nil {
 					if err := query.collectField(ctx, true, graphql.GetOperationContext(ctx), fc.Field, nil, {{ nodeImplementorsVar $n }}...); err != nil {
@@ -258,7 +258,7 @@ func (c *Client) noders(ctx context.Context, table string, ids []{{ $idType }}) 
 				}
 			{{- end }}
 			query := c.{{ $n.Name }}.Query().
-				Where({{ $n.Package }}.F.ID.In({{ if $unmarshalID }}u{{ end }}ids...))
+				Where({{ $n.Package }}.Field.ID.In({{ if $unmarshalID }}u{{ end }}ids...))
 			{{- if hasTemplate "gql_collection" }}
 				query, err := query.CollectFields(ctx, {{ nodeImplementorsVar $n }}...)
 				if err != nil {

@@ -77,7 +77,7 @@ const (
 
 // fieldOp is one registered "<HandleFieldName><MethodName>" (or bare
 // "<HandleFieldName>" EQ alias) entry: a bound method value on a field
-// handle (e.g. company.F.SalesforceID.Contains), plus enough about its
+// handle (e.g. company.Field.SalesforceID.Contains), plus enough about its
 // signature to dispatch a WhereInput struct field's value into a call.
 type fieldOp struct {
 	method  reflect.Value
@@ -86,7 +86,7 @@ type fieldOp struct {
 }
 
 // edgeOp is one registered "Has<Edge>" or "Has<Edge>With" entry: a bound
-// method value on an edge handle (e.g. company.E.CreatedBy.HasWith), plus
+// method value on an edge handle (e.g. company.Edge.CreatedBy.HasWith), plus
 // its variadic slice/element type for the HasWith case.
 type edgeOp struct {
 	method    reflect.Value

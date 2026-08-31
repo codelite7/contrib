@@ -185,16 +185,16 @@ import (
                 {{- end }}
                 {{- if $op.Niladic }}
                     if i.{{ $field }} {
-                        predicates = append(predicates, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }}())
+                        predicates = append(predicates, {{ $n.Package }}.Field.{{ $f.StructField }}.{{ $op.Name }}())
                     }
                 {{- else }}
                     {{- if $op.Variadic }}
                         if len(i.{{ $field }}) > 0 {
-                            predicates = append(predicates, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }}(i.{{ $field }}...))
+                            predicates = append(predicates, {{ $n.Package }}.Field.{{ $f.StructField }}.{{ $op.Name }}(i.{{ $field }}...))
                         }
                     {{- else }}
                         if i.{{ $field }} != nil {
-                            predicates = append(predicates, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }}({{ if not $f.Type.RType.IsPtr }}*{{ end }}i.{{ $field }}))
+                            predicates = append(predicates, {{ $n.Package }}.Field.{{ $f.StructField }}.{{ $op.Name }}({{ if not $f.Type.RType.IsPtr }}*{{ end }}i.{{ $field }}))
                         }
                     {{- end }}
                 {{- end }}
@@ -203,7 +203,7 @@ import (
         {{ range $e := filterEdges $n.Edges (skipMode "where_input") }}
             {{- $func := print "Has" $e.StructField }}
             if i.{{ $func }} != nil {
-                p := {{ $n.Package }}.E.{{ $e.StructField }}.Has()
+                p := {{ $n.Package }}.Edge.{{ $e.StructField }}.Has()
                 if !*i.{{ $func }} {
                     p = {{ $n.Package }}.Not(p)
                 }
@@ -219,7 +219,7 @@ import (
                     }
                     with = append(with, p)
                 }
-                predicates = append(predicates, {{ $n.Package }}.E.{{ $e.StructField }}.HasWith(with...))
+                predicates = append(predicates, {{ $n.Package }}.Edge.{{ $e.StructField }}.HasWith(with...))
             }
         {{- end }}
         switch len(predicates) {

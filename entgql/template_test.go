@@ -1949,8 +1949,8 @@ func TestNodeEntityTemplateExecution(t *testing.T) {
 	require.Contains(t, output, "func todoNoder(ctx context.Context, c *Client, id int) (Noder, error)")
 	require.Contains(t, output, "func todoNoders(ctx context.Context, c *Client, ids []int")
 	require.Contains(t, output, "c.Todo.Query()")
-	require.Contains(t, output, "todo.F.ID.EQ(id)")
-	require.Contains(t, output, "todo.F.ID.In(ids...)")
+	require.Contains(t, output, "todo.Field.ID.EQ(id)")
+	require.Contains(t, output, "todo.Field.ID.In(ids...)")
 
 	// Verify the per-entity arms delegate to the generic root-gen helpers
 	// instead of duplicating the noder/noders bodies.

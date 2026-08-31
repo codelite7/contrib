@@ -142,7 +142,7 @@ func exprTerm(expression string) func(...sql.OrderTermOption) func(*sql.Selector
 //	gql:         the GraphQL enum value (e.g. "NAME")
 //	column:      the SQL column constant
 //	structField: the Go struct field to read for Value/Cursor (e.g. "Name")
-//	term:        the entity handle's Order method value (F.Name.Order)
+//	term:        the entity handle's Order method value (Field.Name.Order)
 //	opts:        Expr(...) for an ORDER BY expression override
 func Column[T any, ID any](gql, column, structField string,
 	term func(...sql.OrderTermOption) func(*sql.Selector),
