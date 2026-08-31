@@ -82,7 +82,7 @@ type {{ $input }} struct {
 var {{ $err }} = gqlwhere.NewEmptyError("{{ base $.Config.Package }}: empty predicate {{ $input }}")
 
 var registry{{ $input }} = gqlwhere.NewRegistry[predicate.{{ $n.Name }}](
-	{{ $n.Package }}.F, {{ $n.Package }}.E,
+	{{ $n.Package }}.Field, {{ $n.Package }}.Edge,
 	{{ $n.Package }}.Not, {{ $n.Package }}.And, {{ $n.Package }}.Or,
 	{{ $err }},
 ).Warm((*{{ $input }})(nil))
