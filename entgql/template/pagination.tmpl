@@ -559,7 +559,7 @@ func ({{ $r }} *{{ $query }}) Paginate(
 						}
 					},
 					{{- else }}
-					toTerm: {{ $node.Package }}.{{ $f.Field.OrderName }},
+					toTerm: {{ $node.Package }}.F.{{ $f.Field.StructField }}.Order,
 					{{- end }}
         {{- else if $f.IsNonUniqueEdgeFieldTerm }}
 					column: {{ $f.VarField }},
@@ -618,15 +618,17 @@ func ({{ $r }} *{{ $query }}) Paginate(
 				{{- else if $f.IsEdgeFieldTerm }}
 					column: {{ $f.VarField }},
 					toTerm: func(opts ...sql.OrderTermOption) {{ $node.Package }}.OrderOption {
-						return {{ $node.Package}}.{{ $f.Edge.OrderFieldName }}(
-							{{ $f.Type.Package }}.{{ $f.Field.Constant }},
-							append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
+						return {{ $node.Package }}.E.{{ $f.Edge.StructField }}.OrderBy(
+							sql.OrderByField(
+								{{ $f.Type.Package }}.{{ $f.Field.Constant }},
+								append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
+							),
 						)
 					},
 				{{- else if $f.IsEdgeCountTerm }}
 					column: {{ $f.VarField }},
 					toTerm: func(opts ...sql.OrderTermOption) {{ $node.Package }}.OrderOption {
-						return {{ $node.Package}}.{{ $f.Edge.OrderCountName }}(
+						return {{ $node.Package }}.E.{{ $f.Edge.StructField }}.OrderByCount(
 							append(opts, sql.OrderSelectAs({{ $f.VarField }}))...,
 						)
 					},
@@ -723,7 +725,7 @@ var {{ $defaultOrder }} = &{{ $order }}{
 			return {{ $r }}.ID, nil
 		},
 		column: {{ $node.Package }}.{{ $node.ID.Constant }},
-		toTerm: {{ $node.Package }}.{{ $node.ID.OrderName }},
+		toTerm: {{ $node.Package }}.F.{{ $node.ID.StructField }}.Order,
 		toCursor: func({{ $r }} *{{ $name }}) Cursor {
 			{{- $marshalID := and $idType.Mixed (gqlMarshaler $node.ID) }}
 			return Cursor{ID: {{ if $marshalID }}marshal{{ $node.Name }}ID({{ $r }}){{ else }}{{ $r }}.ID{{ end }}}

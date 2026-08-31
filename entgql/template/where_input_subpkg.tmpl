@@ -189,22 +189,22 @@ func (i *{{ $input }}) P() (predicate.{{ $n.Name }}, error) {
                 {{- $field = $f.StructField }}
             {{- end }}
             {{- if $op.Niladic }}
-                predicates = wherehelpers.AppendBool(predicates, i.{{ $field }}, {{ $n.Package }}.{{ $func }})
+                predicates = wherehelpers.AppendBool(predicates, i.{{ $field }}, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }})
             {{- else if $op.Variadic }}
-                predicates = wherehelpers.AppendSlice(predicates, i.{{ $field }}, {{ $n.Package }}.{{ $func }})
+                predicates = wherehelpers.AppendSlice(predicates, i.{{ $field }}, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }})
             {{- else if $f.Type.RType.IsPtr }}
                 {{- /* Field's underlying type is already a pointer-like (map/slice/etc).
                        Wrap with a function literal so AppendPtr's deref produces the right type. */}}
-                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, func(v {{ $f.Type.String }}) predicate.{{ $n.Name }} { return {{ $n.Package }}.{{ $func }}(v) })
+                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, func(v {{ $f.Type.String }}) predicate.{{ $n.Name }} { return {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }}(v) })
             {{- else }}
-                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, {{ $n.Package }}.{{ $func }})
+                predicates = wherehelpers.AppendPtr(predicates, i.{{ $field }}, {{ $n.Package }}.F.{{ $f.StructField }}.{{ $op.Name }})
             {{- end }}
         {{- end }}
     {{- end }}
     {{ range $e := $filteredEdges }}
         {{- $func := print "Has" $e.StructField }}
         if i.{{ $func }} != nil {
-            p := {{ $n.Package }}.{{ $func }}()
+            p := {{ $n.Package }}.E.{{ $e.StructField }}.Has()
             if !*i.{{ $func }} {
                 p = {{ $n.Package }}.Not(p)
             }
@@ -234,7 +234,7 @@ func (i *{{ $input }}) P() (predicate.{{ $n.Name }}, error) {
                     s.Where(entsql.False())
                 }))
             } else {
-                predicates = append(predicates, {{ $n.Package }}.{{ $func }}(with...))
+                predicates = append(predicates, {{ $n.Package }}.E.{{ $e.StructField }}.HasWith(with...))
             }
         }
     {{- end }}
