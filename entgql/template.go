@@ -184,6 +184,10 @@ var (
 
 	// TemplateFuncs contains the extra template functions used by entgql.
 	TemplateFuncs = template.FuncMap{
+		"edgeAddGQLName":      edgeAddGQLName,
+		"edgeClearGQLName":    edgeClearGQLName,
+		"edgeInputGQLName":    edgeInputGQLName,
+		"edgeRemoveGQLName":   edgeRemoveGQLName,
 		"fieldCollections":    fieldCollections,
 		"fieldMapping":        fieldMapping,
 		"filterEdges":         filterEdges,
@@ -400,6 +404,29 @@ func (f *InputFieldDescriptor) IsPointer() bool {
 	}
 	return f.Nullable
 }
+
+// GQLName is the GraphQL input-field name for this field. schema.go and the
+// mutation-input templates must both use it so the generated struct tags and
+// the generated schema cannot drift apart.
+func (f *InputFieldDescriptor) GQLName() string { return camel(f.Name) }
+
+// AppendGQLName is the GraphQL name of the append<Field> input field.
+func (f *InputFieldDescriptor) AppendGQLName() string { return "append" + f.StructField() }
+
+// ClearGQLName is the GraphQL name of the clear<Field> input field.
+func (f *InputFieldDescriptor) ClearGQLName() string { return "clear" + f.StructField() }
+
+// edgeInputGQLName is the GraphQL name of the edge-ID field on a mutation input.
+func edgeInputGQLName(e *gen.Edge, isCreate bool) string {
+	if e.Unique {
+		return camel(e.Name) + "ID"
+	}
+	return camel(singular(e.Name)) + "IDs"
+}
+
+func edgeAddGQLName(e *gen.Edge) string    { return "add" + pascal(singular(e.Name)) + "IDs" }
+func edgeRemoveGQLName(e *gen.Edge) string { return "remove" + pascal(singular(e.Name)) + "IDs" }
+func edgeClearGQLName(e *gen.Edge) string  { return camel(snake(e.MutationClear())) }
 
 // InputFields returns the list of fields in the input type.
 func (m *MutationDescriptor) InputFields() ([]*InputFieldDescriptor, error) {

@@ -2072,3 +2072,19 @@ func TestNodeEntityTemplateMultipleEntities(t *testing.T) {
 	require.Contains(t, catOutput, "registerNodeResolver(category.Table")
 	require.NotContains(t, catOutput, "todoNoder")
 }
+
+func TestInputGQLNames(t *testing.T) {
+	f := &InputFieldDescriptor{Field: &gen.Field{Name: "app_url"}}
+	require.Equal(t, "appURL", f.GQLName())
+	require.Equal(t, "appendAppURL", f.AppendGQLName())
+	require.Equal(t, "clearAppURL", f.ClearGQLName())
+
+	e := &gen.Edge{Name: "child_items", Unique: false}
+	require.Equal(t, "childItemIDs", edgeInputGQLName(e, true))
+	require.Equal(t, "addChildItemIDs", edgeAddGQLName(e))
+	require.Equal(t, "removeChildItemIDs", edgeRemoveGQLName(e))
+	require.Equal(t, "clearChildItems", edgeClearGQLName(e))
+	u := &gen.Edge{Name: "owner", Unique: true}
+	require.Equal(t, "ownerID", edgeInputGQLName(u, true))
+	require.Equal(t, "ownerID", edgeInputGQLName(u, false))
+}
