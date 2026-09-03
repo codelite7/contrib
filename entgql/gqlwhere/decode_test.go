@@ -114,7 +114,7 @@ func TestDecode_ErrorCarriesFieldPath(t *testing.T) {
 	require.ErrorAs(t, err, &gqlErr)
 	require.Equal(t, "count", gqlErr.Path.String())
 
-	err = Decode(context.Background(), "DecInput", &dst, map[string]any{"inner": map[string]any{"name": 5}})
+	err = Decode(context.Background(), "DecInput", &dst, map[string]any{"inner": map[string]any{"name": map[string]any{}}})
 	require.ErrorAs(t, err, &gqlErr)
 	require.Equal(t, "inner.name", gqlErr.Path.String())
 
