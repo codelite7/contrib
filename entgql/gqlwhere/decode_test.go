@@ -2,7 +2,9 @@ package gqlwhere
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"reflect"
 	"testing"
 	"time"
 
@@ -154,4 +156,69 @@ func TestDecode_UnsupportedTypeIsAPlanError(t *testing.T) {
 	var dst bad
 	err := Decode(context.Background(), "Bad", &dst, map[string]any{})
 	require.ErrorContains(t, err, `gqlwhere: no coercer for Go type chan int (field "ch")`)
+}
+
+type decStrings []string // like pq.StringArray
+
+type decListInput struct {
+	Names    []string        `json:"names,omitempty"`
+	Nums     []int           `json:"nums,omitempty"`
+	IDs      []int           `json:"ids,omitempty" gqlscalar:"ID"`
+	Statuses []decStatus     `json:"statuses,omitempty"`
+	Inners   []*decInner     `json:"inners,omitempty"`
+	Named    *decStrings     `json:"named,omitempty"`
+	Durs     []time.Duration `json:"durs,omitempty"`
+}
+
+func TestDecode_Lists(t *testing.T) {
+	in := map[string]any{
+		"names":    []any{"a", "b"},
+		"nums":     "7", // single value coerced to a one-element list
+		"ids":      []any{"1", 2},
+		"statuses": []any{"OK", "BAD"},
+		"inners":   []any{map[string]any{"name": "x"}, nil},
+		"named":    []any{"p", "q"},
+	}
+	var dst decListInput
+	require.NoError(t, Decode(context.Background(), "DecListInput", &dst, in))
+	require.Equal(t, []string{"a", "b"}, dst.Names)
+	require.Equal(t, []int{7}, dst.Nums)
+	require.Equal(t, []int{1, 2}, dst.IDs)
+	require.Equal(t, []decStatus{"OK", "BAD"}, dst.Statuses)
+	require.Len(t, dst.Inners, 2)
+	require.Equal(t, "x", *dst.Inners[0].Name)
+	require.Nil(t, dst.Inners[1])
+	require.Equal(t, decStrings{"p", "q"}, *dst.Named)
+}
+
+func TestDecode_ListNullIsNilSlice(t *testing.T) {
+	var dst decListInput
+	require.NoError(t, Decode(context.Background(), "DecListInput", &dst, map[string]any{"names": nil}))
+	require.Nil(t, dst.Names)
+}
+
+func TestDecode_ListErrorCarriesIndexPath(t *testing.T) {
+	var dst decListInput
+	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{"nums": []any{1, "x"}})
+	var gqlErr *gqlerror.Error
+	require.ErrorAs(t, err, &gqlErr)
+	require.Equal(t, "nums[1]", gqlErr.Path.String())
+
+	err = Decode(context.Background(), "DecListInput", &dst, map[string]any{"inners": []any{map[string]any{"name": map[string]any{}}}})
+	require.ErrorAs(t, err, &gqlErr)
+	require.Equal(t, "inners[0].name", gqlErr.Path.String())
+}
+
+func TestDecode_RegisteredCoercer(t *testing.T) {
+	RegisterCoercer[time.Duration](func(_ context.Context, v any) (time.Duration, error) {
+		s, ok := v.(string)
+		if !ok {
+			return 0, fmt.Errorf("%T is not a duration string", v)
+		}
+		return time.ParseDuration(s)
+	})
+	plans.Delete(reflect.TypeFor[decListInput]()) // plan was cached before registration
+	var dst decListInput
+	require.NoError(t, Decode(context.Background(), "DecListInput", &dst, map[string]any{"durs": []any{"1s", "2m"}}))
+	require.Equal(t, []time.Duration{time.Second, 2 * time.Minute}, dst.Durs)
 }

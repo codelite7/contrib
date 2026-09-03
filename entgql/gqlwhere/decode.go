@@ -45,6 +45,10 @@ var (
 
 // RegisterCoercer registers fn as the coercer for Go type T, for scalars bound
 // to gqlgen via marshal/unmarshal functions rather than methods.
+//
+// RegisterCoercer must be called during package initialization, before the
+// first Decode of any struct that has a field of type T: decode plans are
+// cached per struct type on first use.
 func RegisterCoercer[T any](fn func(ctx context.Context, v any) (T, error)) {
 	coercersMu.Lock()
 	defer coercersMu.Unlock()
@@ -297,7 +301,31 @@ func Decode(ctx context.Context, gqlName string, dst any, v any) error {
 	return nil
 }
 
-// sliceCoercer is a stub; Task 3 fills in list support.
+// sliceCoercer builds a decodeFn for a slice type t, matching gqlgen's
+// generated list coercers: a non-[]any value is treated as a one-element
+// list, and each element is coerced under a path context carrying its index.
 func sliceCoercer(t reflect.Type, isID bool) (decodeFn, error) {
-	return nil, fmt.Errorf("no coercer for Go type %s; register one with gqlwhere.RegisterCoercer", t)
+	elem, err := coercerFor(t.Elem(), isID)
+	if err != nil {
+		return nil, err
+	}
+	return func(ctx context.Context, v any) (reflect.Value, error) {
+		if v == nil {
+			return reflect.Zero(t), nil
+		}
+		items, ok := v.([]any)
+		if !ok {
+			items = []any{v}
+		}
+		out := reflect.MakeSlice(t, len(items), len(items))
+		for i, item := range items {
+			ictx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+			ev, err := elem(ictx, item)
+			if err != nil {
+				return reflect.Value{}, graphql.ErrorOnPath(ictx, err)
+			}
+			out.Index(i).Set(ev)
+		}
+		return out, nil
+	}, nil
 }
