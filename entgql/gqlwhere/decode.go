@@ -121,7 +121,30 @@ func gqlFieldName(sf reflect.StructField) string {
 	return j
 }
 
+// coercerFor resolves the decodeFn for t, then — for any Go type gqlgen
+// treats as nilable (map, slice, pointer, interface) — wraps it so an
+// explicit GraphQL null short-circuits to the zero value instead of reaching
+// the inner coercer. This mirrors gqlgen's generated `if v == nil { return
+// nil, nil }` guard in type.gotpl, emitted for every nilable scalar/list.
 func coercerFor(t reflect.Type, isID bool) (decodeFn, error) {
+	fn, err := buildCoercer(t, isID)
+	if err != nil {
+		return nil, err
+	}
+	switch t.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Pointer, reflect.Interface:
+		inner := fn
+		return func(ctx context.Context, v any) (reflect.Value, error) {
+			if v == nil {
+				return reflect.Zero(t), nil
+			}
+			return inner(ctx, v)
+		}, nil
+	}
+	return fn, nil
+}
+
+func buildCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 	// Methods first: enums, custom scalars, nested inputs.
 	if reflect.PointerTo(t).Implements(ctxUnmarshalerT) {
 		return func(ctx context.Context, v any) (reflect.Value, error) {

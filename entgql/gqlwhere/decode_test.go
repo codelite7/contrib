@@ -107,6 +107,12 @@ func TestDecode_NullLeavesNilPointer(t *testing.T) {
 	require.Nil(t, dst.Inner)
 }
 
+func TestDecode_NullLeavesNilMap(t *testing.T) {
+	var dst decInput
+	require.NoError(t, Decode(context.Background(), "DecInput", &dst, map[string]any{"meta": nil}))
+	require.Nil(t, dst.Meta)
+}
+
 func TestDecode_ErrorCarriesFieldPath(t *testing.T) {
 	var dst decInput
 	err := Decode(context.Background(), "DecInput", &dst, map[string]any{"count": "not-a-number"})
