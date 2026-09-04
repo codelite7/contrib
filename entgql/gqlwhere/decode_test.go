@@ -149,13 +149,18 @@ func TestDecode_PathNestsUnderOuterContext(t *testing.T) {
 	require.Equal(t, "where.count", gqlErr.Path.String())
 }
 
-func TestDecode_UnsupportedTypeIsAPlanError(t *testing.T) {
-	type bad struct {
-		Ch chan int `json:"ch"`
+func TestDecode_UnsupportedTypeErrorsOnlyWhenFieldPresent(t *testing.T) {
+	type upload struct {
+		Name     string `gql:"name"`
+		FileData []byte `gql:"fileData"`
 	}
-	var dst bad
-	err := Decode(context.Background(), "Bad", &dst, map[string]any{})
-	require.ErrorContains(t, err, `gqlwhere: no coercer for Go type chan int (field "ch")`)
+	var dst upload
+	err := Decode(context.Background(), "X", &dst, map[string]any{"name": "a"})
+	require.NoError(t, err)
+	require.Equal(t, "a", dst.Name)
+
+	err = Decode(context.Background(), "X", &dst, map[string]any{"fileData": "zz"})
+	require.ErrorContains(t, err, `gqlwhere: no coercer for Go type uint8 (field "fileData")`)
 }
 
 type decStrings []string // like pq.StringArray

@@ -67,11 +67,11 @@ type decodeField struct {
 	name  string
 	index int
 	fn    decodeFn
+	err   error // set instead of fn when the field's Go type has no coercer; returned only if the field is present in the input.
 }
 
 type decodePlan struct {
 	fields []decodeField
-	err    error // plan-build error, returned by every Decode call for this type
 }
 
 var plans sync.Map // reflect.Type → *decodePlan
@@ -98,8 +98,12 @@ func buildPlan(t reflect.Type) *decodePlan {
 		}
 		fn, err := coercerFor(sf.Type, sf.Tag.Get("gqlscalar") == "ID")
 		if err != nil {
-			p.err = fmt.Errorf("gqlwhere: %w (field %q); register one with gqlwhere.RegisterCoercer", err, name)
-			return p
+			p.fields = append(p.fields, decodeField{
+				name:  name,
+				index: i,
+				err:   fmt.Errorf("gqlwhere: %w (field %q); register one with gqlwhere.RegisterCoercer", err, name),
+			})
+			continue
 		}
 		p.fields = append(p.fields, decodeField{name: name, index: i, fn: fn})
 	}
@@ -283,13 +287,13 @@ func Decode(ctx context.Context, gqlName string, dst any, v any) error {
 		return fmt.Errorf("unmarshalInput%s: expected map[string]any, got %T", gqlName, v)
 	}
 	p := planFor(target.Type())
-	if p.err != nil {
-		return p.err
-	}
 	for _, f := range p.fields {
 		raw, present := asMap[f.name]
 		if !present {
 			continue
+		}
+		if f.err != nil {
+			return f.err
 		}
 		fctx := graphql.WithPathContext(ctx, graphql.NewPathWithField(f.name))
 		val, err := f.fn(fctx, raw)
