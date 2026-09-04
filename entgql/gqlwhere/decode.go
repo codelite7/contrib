@@ -19,40 +19,108 @@ type Coercer func(ctx context.Context, v any) (any, error)
 
 var (
 	coercersMu sync.RWMutex
-	// coercers maps a Go type to the gqlgen primitive its generated coercer
-	// would call. Keep this the exact list of primitives gqlgen's type.gotpl
-	// emits for built-in scalars.
-	coercers = map[reflect.Type]Coercer{
-		reflect.TypeFor[string]():         func(_ context.Context, v any) (any, error) { return graphql.UnmarshalString(v) },
-		reflect.TypeFor[bool]():           func(_ context.Context, v any) (any, error) { return graphql.UnmarshalBoolean(v) },
-		reflect.TypeFor[int]():            func(_ context.Context, v any) (any, error) { return graphql.UnmarshalInt(v) },
-		reflect.TypeFor[int32]():          func(_ context.Context, v any) (any, error) { return graphql.UnmarshalInt32(v) },
-		reflect.TypeFor[int64]():          func(_ context.Context, v any) (any, error) { return graphql.UnmarshalInt64(v) },
-		reflect.TypeFor[uint]():           func(_ context.Context, v any) (any, error) { return graphql.UnmarshalUint(v) },
-		reflect.TypeFor[uint32]():         func(_ context.Context, v any) (any, error) { return graphql.UnmarshalUint32(v) },
-		reflect.TypeFor[uint64]():         func(_ context.Context, v any) (any, error) { return graphql.UnmarshalUint64(v) },
-		reflect.TypeFor[float64]():        func(ctx context.Context, v any) (any, error) { return graphql.UnmarshalFloatContext(ctx, v) },
-		reflect.TypeFor[time.Time]():      func(_ context.Context, v any) (any, error) { return graphql.UnmarshalTime(v) },
-		reflect.TypeFor[uuid.UUID]():      func(_ context.Context, v any) (any, error) { return graphql.UnmarshalUUID(v) },
-		reflect.TypeFor[map[string]any](): func(_ context.Context, v any) (any, error) { return graphql.UnmarshalMap(v) },
+	// scalars maps a GraphQL scalar name to the gqlgen coercer bound to it,
+	// keyed by the Go type of the bound model. This mirrors how gqlgen picks an
+	// unmarshaler: config.Models[<GraphQL type>].Model names a Go object, and
+	// binder.TypeReference walks that list picking the model whose Go type is
+	// compatible with the field's (codegen/config/binder.go). Resolving by Go
+	// type alone cannot work: two GraphQL scalars bound to the same Go type
+	// (Duration and Int64 both over time.Duration/int64) are indistinguishable.
+	//
+	// Seeded with exactly the bindings config.injectBuiltins installs
+	// (codegen/config/config.go), which is the source of truth this table
+	// shadows. Names outside it belong to the app's gqlgen.yml, so the app
+	// registers them with RegisterScalar.
+	scalars = map[string]map[reflect.Type]Coercer{
+		// injectBuiltins: unconditional builtins.
+		"Float":   {reflect.TypeFor[float64](): func(ctx context.Context, v any) (any, error) { return graphql.UnmarshalFloatContext(ctx, v) }},
+		"String":  {reflect.TypeFor[string](): coercer(graphql.UnmarshalString)},
+		"Boolean": {reflect.TypeFor[bool](): coercer(graphql.UnmarshalBoolean)},
+		"Int": {
+			reflect.TypeFor[int]():   coercer(graphql.UnmarshalInt),
+			reflect.TypeFor[int32](): coercer(graphql.UnmarshalInt32),
+			reflect.TypeFor[int64](): coercer(graphql.UnmarshalInt64),
+		},
+		"ID": {
+			reflect.TypeFor[string](): coercer(graphql.UnmarshalID),
+			reflect.TypeFor[int]():    coercer(graphql.UnmarshalIntID),
+			// Not in injectBuiltins: an app with uint IDs must add
+			// graphql.UintID to models.ID.model itself or gqlgen codegen
+			// fails, and gqlgen then emits UnmarshalUintID -- which differs
+			// from UnmarshalUint on -1 (silent wraparound vs error), on nil,
+			// and on uint32/uint64 inputs.
+			reflect.TypeFor[uint](): coercer(graphql.UnmarshalUintID),
+		},
+		// injectBuiltins: extraBuiltins, injected when the schema declares the
+		// scalar. entgql emits Time and Map itself; the rest are here because
+		// gqlgen binds them the moment an app declares them.
+		"Int64": {
+			reflect.TypeFor[int]():   coercer(graphql.UnmarshalInt),
+			reflect.TypeFor[int64](): coercer(graphql.UnmarshalInt64),
+		},
+		"Time":   {reflect.TypeFor[time.Time](): coercer(graphql.UnmarshalTime)},
+		"Map":    {reflect.TypeFor[map[string]any](): coercer(graphql.UnmarshalMap)},
+		"Upload": {reflect.TypeFor[graphql.Upload](): coercer(graphql.UnmarshalUpload)},
+		"Any":    {reflect.TypeFor[any](): coercer(graphql.UnmarshalAny)},
+		// Not injected by gqlgen, but graphql.Uint/Uint32/Uint64 is the
+		// conventional binding for an app-declared Uint* scalar (entgql's own
+		// internal/todo fixture does exactly that for Uint64), and the binder
+		// resolves Marshal<Name>/Unmarshal<Name> from that model string.
+		"Uint":   {reflect.TypeFor[uint](): coercer(graphql.UnmarshalUint)},
+		"Uint32": {reflect.TypeFor[uint32](): coercer(graphql.UnmarshalUint32)},
+		"Uint64": {reflect.TypeFor[uint64](): coercer(graphql.UnmarshalUint64)},
 	}
-	// idCoercers are used instead of coercers when a field carries `gqlscalar:"ID"`.
-	idCoercers = map[reflect.Type]Coercer{
-		reflect.TypeFor[int]():    func(_ context.Context, v any) (any, error) { return graphql.UnmarshalIntID(v) },
-		reflect.TypeFor[string](): func(_ context.Context, v any) (any, error) { return graphql.UnmarshalID(v) },
+	// goCoercers resolves a struct field that carries no gqlscalar tag, i.e. a
+	// hand-written input struct rather than one entgql generated. It is a
+	// best-effort Go-type table: it cannot tell two scalars bound to the same
+	// Go type apart, which is why generated structs carry the tag.
+	goCoercers = map[reflect.Type]Coercer{
+		reflect.TypeFor[string]():         coercer(graphql.UnmarshalString),
+		reflect.TypeFor[bool]():           coercer(graphql.UnmarshalBoolean),
+		reflect.TypeFor[int]():            coercer(graphql.UnmarshalInt),
+		reflect.TypeFor[int32]():          coercer(graphql.UnmarshalInt32),
+		reflect.TypeFor[int64]():          coercer(graphql.UnmarshalInt64),
+		reflect.TypeFor[uint]():           coercer(graphql.UnmarshalUint),
+		reflect.TypeFor[uint32]():         coercer(graphql.UnmarshalUint32),
+		reflect.TypeFor[uint64]():         coercer(graphql.UnmarshalUint64),
+		reflect.TypeFor[float64]():        func(ctx context.Context, v any) (any, error) { return graphql.UnmarshalFloatContext(ctx, v) },
+		reflect.TypeFor[time.Time]():      coercer(graphql.UnmarshalTime),
+		reflect.TypeFor[uuid.UUID]():      coercer(graphql.UnmarshalUUID),
+		reflect.TypeFor[map[string]any](): coercer(graphql.UnmarshalMap),
 	}
 )
 
-// RegisterCoercer registers fn as the coercer for Go type T, for scalars bound
-// to gqlgen via marshal/unmarshal functions rather than methods.
+// coercer adapts a context-free gqlgen unmarshaler to a Coercer.
+func coercer[T any](fn func(any) (T, error)) Coercer {
+	return func(_ context.Context, v any) (any, error) { return fn(v) }
+}
+
+// RegisterScalar registers fn as the coercer for the GraphQL scalar named
+// name, bound to Go type T. Use it for every scalar the app binds in
+// gqlgen.yml to marshal/unmarshal functions rather than to a type with
+// UnmarshalGQL methods -- gqlgen resolves those by GraphQL name, so the
+// decoder must too:
 //
-// RegisterCoercer must be called during package initialization, before the
-// first Decode of any struct that has a field of type T: decode plans are
+//	models:
+//	  Duration:
+//	    model: [example.com/app/durationgql.Duration]
+//
+//	gqlwhere.RegisterScalar("Duration", func(_ context.Context, v any) (time.Duration, error) {
+//		return durationgql.UnmarshalDuration(v)
+//	})
+//
+// RegisterScalar must be called during package initialization, before the
+// first Decode of any struct with a field of that scalar: decode plans are
 // cached per struct type on first use.
-func RegisterCoercer[T any](fn func(ctx context.Context, v any) (T, error)) {
+func RegisterScalar[T any](name string, fn func(ctx context.Context, v any) (T, error)) {
 	coercersMu.Lock()
 	defer coercersMu.Unlock()
-	coercers[reflect.TypeFor[T]()] = func(ctx context.Context, v any) (any, error) { return fn(ctx, v) }
+	byGo := scalars[name]
+	if byGo == nil {
+		byGo = make(map[reflect.Type]Coercer, 1)
+		scalars[name] = byGo
+	}
+	byGo[reflect.TypeFor[T]()] = func(ctx context.Context, v any) (any, error) { return fn(ctx, v) }
 }
 
 var (
@@ -96,12 +164,12 @@ func buildPlan(t reflect.Type) *decodePlan {
 		if name == "" {
 			continue
 		}
-		fn, err := coercerFor(sf.Type, sf.Tag.Get("gqlscalar") == "ID")
+		fn, err := coercerFor(sf.Type, sf.Tag.Get("gqlscalar"))
 		if err != nil {
 			p.fields = append(p.fields, decodeField{
 				name:  name,
 				index: i,
-				err:   fmt.Errorf("gqlwhere: %w (field %q); register one with gqlwhere.RegisterCoercer", err, name),
+				err:   fmt.Errorf("gqlwhere: %w (field %q); register one with gqlwhere.RegisterScalar", err, name),
 			})
 			continue
 		}
@@ -129,13 +197,14 @@ func gqlFieldName(sf reflect.StructField) string {
 	return j
 }
 
-// coercerFor resolves the decodeFn for t, then — for any Go type gqlgen
-// treats as nilable (map, slice, pointer, interface) — wraps it so an
+// coercerFor resolves the decodeFn for t under the GraphQL scalar named by the
+// field's gqlscalar tag ("" when the field carries none), then — for any Go
+// type gqlgen treats as nilable (map, slice, pointer, interface) — wraps it so an
 // explicit GraphQL null short-circuits to the zero value instead of reaching
 // the inner coercer. This mirrors gqlgen's generated `if v == nil { return
 // nil, nil }` guard in type.gotpl, emitted for every nilable scalar/list.
-func coercerFor(t reflect.Type, isID bool) (decodeFn, error) {
-	fn, err := buildCoercer(t, isID)
+func coercerFor(t reflect.Type, scalar string) (decodeFn, error) {
+	fn, err := buildCoercer(t, scalar)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +221,9 @@ func coercerFor(t reflect.Type, isID bool) (decodeFn, error) {
 	return fn, nil
 }
 
-func buildCoercer(t reflect.Type, isID bool) (decodeFn, error) {
-	// Methods first: enums, custom scalars, nested inputs.
+func buildCoercer(t reflect.Type, scalar string) (decodeFn, error) {
+	// Methods first: enums, custom scalars, nested inputs. gqlgen's type.gotpl
+	// takes the IsMarshaler arm ahead of the scalar path too.
 	if reflect.PointerTo(t).Implements(ctxUnmarshalerT) {
 		return func(ctx context.Context, v any) (reflect.Value, error) {
 			rv := reflect.New(t)
@@ -168,20 +238,17 @@ func buildCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 			return rv.Elem(), graphql.ErrorOnPath(ctx, err)
 		}, nil
 	}
-	if isID {
-		if c, ok := idCoercers[t]; ok {
-			return scalarFn(t, c), nil
-		}
-	}
-	coercersMu.RLock()
-	c, ok := coercers[t]
-	coercersMu.RUnlock()
+	c, ok, bound := lookup(t, scalar)
 	if ok {
+		// scalarFn converts, which is the cast gqlgen applies for a named type
+		// over the bound model's basic type (binder.go's CastType arm).
 		return scalarFn(t, c), nil
 	}
 	switch t.Kind() {
 	case reflect.Pointer:
-		elem, err := coercerFor(t.Elem(), isID)
+		// Wrappers carry the scalar down to the element: gqlgen's type.gotpl
+		// resolves the unmarshaler from the leaf named type either way.
+		elem, err := coercerFor(t.Elem(), scalar)
 		if err != nil {
 			return nil, err
 		}
@@ -198,30 +265,56 @@ func buildCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 			return pv, nil
 		}, nil
 	case reflect.Slice:
-		return sliceCoercer(t, isID) // Task 3
+		return sliceCoercer(t, scalar)
 	case reflect.Struct:
-		return func(ctx context.Context, v any) (reflect.Value, error) {
-			rv := reflect.New(t)
-			err := Decode(ctx, t.Name(), rv.Interface(), v)
-			return rv.Elem(), graphql.ErrorOnPath(ctx, err)
-		}, nil
-	}
-	// Named type over a basic kind without methods: gqlgen casts the underlying scalar.
-	if t.PkgPath() != "" {
-		coercersMu.RLock()
-		uc, ok := coercers[underlyingType(t)]
-		coercersMu.RUnlock()
-		if ok {
+		if !bound {
+			// An input object, not a scalar: gqlgen generates unmarshalInput<X>.
 			return func(ctx context.Context, v any) (reflect.Value, error) {
-				out, err := uc(ctx, v)
-				if err != nil {
-					return reflect.Value{}, graphql.ErrorOnPath(ctx, err)
-				}
-				return reflect.ValueOf(out).Convert(t), nil
+				rv := reflect.New(t)
+				err := Decode(ctx, t.Name(), rv.Interface(), v)
+				return rv.Elem(), graphql.ErrorOnPath(ctx, err)
 			}, nil
 		}
 	}
+	if bound {
+		// The scalar is known but not bound to this Go type; gqlgen would have
+		// failed codegen rather than silently picking another unmarshaler.
+		return nil, fmt.Errorf("GraphQL scalar %s is not bound to Go type %s", scalar, t)
+	}
+	if scalar != "" {
+		return nil, fmt.Errorf("no coercer for GraphQL scalar %s (Go type %s)", scalar, t)
+	}
 	return nil, fmt.Errorf("no coercer for Go type %s", t)
+}
+
+// lookup resolves the coercer for Go type t under GraphQL scalar name scalar,
+// the way binder.TypeReference does: among the models bound to that scalar,
+// the one whose Go type matches the field's -- exactly, or as the basic type a
+// named type wraps. An empty scalar name (no gqlscalar tag, i.e. a
+// hand-written struct) falls back to the Go-type table.
+//
+// bound reports that the scalar name is one the decoder knows, so a miss is a
+// real binding mismatch rather than "this is an input object or an enum".
+func lookup(t reflect.Type, scalar string) (c Coercer, ok, bound bool) {
+	coercersMu.RLock()
+	defer coercersMu.RUnlock()
+	byGo := goCoercers
+	if scalar != "" {
+		if byGo, bound = scalars[scalar]; !bound {
+			return nil, false, false
+		}
+	}
+	if c, ok = byGo[t]; ok {
+		return c, true, bound
+	}
+	if t.PkgPath() != "" {
+		// Named type over a basic kind without methods: gqlgen casts the
+		// underlying scalar.
+		if c, ok = byGo[underlyingType(t)]; ok {
+			return c, true, bound
+		}
+	}
+	return nil, false, bound
 }
 
 func scalarFn(t reflect.Type, c Coercer) decodeFn {
@@ -329,8 +422,8 @@ func Decode(ctx context.Context, gqlName string, dst any, v any) error {
 // (e.g. fully iterating the nine named types instead of truncating them) is
 // a spec-level decision that would need that differential corpus extended
 // first, not a call for this decoder to make unilaterally.
-func sliceCoercer(t reflect.Type, isID bool) (decodeFn, error) {
-	elem, err := coercerFor(t.Elem(), isID)
+func sliceCoercer(t reflect.Type, scalar string) (decodeFn, error) {
+	elem, err := coercerFor(t.Elem(), scalar)
 	if err != nil {
 		return nil, err
 	}

@@ -129,14 +129,14 @@ func TestGeneratedInputDecoderHooks(t *testing.T) {
 
 			checkNoDuplicateImports(t, files)
 
-			var whereInputs, mutationInputs, mutationFields int
+			var whereInputs, mutationInputs, whereFields, mutationFields int
 			for _, def := range schema.Types {
 				switch {
 				case def.Kind == ast.InputObject && strings.HasSuffix(def.Name, "WhereInput"):
-					checkWhereInput(t, files, def)
+					whereFields += checkInputStruct(t, schema, files, def)
 					whereInputs++
 				case def.Kind == ast.InputObject && (strings.HasPrefix(def.Name, "Create") || strings.HasPrefix(def.Name, "Update")) && strings.HasSuffix(def.Name, "Input"):
-					mutationFields += checkMutationInput(t, files, def)
+					mutationFields += checkInputStruct(t, schema, files, def)
 					mutationInputs++
 				}
 			}
@@ -144,6 +144,7 @@ func TestGeneratedInputDecoderHooks(t *testing.T) {
 			// nothing (which would otherwise report zero failures).
 			require.NotZero(t, whereInputs, "expected to check at least one *WhereInput type")
 			require.NotZero(t, mutationInputs, "expected to check at least one Create/Update*Input type")
+			require.NotZero(t, whereFields, "expected to check at least one where-input field")
 			require.NotZero(t, mutationFields, "expected to check at least one mutation-input field")
 		})
 	}
@@ -199,38 +200,18 @@ func hasUnmarshalGQLContext(files map[string]string, name string) (file string, 
 	return "", false
 }
 
-func checkWhereInput(t *testing.T, files map[string]string, def *ast.Definition) {
-	t.Helper()
-	file, body, ok := findStruct(files, def.Name)
-	if !ok {
-		t.Errorf("%s: no generated file declares \"type %s struct\"", def.Name, def.Name)
-		return
-	}
-	if _, ok := hasUnmarshalGQLContext(files, def.Name); !ok {
-		t.Errorf("%s: no generated file has UnmarshalGQLContext + gqlwhere.Decode (struct in %s)", def.Name, file)
-	}
-
-	hasID := false
-	for _, f := range def.Fields {
-		if f.Name == "id" {
-			hasID = true
-			break
-		}
-	}
-	if !hasID {
-		return
-	}
-	idTagRe := regexp.MustCompile(`(?m)^\s*ID\s+\S+\s+` + "`json:\"id,omitempty\" gqlscalar:\"ID\"`")
-	if !idTagRe.MatchString(body) {
-		t.Errorf("%s: field \"id\": expected an `ID ... json:\"id,omitempty\" gqlscalar:\"ID\"` struct field in %s, struct body:\n%s", def.Name, file, body)
-	}
-}
-
-// checkMutationInput returns the number of schema fields it actually
-// checked, so the caller can assert that at least one field was checked
-// (an all-fields-filtered-out regression would otherwise report zero
-// failures).
-func checkMutationInput(t *testing.T, files map[string]string, def *ast.Definition) int {
+// checkInputStruct asserts that the generated struct backing the input object
+// def carries, for every field entgql itself put in ent.graphql, a gql tag
+// naming that field and -- when the field's leaf GraphQL type is a scalar --
+// a gqlscalar tag naming that scalar. Both are what gqlwhere.Decode resolves
+// on: the gql tag picks the struct field, the gqlscalar tag picks the coercer
+// gqlgen would have generated for that GraphQL type (which is not derivable
+// from the Go type: Duration and Int64 are both time.Duration/int64).
+//
+// It returns the number of schema fields it actually checked, so the caller
+// can assert that at least one field was checked (an all-fields-filtered-out
+// regression would otherwise report zero failures).
+func checkInputStruct(t *testing.T, schema *ast.Schema, files map[string]string, def *ast.Definition) int {
 	t.Helper()
 	file, body, ok := findStruct(files, def.Name)
 	if !ok {
@@ -252,26 +233,39 @@ func checkMutationInput(t *testing.T, files map[string]string, def *ast.Definiti
 		}
 		checked++
 		tag := `gql:"` + f.Name + `"`
-		idx := strings.Index(body, tag)
-		if idx == -1 {
+		line, ok := tagLine(body, tag)
+		if !ok {
 			t.Errorf("%s: field %q: missing %s tag in %s", def.Name, f.Name, tag, file)
 			continue
 		}
-		wantIDScalar := f.Type.Name() == "ID"
-		if !wantIDScalar {
+		// Enums and nested input objects are decoded by their own
+		// UnmarshalGQL method or by a recursive Decode, not by a coercer, so
+		// only leaf scalars need a gqlscalar tag.
+		if leaf := schema.Types[f.Type.Name()]; leaf == nil || leaf.Kind != ast.Scalar {
 			continue
 		}
-		lineStart := strings.LastIndex(body[:idx], "\n") + 1
-		lineEnd := strings.Index(body[idx:], "\n")
-		if lineEnd == -1 {
-			lineEnd = len(body)
-		} else {
-			lineEnd += idx
-		}
-		line := body[lineStart:lineEnd]
-		if !strings.Contains(line, `gqlscalar:"ID"`) {
-			t.Errorf("%s: field %q: expected gqlscalar:\"ID\" alongside %s in %s, got line: %s", def.Name, f.Name, tag, file, line)
+		want := fmt.Sprintf("gqlscalar:%q", f.Type.Name())
+		if !strings.Contains(line, want) {
+			t.Errorf("%s: field %q: expected %s alongside %s in %s, got line: %s", def.Name, f.Name, want, tag, file, line)
 		}
 	}
 	return checked
+}
+
+// tagLine returns the whole struct-field line carrying tag, so a tag can be
+// asserted against the field it is actually on rather than merely existing
+// somewhere in the struct body.
+func tagLine(body, tag string) (string, bool) {
+	idx := strings.Index(body, tag)
+	if idx == -1 {
+		return "", false
+	}
+	start := strings.LastIndex(body[:idx], "\n") + 1
+	end := strings.Index(body[idx:], "\n")
+	if end == -1 {
+		end = len(body)
+	} else {
+		end += idx
+	}
+	return body[start:end], true
 }

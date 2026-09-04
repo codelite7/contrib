@@ -728,12 +728,12 @@ func (e *schemaGenerator) buildWhereInput(t *gen.Type, nodeGQLType, gqlType stri
 
 		def.Fields = append(def.Fields,
 			&ast.FieldDefinition{
-				Name:        camel("has_" + e.Name),
+				Name:        whereEdgeGQLName(e),
 				Type:        namedType("Boolean", true),
 				Description: e.Name + " edge predicates",
 			},
 			&ast.FieldDefinition{
-				Name: camel("has_" + e.Name + "_with"),
+				Name: whereEdgeWithGQLName(e),
 				Type: listNamedType(names.WhereInput, true),
 			},
 		)
@@ -887,10 +887,7 @@ func fieldMapping(f *gen.Field) ([]string, error) {
 
 func (e *schemaGenerator) fieldDefinitionOp(gqlType string, f *gen.Field, ant *Annotation, op gen.Op) *ast.FieldDefinition {
 	def := &ast.FieldDefinition{
-		Name: camel(f.Name + "_" + op.Name()),
-	}
-	if op == gen.EQ {
-		def.Name = camel(f.Name)
+		Name: whereFieldGQLName(f, op),
 	}
 
 	if e.scalarFunc != nil {

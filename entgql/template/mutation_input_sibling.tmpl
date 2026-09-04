@@ -40,16 +40,16 @@ import (
     type {{ $input }} struct {
         {{- range $f := $fields }}
             {{- if $f.ClearOp }}
-                {{ print "Clear" $f.StructField }} bool `mutate:"fc:{{ $f.Name }}" gql:"{{ $f.ClearGQLName }}"`
+                {{ print "Clear" $f.StructField }} bool `mutate:"fc:{{ $f.Name }}" gql:"{{ $f.ClearGQLName }}" gqlscalar:"Boolean"`
             {{- end }}
-            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"f:{{ $f.Name }}" gql:"{{ $f.GQLName }}"`
+            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"f:{{ $f.Name }}" gql:"{{ $f.GQLName }}"{{ with $s := inputScalar $n.Type $f }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- if $f.AppendOp }}
-                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"fa:{{ $f.Name }}" gql:"{{ $f.AppendGQLName }}"`
+                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"fa:{{ $f.Name }}" gql:"{{ $f.AppendGQLName }}"{{ with $s := inputScalar $n.Type $f }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- end }}
         {{- end }}
         {{- range $e := $edges }}
             {{- if and (not $n.IsCreate) $e.Optional }}
-                {{ $e.MutationClear }} bool `mutate:"ec:{{ $e.Name }}" gql:"{{ edgeClearGQLName $e }}"`
+                {{ $e.MutationClear }} bool `mutate:"ec:{{ $e.Name }}" gql:"{{ edgeClearGQLName $e }}" gqlscalar:"Boolean"`
             {{- end }}
             {{- if $e.Unique }}
                 {{- $structField := print (pascal $e.Name) "ID" }}

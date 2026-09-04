@@ -44,20 +44,19 @@ import (
     // {{ $input }} represents a where input for filtering {{ $n.Name }} queries.
     type {{ $input }} struct {
         Predicates []predicate.{{ $n.Name }} `json:"-"`
-        Not *{{ $input }} `json:"not,omitempty"`
-        Or  []*{{ $input }} `json:"or,omitempty"`
-        And []*{{ $input }} `json:"and,omitempty"`
+        Not *{{ $input }} `json:"not,omitempty" gql:"not"`
+        Or  []*{{ $input }} `json:"or,omitempty" gql:"or"`
+        And []*{{ $input }} `json:"and,omitempty" gql:"and"`
         {{- range $f := $comparableFields }}
 
             // "{{ $f.Name }}" field predicates.
             {{- range $op := safeOps $f }}
                 {{- $field := print $f.StructField $op.Name }}
-                {{- $jsonTag := print $f.Name "_" $op.Name }}
                 {{- /* We name the field filter "<Field>EQ()" as "<Field>()", because it's cleaner (e.g. "name_eq" -> "name") */}}
                 {{- if eq $op.Name "EQ" }}
                     {{- $field = $f.StructField }}
-                    {{- $jsonTag = $f.Name }}
                 {{- end }}
+                {{- $gqlName := whereFieldGQLName $f $op }}
                 {{- $type := $f.Type }}
                 {{- if $op.Niladic }}
                     {{- $type = "bool" }}
@@ -66,7 +65,7 @@ import (
                 {{- else if not $f.Type.RType.IsPtr }}
                     {{- $type = print "*" $type }}
                 {{- end }}
-                {{ $field }} {{ $type }} `json:"{{ camel $jsonTag }},omitempty"{{ if eq $f.Name $n.ID.Name }} gqlscalar:"ID"{{ end }}`
+                {{ $field }} {{ $type }} `json:"{{ $gqlName }},omitempty" gql:"{{ $gqlName }}"{{ with $s := whereScalar $n $f $op }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- end }}
         {{- end }}
 
@@ -74,12 +73,12 @@ import (
 
             // "{{ $e.Name }}" edge predicates.
             {{- $field := print "Has" $e.StructField }}
-            {{- $jsonTag := print "has_" $e.Name }}
-            {{ $field }} *bool `json:"{{ camel $jsonTag }},omitempty"`
+            {{- $gqlName := whereEdgeGQLName $e }}
+            {{ $field }} *bool `json:"{{ $gqlName }},omitempty" gql:"{{ $gqlName }}" gqlscalar:"Boolean"`
             {{- $field = print $field "With" }}
-            {{- $jsonTag = print $jsonTag "_with" }}
+            {{- $gqlName = whereEdgeWithGQLName $e }}
             {{- $names := nodePaginationNames $e.Type }}
-            {{ $field }} []*{{ $names.WhereInput }} `json:"{{ camel $jsonTag }},omitempty"`
+            {{ $field }} []*{{ $names.WhereInput }} `json:"{{ $gqlName }},omitempty" gql:"{{ $gqlName }}"`
         {{- end }}
     }
 

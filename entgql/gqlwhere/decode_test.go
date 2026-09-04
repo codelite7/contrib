@@ -172,7 +172,7 @@ type decListInput struct {
 	Statuses []decStatus     `json:"statuses,omitempty"`
 	Inners   []*decInner     `json:"inners,omitempty"`
 	Named    *decStrings     `json:"named,omitempty"`
-	Durs     []time.Duration `json:"durs,omitempty"`
+	Durs     []time.Duration `json:"durs,omitempty" gqlscalar:"DurationString"`
 }
 
 func TestDecode_Lists(t *testing.T) {
@@ -271,8 +271,8 @@ func TestDecode_PreTypedSliceOutsideNamedTypesWrapsWhole(t *testing.T) {
 	require.Equal(t, "statuses[0]", gqlErr.Path.String())
 }
 
-func TestDecode_RegisteredCoercer(t *testing.T) {
-	RegisterCoercer[time.Duration](func(_ context.Context, v any) (time.Duration, error) {
+func TestDecode_RegisteredScalar(t *testing.T) {
+	RegisterScalar[time.Duration]("DurationString", func(_ context.Context, v any) (time.Duration, error) {
 		s, ok := v.(string)
 		if !ok {
 			return 0, fmt.Errorf("%T is not a duration string", v)

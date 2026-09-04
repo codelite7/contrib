@@ -729,18 +729,18 @@ func TestMutationInputSiblingTemplateExecution(t *testing.T) {
 	// "init" is Optional on update: fc: immediately precedes f: for the same
 	// descriptor name, on adjacent lines -- the Clear-then-Set declaration
 	// order the walker's buildPlan relies on.
-	require.Contains(t, out, "ClearInit bool `mutate:\"fc:init\" gql:\"clearInit\"`\n            Init map[string]interface {} `mutate:\"f:init\" gql:\"init\"`")
+	require.Contains(t, out, "ClearInit bool `mutate:\"fc:init\" gql:\"clearInit\" gqlscalar:\"Boolean\"`\n            Init map[string]interface {} `mutate:\"f:init\" gql:\"init\"`")
 
 	// "children" (non-unique, To Todo) on create: ea: with the []<id-type>ID
 	// naming, plus gql:"childIDs" gqlscalar:"ID".
 	require.Contains(t, out, "ChildIDs []int `mutate:\"ea:children\" gql:\"childIDs\" gqlscalar:\"ID\"`")
 	// On update: ec: then ea: then er:, adjacent, same descriptor name.
-	require.Contains(t, out, "ClearChildren bool `mutate:\"ec:children\" gql:\"clearChildren\"`\n                    AddChildIDs []int `mutate:\"ea:children\" gql:\"addChildIDs\" gqlscalar:\"ID\"`\n                    RemoveChildIDs []int `mutate:\"er:children\" gql:\"removeChildIDs\" gqlscalar:\"ID\"`")
+	require.Contains(t, out, "ClearChildren bool `mutate:\"ec:children\" gql:\"clearChildren\" gqlscalar:\"Boolean\"`\n                    AddChildIDs []int `mutate:\"ea:children\" gql:\"addChildIDs\" gqlscalar:\"ID\"`\n                    RemoveChildIDs []int `mutate:\"er:children\" gql:\"removeChildIDs\" gqlscalar:\"ID\"`")
 
 	// "parent" (unique, self-referential, optional) on update: ec: then e:,
 	// adjacent, same descriptor name -- the edge analogue of the fc:/f: test
 	// above.
-	require.Contains(t, out, "ClearParent bool `mutate:\"ec:parent\" gql:\"clearParent\"`\n                ParentID *int `mutate:\"e:parent\" gql:\"parentID\" gqlscalar:\"ID\"`")
+	require.Contains(t, out, "ClearParent bool `mutate:\"ec:parent\" gql:\"clearParent\" gqlscalar:\"Boolean\"`\n                ParentID *int `mutate:\"e:parent\" gql:\"parentID\" gqlscalar:\"ID\"`")
 
 	// "category" (unique, Immutable) is excluded from the update input
 	// entirely, but still present -- unpaired with a Clear -- on create.
