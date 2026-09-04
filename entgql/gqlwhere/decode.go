@@ -305,9 +305,25 @@ func Decode(ctx context.Context, gqlName string, dst any, v any) error {
 	return nil
 }
 
-// sliceCoercer builds a decodeFn for a slice type t, matching gqlgen's
-// generated list coercers: a non-[]any value is treated as a one-element
-// list, and each element is coerced under a path context carrying its index.
+// sliceCoercer builds a decodeFn for a slice type t. gqlgen's generated list
+// coercers call graphql.CoerceList, whose real behavior (not just the []any
+// case) is: a []any passes through unchanged; a handful of specific concrete
+// slice types (see CoerceList's switch) fall into named cases that keep only
+// their first element wrapped as a one-element list — an apparent bug/quirk,
+// since it silently drops data, that surfaces only for those exact types;
+// every other value, including any other pre-typed slice or array, is
+// wrapped whole as a single list element via the default case.
+//
+// That default case is exactly the reported bug: a where-input value that's
+// already a typed Go slice (e.g. []map[string]any, produced by a caller that
+// built the value in Go rather than decoding it from JSON) doesn't match
+// []any, so gqlgen's own default case — and this package's prior
+// implementation — wraps the whole slice as one element instead of the
+// element unmarshaler seeing each entry. We deliberately do not reproduce
+// CoerceList's narrow first-element-only quirk (it would silently truncate
+// the very values this bug report needs decoded in full); instead any slice
+// or array kind, of any concrete type, iterates its elements via reflect.
+// Only a genuine non-list scalar value still gets the one-element wrap.
 func sliceCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 	elem, err := coercerFor(t.Elem(), isID)
 	if err != nil {
@@ -317,8 +333,15 @@ func sliceCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 		if v == nil {
 			return reflect.Zero(t), nil
 		}
-		items, ok := v.([]any)
-		if !ok {
+		var items []any
+		if s, ok := v.([]any); ok {
+			items = s
+		} else if rv := reflect.ValueOf(v); rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+			items = make([]any, rv.Len())
+			for i := range items {
+				items[i] = rv.Index(i).Interface()
+			}
+		} else {
 			items = []any{v}
 		}
 		out := reflect.MakeSlice(t, len(items), len(items))

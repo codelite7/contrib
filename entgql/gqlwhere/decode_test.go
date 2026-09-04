@@ -214,6 +214,50 @@ func TestDecode_ListErrorCarriesIndexPath(t *testing.T) {
 	require.Equal(t, "inners[0].name", gqlErr.Path.String())
 }
 
+// TestDecode_ListCoercesPreTypedSlice reproduces the consumer-app bug: a
+// where-input list field given a value GraphQL has already coerced into a
+// typed Go slice (not []any) must iterate that slice's elements, not wrap
+// the whole slice as one element.
+func TestDecode_ListCoercesPreTypedSlice(t *testing.T) {
+	var dst decListInput
+	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
+		"inners": []map[string]any{{"name": "x"}, {"name": "y"}},
+	})
+	require.NoError(t, err)
+	require.Len(t, dst.Inners, 2)
+	require.Equal(t, "x", *dst.Inners[0].Name)
+	require.Equal(t, "y", *dst.Inners[1].Name)
+}
+
+func TestDecode_ListCoercesPreTypedStringSlice(t *testing.T) {
+	var dst decListInput
+	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
+		"names": []string{"a", "b"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"a", "b"}, dst.Names)
+}
+
+func TestDecode_SingleMapStillWrapsAsOneElement(t *testing.T) {
+	var dst decListInput
+	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
+		"inners": map[string]any{"name": "solo"},
+	})
+	require.NoError(t, err)
+	require.Len(t, dst.Inners, 1)
+	require.Equal(t, "solo", *dst.Inners[0].Name)
+}
+
+func TestDecode_PreTypedSliceErrorCarriesIndexPath(t *testing.T) {
+	var dst decListInput
+	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
+		"inners": []map[string]any{{"name": "x"}, {"name": map[string]any{}}},
+	})
+	var gqlErr *gqlerror.Error
+	require.ErrorAs(t, err, &gqlErr)
+	require.Equal(t, "inners[1].name", gqlErr.Path.String())
+}
+
 func TestDecode_RegisteredCoercer(t *testing.T) {
 	RegisterCoercer[time.Duration](func(_ context.Context, v any) (time.Duration, error) {
 		s, ok := v.(string)
