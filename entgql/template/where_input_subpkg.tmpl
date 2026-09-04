@@ -28,6 +28,8 @@ package whereinputs
 {{ $filteredEdges := filterEdges $n.Edges (skipMode "where_input") }}
 
 import (
+    "context"
+
     "entgo.io/contrib/entgql/gqlwhere"
     "{{ $.Config.Package }}/predicate"
     "{{ $.Config.Package }}/{{ $n.Package }}"
@@ -61,7 +63,7 @@ type {{ $input }} struct {
             {{- else if not $f.Type.RType.IsPtr }}
                 {{- $type = print "*" $type }}
             {{- end }}
-            {{ $field }} {{ $type }} `json:"{{ camel $jsonTag }},omitempty"`
+            {{ $field }} {{ $type }} `json:"{{ camel $jsonTag }},omitempty"{{ if eq $f.Name $n.ID.Name }} gqlscalar:"ID"{{ end }}`
         {{- end }}
     {{- end }}
 
@@ -108,5 +110,11 @@ func (i *{{ $input }}) Filter(q *{{ $n.Package }}.{{ $n.QueryName }}) (*{{ $n.Pa
 // An error is returned if the input is empty or invalid.
 func (i *{{ $input }}) P() (predicate.{{ $n.Name }}, error) {
 	return registry{{ $input }}.P(i)
+}
+
+// UnmarshalGQLContext decodes a GraphQL input object into the where input,
+// replacing gqlgen's per-type generated unmarshaler (see gqlwhere.Decode).
+func (i *{{ $input }}) UnmarshalGQLContext(ctx context.Context, v any) error {
+	return gqlwhere.Decode(ctx, "{{ $input }}", i, v)
 }
 {{ end }}

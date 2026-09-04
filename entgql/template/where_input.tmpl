@@ -17,6 +17,9 @@ in the LICENSE file in the root directory of this source tree.
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "where_input") }}
 
 import (
+    "context"
+
+    "entgo.io/contrib/entgql/gqlwhere"
     "{{ $.Config.Package }}/predicate"
 	{{- range $n := $gqlNodes }}
         {{- template "import/types" $n }}
@@ -65,7 +68,7 @@ import (
                 {{- else if not $f.Type.RType.IsPtr }}
                     {{- $type = print "*" $type }}
                 {{- end }}
-                {{ $field }} {{ $type }} `json:"{{ camel $jsonTag }},omitempty"`
+                {{ $field }} {{ $type }} `json:"{{ camel $jsonTag }},omitempty"{{ if eq $f.Name $n.ID.Name }} gqlscalar:"ID"{{ end }}`
             {{- end }}
         {{- end }}
 
@@ -230,6 +233,12 @@ import (
         default:
             return {{ $n.Package }}.And(predicates...), nil
         }
+    }
+
+    // UnmarshalGQLContext decodes a GraphQL input object into the where input,
+    // replacing gqlgen's per-type generated unmarshaler (see gqlwhere.Decode).
+    func (i *{{ $input }}) UnmarshalGQLContext(ctx context.Context, v any) error {
+        return gqlwhere.Decode(ctx, "{{ $input }}", i, v)
     }
 {{- end }}
 {{ end }}

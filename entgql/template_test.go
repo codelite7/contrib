@@ -721,30 +721,31 @@ func TestMutationInputSiblingTemplateExecution(t *testing.T) {
 	require.NotContains(t, out, "SetEdgeID(")
 
 	// "text" is required (NotEmpty, no Default/Optional) on create: no
-	// pointer, no ClearOp -- the unconditional f: path.
-	require.Contains(t, out, "Text string `mutate:\"f:text\"`")
+	// pointer, no ClearOp -- the unconditional f: path. Task 5 adds a
+	// gql:"<GQLName>" tag alongside mutate: on every field/edge below.
+	require.Contains(t, out, "Text string `mutate:\"f:text\" gql:\"text\"`")
 	require.NotContains(t, out, "ClearText")
 
 	// "init" is Optional on update: fc: immediately precedes f: for the same
 	// descriptor name, on adjacent lines -- the Clear-then-Set declaration
 	// order the walker's buildPlan relies on.
-	require.Contains(t, out, "ClearInit bool `mutate:\"fc:init\"`\n            Init map[string]interface {} `mutate:\"f:init\"`")
+	require.Contains(t, out, "ClearInit bool `mutate:\"fc:init\" gql:\"clearInit\"`\n            Init map[string]interface {} `mutate:\"f:init\" gql:\"init\"`")
 
 	// "children" (non-unique, To Todo) on create: ea: with the []<id-type>ID
-	// naming.
-	require.Contains(t, out, "ChildIDs []int `mutate:\"ea:children\"`")
+	// naming, plus gql:"childIDs" gqlscalar:"ID".
+	require.Contains(t, out, "ChildIDs []int `mutate:\"ea:children\" gql:\"childIDs\" gqlscalar:\"ID\"`")
 	// On update: ec: then ea: then er:, adjacent, same descriptor name.
-	require.Contains(t, out, "ClearChildren bool `mutate:\"ec:children\"`\n                    AddChildIDs []int `mutate:\"ea:children\"`\n                    RemoveChildIDs []int `mutate:\"er:children\"`")
+	require.Contains(t, out, "ClearChildren bool `mutate:\"ec:children\" gql:\"clearChildren\"`\n                    AddChildIDs []int `mutate:\"ea:children\" gql:\"addChildIDs\" gqlscalar:\"ID\"`\n                    RemoveChildIDs []int `mutate:\"er:children\" gql:\"removeChildIDs\" gqlscalar:\"ID\"`")
 
 	// "parent" (unique, self-referential, optional) on update: ec: then e:,
 	// adjacent, same descriptor name -- the edge analogue of the fc:/f: test
 	// above.
-	require.Contains(t, out, "ClearParent bool `mutate:\"ec:parent\"`\n                ParentID *int `mutate:\"e:parent\"`")
+	require.Contains(t, out, "ClearParent bool `mutate:\"ec:parent\" gql:\"clearParent\"`\n                ParentID *int `mutate:\"e:parent\" gql:\"parentID\" gqlscalar:\"ID\"`")
 
 	// "category" (unique, Immutable) is excluded from the update input
 	// entirely, but still present -- unpaired with a Clear -- on create.
-	require.Contains(t, out, "CategoryID *int `mutate:\"e:category\"`")
-	require.Equal(t, 1, strings.Count(out, "category"),
+	require.Contains(t, out, "CategoryID *int `mutate:\"e:category\" gql:\"categoryID\" gqlscalar:\"ID\"`")
+	require.Equal(t, 1, strings.Count(out, "CategoryID "),
 		"the immutable category edge must appear only in CreateTodoInput, not UpdateTodoInput")
 }
 
@@ -799,7 +800,7 @@ func TestMutationInputSiblingTemplateExecution_AppendPairing(t *testing.T) {
 	// all three failure modes at once: wrong op letter, diverged name, or
 	// swapped order would all fail this single Contains.
 	require.Contains(t, out,
-		"Tags []string `mutate:\"f:tags\"`\n                AppendTags []string `mutate:\"fa:tags\"`",
+		"Tags []string `mutate:\"f:tags\" gql:\"tags\"`\n                AppendTags []string `mutate:\"fa:tags\" gql:\"appendTags\"`",
 		"f:tags must be immediately followed by its paired fa:tags, same descriptor name")
 }
 
