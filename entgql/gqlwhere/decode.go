@@ -305,25 +305,30 @@ func Decode(ctx context.Context, gqlName string, dst any, v any) error {
 	return nil
 }
 
-// sliceCoercer builds a decodeFn for a slice type t. gqlgen's generated list
-// coercers call graphql.CoerceList, whose real behavior (not just the []any
-// case) is: a []any passes through unchanged; a handful of specific concrete
-// slice types (see CoerceList's switch) fall into named cases that keep only
-// their first element wrapped as a one-element list — an apparent bug/quirk,
-// since it silently drops data, that surfaces only for those exact types;
-// every other value, including any other pre-typed slice or array, is
-// wrapped whole as a single list element via the default case.
+// sliceCoercer builds a decodeFn for a slice type t, matching gqlgen's
+// generated list coercers exactly: they call graphql.CoerceList(v), and this
+// decoder must produce byte-identical struct values, error text, and error
+// paths to gqlgen's generated unmarshalers, so it delegates to the same
+// function rather than reimplementing its rule.
 //
-// That default case is exactly the reported bug: a where-input value that's
-// already a typed Go slice (e.g. []map[string]any, produced by a caller that
-// built the value in Go rather than decoding it from JSON) doesn't match
-// []any, so gqlgen's own default case — and this package's prior
-// implementation — wraps the whole slice as one element instead of the
-// element unmarshaler seeing each entry. We deliberately do not reproduce
-// CoerceList's narrow first-element-only quirk (it would silently truncate
-// the very values this bug report needs decoded in full); instead any slice
-// or array kind, of any concrete type, iterates its elements via reflect.
-// Only a genuine non-list scalar value still gets the one-element wrap.
+// CoerceList's actual behavior, read from graphql/coercion.go in the gqlgen
+// version this module resolves (v0.17.68) and confirmed against its one call
+// site in codegen/type.gotpl: a []any passes through unchanged; nine named
+// concrete types ([]string, []json.Number, []bool, []map[string]any,
+// []float64, []float32, []int, []int32, []int64) collapse to a list holding
+// only their first element (empty input yields an empty list) — silently
+// dropping every other element, an apparent quirk of gqlgen's own, not a
+// deliberate list-of-lists idiom; every other value, including any other
+// pre-typed slice or array type outside those nine, is wrapped whole as a
+// single list element. nil yields the zero value, handled below before
+// CoerceList is reached.
+//
+// We reproduce this deliberately, quirk included: parity with gqlgen is the
+// constraint this decoder exists to satisfy, validated by a differential
+// corpus, not by tests written to a preferred output. Changing the quirk
+// (e.g. fully iterating the nine named types instead of truncating them) is
+// a spec-level decision that would need that differential corpus extended
+// first, not a call for this decoder to make unilaterally.
 func sliceCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 	elem, err := coercerFor(t.Elem(), isID)
 	if err != nil {
@@ -333,17 +338,7 @@ func sliceCoercer(t reflect.Type, isID bool) (decodeFn, error) {
 		if v == nil {
 			return reflect.Zero(t), nil
 		}
-		var items []any
-		if s, ok := v.([]any); ok {
-			items = s
-		} else if rv := reflect.ValueOf(v); rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
-			items = make([]any, rv.Len())
-			for i := range items {
-				items[i] = rv.Index(i).Interface()
-			}
-		} else {
-			items = []any{v}
-		}
+		items := graphql.CoerceList(v)
 		out := reflect.MakeSlice(t, len(items), len(items))
 		for i, item := range items {
 			ictx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))

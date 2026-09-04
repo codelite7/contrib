@@ -214,28 +214,33 @@ func TestDecode_ListErrorCarriesIndexPath(t *testing.T) {
 	require.Equal(t, "inners[0].name", gqlErr.Path.String())
 }
 
-// TestDecode_ListCoercesPreTypedSlice reproduces the consumer-app bug: a
-// where-input list field given a value GraphQL has already coerced into a
-// typed Go slice (not []any) must iterate that slice's elements, not wrap
-// the whole slice as one element.
-func TestDecode_ListCoercesPreTypedSlice(t *testing.T) {
+// TestDecode_PreTypedNamedTypeKeepsFirstElementOnly pins graphql.CoerceList's
+// actual (quirky) behavior for the consumer-app bug's exact value shape: a
+// where-input list field given a value that is one of CoerceList's nine
+// named pre-typed-slice cases ([]map[string]any here) collapses to a
+// one-element list holding only the first element -- the rest are silently
+// dropped, exactly as gqlgen's own generated unmarshalers do. This is the
+// same value shape that used to error outright ("expected map[string]any,
+// got []map[string]interface {}"); CoerceList's real rule makes it decode
+// (lossily, by gqlgen's own design), not error.
+func TestDecode_PreTypedNamedTypeKeepsFirstElementOnly(t *testing.T) {
 	var dst decListInput
 	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
 		"inners": []map[string]any{{"name": "x"}, {"name": "y"}},
 	})
 	require.NoError(t, err)
-	require.Len(t, dst.Inners, 2)
+	require.Len(t, dst.Inners, 1)
 	require.Equal(t, "x", *dst.Inners[0].Name)
-	require.Equal(t, "y", *dst.Inners[1].Name)
 }
 
-func TestDecode_ListCoercesPreTypedStringSlice(t *testing.T) {
+// []string is also one of CoerceList's nine named cases.
+func TestDecode_PreTypedStringSliceKeepsFirstElementOnly(t *testing.T) {
 	var dst decListInput
 	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
 		"names": []string{"a", "b"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, []string{"a", "b"}, dst.Names)
+	require.Equal(t, []string{"a"}, dst.Names)
 }
 
 func TestDecode_SingleMapStillWrapsAsOneElement(t *testing.T) {
@@ -248,14 +253,22 @@ func TestDecode_SingleMapStillWrapsAsOneElement(t *testing.T) {
 	require.Equal(t, "solo", *dst.Inners[0].Name)
 }
 
-func TestDecode_PreTypedSliceErrorCarriesIndexPath(t *testing.T) {
+// []decStatus (a named type over string) is NOT one of CoerceList's nine
+// cases -- the switch matches on exact type, not underlying kind -- so it
+// falls to CoerceList's default and is wrapped whole as a single list
+// element, same as gqlgen's generated unmarshalers and same as this
+// decoder's behavior before this task. The wrapped element is the whole
+// slice, not a string, so decStatus's own UnmarshalGQL rejects it; the error
+// still carries the (single) element's index.
+func TestDecode_PreTypedSliceOutsideNamedTypesWrapsWhole(t *testing.T) {
 	var dst decListInput
 	err := Decode(context.Background(), "DecListInput", &dst, map[string]any{
-		"inners": []map[string]any{{"name": "x"}, {"name": map[string]any{}}},
+		"statuses": []decStatus{"OK", "BAD"},
 	})
+	require.ErrorContains(t, err, "enums must be strings")
 	var gqlErr *gqlerror.Error
 	require.ErrorAs(t, err, &gqlErr)
-	require.Equal(t, "inners[1].name", gqlErr.Path.String())
+	require.Equal(t, "statuses[0]", gqlErr.Path.String())
 }
 
 func TestDecode_RegisteredCoercer(t *testing.T) {
