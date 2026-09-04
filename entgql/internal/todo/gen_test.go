@@ -16,6 +16,8 @@ package todo_test
 
 import (
 	"fmt"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -125,15 +127,48 @@ func TestGeneratedInputDecoderHooks(t *testing.T) {
 				return nil
 			}))
 
+			checkNoDuplicateImports(t, files)
+
+			var whereInputs, mutationInputs, mutationFields int
 			for _, def := range schema.Types {
 				switch {
 				case def.Kind == ast.InputObject && strings.HasSuffix(def.Name, "WhereInput"):
 					checkWhereInput(t, files, def)
+					whereInputs++
 				case def.Kind == ast.InputObject && (strings.HasPrefix(def.Name, "Create") || strings.HasPrefix(def.Name, "Update")) && strings.HasSuffix(def.Name, "Input"):
-					checkMutationInput(t, files, def)
+					mutationFields += checkMutationInput(t, files, def)
+					mutationInputs++
 				}
 			}
+			// Guards against a schema/filter regression silently checking
+			// nothing (which would otherwise report zero failures).
+			require.NotZero(t, whereInputs, "expected to check at least one *WhereInput type")
+			require.NotZero(t, mutationInputs, "expected to check at least one Create/Update*Input type")
+			require.NotZero(t, mutationFields, "expected to check at least one mutation-input field")
 		})
+	}
+}
+
+// checkNoDuplicateImports parses just the import block of every generated
+// file (catches syntax errors too, e.g. a bad struct tag) and fails on any
+// import path repeated within one file -- the class of bug where a template
+// hand-adds an import already emitted by a shared "import" template block.
+func checkNoDuplicateImports(t *testing.T, files map[string]string) {
+	t.Helper()
+	fset := token.NewFileSet()
+	for path, content := range files {
+		f, err := parser.ParseFile(fset, path, content, parser.ImportsOnly)
+		if err != nil {
+			t.Errorf("%s: failed to parse: %v", path, err)
+			continue
+		}
+		seen := map[string]bool{}
+		for _, imp := range f.Imports {
+			if seen[imp.Path.Value] {
+				t.Errorf("%s: duplicate import %s", path, imp.Path.Value)
+			}
+			seen[imp.Path.Value] = true
+		}
 	}
 }
 
@@ -191,18 +226,22 @@ func checkWhereInput(t *testing.T, files map[string]string, def *ast.Definition)
 	}
 }
 
-func checkMutationInput(t *testing.T, files map[string]string, def *ast.Definition) {
+// checkMutationInput returns the number of schema fields it actually
+// checked, so the caller can assert that at least one field was checked
+// (an all-fields-filtered-out regression would otherwise report zero
+// failures).
+func checkMutationInput(t *testing.T, files map[string]string, def *ast.Definition) int {
 	t.Helper()
 	file, body, ok := findStruct(files, def.Name)
 	if !ok {
-		// Not every Create/Update*Input in the schema is necessarily an
-		// entgql-generated mutation input struct; skip ones with no struct.
-		return
+		t.Errorf("%s: no generated file declares \"type %s struct\"", def.Name, def.Name)
+		return 0
 	}
 	if _, ok := hasUnmarshalGQLContext(files, def.Name); !ok {
 		t.Errorf("%s: no generated file has UnmarshalGQLContext + gqlwhere.Decode (struct in %s)", def.Name, file)
 	}
 
+	checked := 0
 	for _, f := range def.Fields {
 		// todo.graphql hand-extends some entgql-generated inputs with extra
 		// fields resolved outside the generated struct (e.g. "extend input
@@ -211,6 +250,7 @@ func checkMutationInput(t *testing.T, files map[string]string, def *ast.Definiti
 		if f.Position == nil || f.Position.Src == nil || f.Position.Src.Name != "ent.graphql" {
 			continue
 		}
+		checked++
 		tag := `gql:"` + f.Name + `"`
 		idx := strings.Index(body, tag)
 		if idx == -1 {
@@ -233,4 +273,5 @@ func checkMutationInput(t *testing.T, files map[string]string, def *ast.Definiti
 			t.Errorf("%s: field %q: expected gqlscalar:\"ID\" alongside %s in %s, got line: %s", def.Name, f.Name, tag, file, line)
 		}
 	}
+	return checked
 }

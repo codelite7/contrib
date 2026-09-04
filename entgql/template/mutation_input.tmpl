@@ -11,8 +11,6 @@
 
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "mutation_create_input" "mutation_update_input") }}
 import (
-    "context"
-
     "entgo.io/contrib/entgql"
     "entgo.io/contrib/entgql/gqlwhere"
     "entgo.io/ent/runtime/entbuilder"
