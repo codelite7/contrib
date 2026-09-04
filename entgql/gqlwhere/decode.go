@@ -62,12 +62,12 @@ var (
 		"Map":    {reflect.TypeFor[map[string]any](): coercer(graphql.UnmarshalMap)},
 		"Upload": {reflect.TypeFor[graphql.Upload](): coercer(graphql.UnmarshalUpload)},
 		"Any":    {reflect.TypeFor[any](): coercer(graphql.UnmarshalAny)},
-		// Not injected by gqlgen, but graphql.Uint/Uint32/Uint64 is the
-		// conventional binding for an app-declared Uint* scalar (entgql's own
-		// internal/todo fixture does exactly that for Uint64), and the binder
-		// resolves Marshal<Name>/Unmarshal<Name> from that model string.
-		"Uint":   {reflect.TypeFor[uint](): coercer(graphql.UnmarshalUint)},
-		"Uint32": {reflect.TypeFor[uint32](): coercer(graphql.UnmarshalUint32)},
+		// Not injected by gqlgen, but graphql.Uint64 is the conventional
+		// binding for an app-declared Uint64 scalar -- entgql's own
+		// internal/todo fixture does exactly that -- and the binder resolves
+		// Marshal<Name>/Unmarshal<Name> from that model string. Uint/Uint32
+		// are deliberately absent: no fixture needs them, and every seeded
+		// name widens the surface where a guessed binding could be wrong.
 		"Uint64": {reflect.TypeFor[uint64](): coercer(graphql.UnmarshalUint64)},
 	}
 	// goCoercers resolves a struct field that carries no gqlscalar tag, i.e. a
@@ -301,6 +301,19 @@ func lookup(t reflect.Type, scalar string) (c Coercer, ok, bound bool) {
 	byGo := goCoercers
 	if scalar != "" {
 		if byGo, bound = scalars[scalar]; !bound {
+			// gqlgen's #595 arm (binder.go:457-467): for any leaf type whose
+			// bound Go model is a *named* string without Marshal/UnmarshalGQL,
+			// gqlgen sets CastType to the underlying string and reuses
+			// UnmarshalString. entgql reaches this with
+			// field.Enum("x").GoType(...), whose Go type carries no generated
+			// marshaler (enum.tmpl gates it on `not $f.HasGoType`) while
+			// mapScalar still names it with the prefixed enum name. Mirror
+			// that one arm only -- an unknown scalar over any other kind stays
+			// a loud error, which is the right answer for C1's real class
+			// (Duration over int64, UUID over bytes).
+			if t.PkgPath() != "" && underlyingType(t).Kind() == reflect.String {
+				return goCoercers[reflect.TypeFor[string]()], true, false
+			}
 			return nil, false, false
 		}
 	}

@@ -103,3 +103,51 @@ func TestParity_UintID(t *testing.T) {
 		})
 	}
 }
+
+// parityCastString is the shape a field.Enum("x").GoType(...) field generates:
+// a named string whose Go type carries no UnmarshalGQL, because entgql's
+// enum.tmpl gates the generated marshaler on `not $f.HasGoType`. mapScalar
+// still gives it the prefixed enum name, so the struct carries a gqlscalar
+// tag naming a type that is in nobody's coercer registry.
+type parityCastString string
+
+type parityCastInput struct {
+	Role *parityCastString `json:"role,omitempty" gql:"role" gqlscalar:"TodoRole"`
+}
+
+// TestParity_NamedStringUnderUnknownScalar covers gqlgen's #595 arm
+// (codegen/config/binder.go:457-467): for a leaf type whose bound Go model is
+// a named string without Marshal/UnmarshalGQL, gqlgen sets CastType to the
+// underlying string and emits UnmarshalString plus the cast.
+func TestParity_NamedStringUnderUnknownScalar(t *testing.T) {
+	for _, raw := range []any{"admin", 7, int64(8), json.Number("42"), true, 1.5, map[string]any{}} {
+		raw := raw
+		t.Run(fmt.Sprintf("%T(%v)", raw, raw), func(t *testing.T) {
+			wantV, wantErr := graphql.UnmarshalString(raw)
+
+			var dst parityCastInput
+			err := Decode(context.Background(), "TodoWhereInput", &dst, map[string]any{"role": raw})
+
+			if wantErr != nil {
+				require.Error(t, err, "gqlgen rejects %#v, decoder accepted it as %v", raw, dst.Role)
+				require.EqualError(t, err, "input: role "+wantErr.Error())
+				return
+			}
+			require.NoError(t, err, "gqlgen accepts %#v as %q, decoder rejected it", raw, wantV)
+			require.NotNil(t, dst.Role)
+			require.Equal(t, parityCastString(wantV), *dst.Role)
+		})
+	}
+}
+
+// TestParity_UnknownScalarOverNonStringStillErrors pins the narrowness of the
+// #595 fallback above: it mirrors that one binder arm, which is String-only.
+// An unknown scalar over any other kind is still a loud error -- exactly C1's
+// class, where guessing from the Go type produced silently wrong values.
+func TestParity_UnknownScalarOverNonStringStillErrors(t *testing.T) {
+	var dst struct {
+		Dur *time.Duration `gql:"dur" gqlscalar:"UnregisteredDuration"`
+	}
+	err := Decode(context.Background(), "X", &dst, map[string]any{"dur": "1h"})
+	require.ErrorContains(t, err, "no coercer for GraphQL scalar UnregisteredDuration")
+}
