@@ -184,25 +184,34 @@ var (
 
 	// TemplateFuncs contains the extra template functions used by entgql.
 	TemplateFuncs = template.FuncMap{
-		"fieldCollections":    fieldCollections,
-		"fieldMapping":        fieldMapping,
-		"filterEdges":         filterEdges,
-		"filterFields":        filterFields,
-		"filterNodes":         filterNodes,
-		"gqlIDType":           gqlIDType,
-		"gqlMarshaler":        gqlMarshaler,
-		"gqlUnmarshaler":      gqlUnmarshaler,
-		"hasWhereInput":       hasWhereInput,
-		"isRelayConn":         isRelayConn,
-		"isSkipMode":          isSkipMode,
-		"mutationInputs":      mutationInputs,
-		"nodeImplementors":    nodeImplementors,
-		"nodeImplementorsVar": nodeImplementorsVar,
-		"nodePaginationNames": nodePaginationNames,
-		"orderFields":         orderFields,
-		"safeOps":             safeOps,
-		"skipMode":            skipModeFromString,
-		"trimPrefix":          trimPrefix,
+		"edgeAddGQLName":       edgeAddGQLName,
+		"edgeClearGQLName":     edgeClearGQLName,
+		"edgeInputGQLName":     edgeInputGQLName,
+		"edgeRemoveGQLName":    edgeRemoveGQLName,
+		"fieldCollections":     fieldCollections,
+		"fieldMapping":         fieldMapping,
+		"filterEdges":          filterEdges,
+		"filterFields":         filterFields,
+		"filterNodes":          filterNodes,
+		"gqlIDType":            gqlIDType,
+		"gqlMarshaler":         gqlMarshaler,
+		"gqlUnmarshaler":       gqlUnmarshaler,
+		"hasWhereInput":        hasWhereInput,
+		"inputScalar":          inputScalar,
+		"isRelayConn":          isRelayConn,
+		"isSkipMode":           isSkipMode,
+		"mutationInputs":       mutationInputs,
+		"nodeImplementors":     nodeImplementors,
+		"nodeImplementorsVar":  nodeImplementorsVar,
+		"nodePaginationNames":  nodePaginationNames,
+		"orderFields":          orderFields,
+		"safeOps":              safeOps,
+		"skipMode":             skipModeFromString,
+		"trimPrefix":           trimPrefix,
+		"whereEdgeGQLName":     whereEdgeGQLName,
+		"whereEdgeWithGQLName": whereEdgeWithGQLName,
+		"whereFieldGQLName":    whereFieldGQLName,
+		"whereScalar":          whereScalar,
 	}
 
 	//go:embed template/*
@@ -400,6 +409,115 @@ func (f *InputFieldDescriptor) IsPointer() bool {
 	}
 	return f.Nullable
 }
+
+// GQLName is the GraphQL input-field name for this field. schema.go and the
+// mutation-input templates must both use it so the generated struct tags and
+// the generated schema cannot drift apart.
+func (f *InputFieldDescriptor) GQLName() string { return camel(f.Name) }
+
+// AppendGQLName is the GraphQL name of the append<Field> input field.
+func (f *InputFieldDescriptor) AppendGQLName() string { return "append" + f.StructField() }
+
+// ClearGQLName is the GraphQL name of the clear<Field> input field.
+func (f *InputFieldDescriptor) ClearGQLName() string { return "clear" + f.StructField() }
+
+// whereFieldGQLName is the GraphQL input-field name of the f/op predicate on a
+// where input. schema.go and the where-input templates must both use it so the
+// generated schema and the generated struct tags cannot drift apart.
+func whereFieldGQLName(f *gen.Field, op gen.Op) string {
+	if op == gen.EQ {
+		// The <Field>EQ() filter is named <Field>() because it reads better
+		// (e.g. "name_eq" -> "name").
+		return camel(f.Name)
+	}
+	return camel(f.Name + "_" + op.Name())
+}
+
+// whereEdgeGQLName is the GraphQL name of the has<Edge> predicate.
+func whereEdgeGQLName(e *gen.Edge) string { return camel("has_" + e.Name) }
+
+// whereEdgeWithGQLName is the GraphQL name of the has<Edge>With predicate.
+func whereEdgeWithGQLName(e *gen.Edge) string { return camel("has_" + e.Name + "_with") }
+
+// nodeScalars resolves the GraphQL type name of an input field of one node.
+// Templates are rendered with the gen.Graph as their data and cannot reach the
+// Extension, but a field's GraphQL type depends on the gqlgen.yml model
+// bindings and on WithMapScalarFunc, which only schemaGenerator can resolve.
+// So the extension publishes a resolver per node before rendering and the
+// whereScalar/inputScalar template funcs read it back -- the same
+// package-level handoff fieldOpsCache already uses. Entries are keyed by node
+// pointer, so a generation over a different graph cannot read a stale one.
+type nodeScalars struct {
+	sg      *schemaGenerator
+	gqlType string
+}
+
+var nodeScalarsCache sync.Map // *gen.Type -> nodeScalars
+
+func (e *schemaGenerator) publishScalars(g *gen.Graph) error {
+	for _, n := range g.Nodes {
+		gqlType, _, err := gqlTypeFromNode(n)
+		if err != nil {
+			return err
+		}
+		nodeScalarsCache.Store(n, nodeScalars{sg: e, gqlType: gqlType})
+	}
+	return nil
+}
+
+// whereScalar returns the GraphQL type name of the f/op predicate on node n's
+// where input: the value where_input.tmpl puts in its gqlscalar tag, and the
+// key gqlwhere.Decode resolves a coercer with. gqlgen picks an unmarshaler
+// from the GraphQL type, not the Go type, so a scalar bound by function
+// (durationgql, uuidgql, any entgql.Type("X") annotation) decodes correctly
+// only if the generated struct carries this name.
+//
+// "" means "emit no tag": no resolver was published (a template rendered
+// outside entgql's own hooks), so the decoder keeps resolving by Go type.
+func whereScalar(n *gen.Type, f *gen.Field, op gen.Op) string {
+	ns, ant, ok := lookupScalars(n, f)
+	if !ok {
+		return ""
+	}
+	return scalarLeaf(ns.sg.fieldDefinitionOp(ns.gqlType, f, ant, op).Type.Name())
+}
+
+// inputScalar is whereScalar for a mutation-input field.
+func inputScalar(n *gen.Type, f *InputFieldDescriptor) string {
+	ns, ant, ok := lookupScalars(n, f.Field)
+	if !ok {
+		return ""
+	}
+	return scalarLeaf(ns.sg.mapScalar(ns.gqlType, f.Field, ant, inputObjectFilter))
+}
+
+func lookupScalars(n *gen.Type, f *gen.Field) (nodeScalars, *Annotation, bool) {
+	v, ok := nodeScalarsCache.Load(n)
+	if !ok {
+		return nodeScalars{}, nil, false
+	}
+	ant, err := annotation(f.Annotations)
+	if err != nil {
+		return nodeScalars{}, nil, false
+	}
+	return v.(nodeScalars), ant, true
+}
+
+// scalarLeaf strips the list and non-null markers mapScalar may wrap a scalar
+// in ("[String!]"), leaving the named type gqlgen binds a model to.
+func scalarLeaf(s string) string { return strings.Trim(s, "[]!") }
+
+// edgeInputGQLName is the GraphQL name of the edge-ID field on a mutation input.
+func edgeInputGQLName(e *gen.Edge, isCreate bool) string {
+	if e.Unique {
+		return camel(e.Name) + "ID"
+	}
+	return camel(singular(e.Name)) + "IDs"
+}
+
+func edgeAddGQLName(e *gen.Edge) string    { return "add" + pascal(singular(e.Name)) + "IDs" }
+func edgeRemoveGQLName(e *gen.Edge) string { return "remove" + pascal(singular(e.Name)) + "IDs" }
+func edgeClearGQLName(e *gen.Edge) string  { return camel(snake(e.MutationClear())) }
 
 // InputFields returns the list of fields in the input type.
 func (m *MutationDescriptor) InputFields() ([]*InputFieldDescriptor, error) {

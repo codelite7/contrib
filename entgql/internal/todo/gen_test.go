@@ -15,14 +15,22 @@
 package todo_test
 
 import (
+	"fmt"
+	"go/parser"
+	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"entgo.io/contrib/entgql"
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 func TestGeneratedSchema(t *testing.T) {
@@ -51,4 +59,213 @@ func TestGeneratedSchema(t *testing.T) {
 	actual, err := os.ReadFile(filepath.Join(tempDir, "ent.graphql"))
 	require.NoError(t, err)
 	require.Equal(t, string(expected), string(actual))
+}
+
+// TestGeneratedInputDecoderHooks asserts, without ever compiling the
+// generated output, that where_input.tmpl/where_input_subpkg.tmpl and
+// mutation_input.tmpl/mutation_input_sibling.tmpl emit the gqlwhere.Decode
+// wiring (UnmarshalGQLContext + gql/gqlscalar struct tags) that Task 5 adds,
+// in both the single-package and split-go-files ("subpkg") layouts.
+func TestGeneratedInputDecoderHooks(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []entgql.ExtensionOption
+	}{
+		{name: "single-package"},
+		{name: "split-files", opts: []entgql.ExtensionOption{entgql.WithSplitGoFiles(true)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			gqlcfg, err := os.ReadFile("./gqlgen.yml")
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(tempDir, "gqlgen.yml"), gqlcfg, 0644))
+
+			opts := append([]entgql.ExtensionOption{
+				entgql.WithConfigPath(filepath.Join(tempDir, "gqlgen.yml")),
+				entgql.WithSchemaGenerator(),
+				entgql.WithSchemaPath(filepath.Join(tempDir, "ent.graphql")),
+				entgql.WithWhereInputs(true),
+				entgql.WithNodeDescriptor(true),
+			}, tt.opts...)
+			ex, err := entgql.NewExtension(opts...)
+			require.NoError(t, err)
+			require.NoError(t, entc.Generate("./ent/schema", &gen.Config{
+				Target: tempDir,
+				Features: []gen.Feature{
+					gen.FeatureModifier,
+				},
+			}, entc.Extensions(ex)))
+
+			// gqlgen.yml (see its "schema:" list) merges the hand-written
+			// todo.graphql (custom scalars/inputs like CategoryConfig) with
+			// the generated ent.graphql; load both the same way so
+			// cross-file type references resolve.
+			todoBytes, err := os.ReadFile("./todo.graphql")
+			require.NoError(t, err)
+			entBytes, err := os.ReadFile(filepath.Join(tempDir, "ent.graphql"))
+			require.NoError(t, err)
+			schema, err := gqlparser.LoadSchema(
+				&ast.Source{Name: "todo.graphql", Input: string(todoBytes)},
+				&ast.Source{Name: "ent.graphql", Input: string(entBytes)},
+			)
+			require.NoError(t, err)
+
+			files := map[string]string{}
+			require.NoError(t, filepath.WalkDir(tempDir, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() || !strings.HasSuffix(path, ".go") {
+					return nil
+				}
+				b, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				files[path] = string(b)
+				return nil
+			}))
+
+			checkNoDuplicateImports(t, files)
+
+			var whereInputs, mutationInputs, whereFields, mutationFields int
+			for _, def := range schema.Types {
+				switch {
+				case def.Kind == ast.InputObject && strings.HasSuffix(def.Name, "WhereInput"):
+					whereFields += checkInputStruct(t, schema, files, def)
+					whereInputs++
+				case def.Kind == ast.InputObject && (strings.HasPrefix(def.Name, "Create") || strings.HasPrefix(def.Name, "Update")) && strings.HasSuffix(def.Name, "Input"):
+					mutationFields += checkInputStruct(t, schema, files, def)
+					mutationInputs++
+				}
+			}
+			// Guards against a schema/filter regression silently checking
+			// nothing (which would otherwise report zero failures).
+			require.NotZero(t, whereInputs, "expected to check at least one *WhereInput type")
+			require.NotZero(t, mutationInputs, "expected to check at least one Create/Update*Input type")
+			require.NotZero(t, whereFields, "expected to check at least one where-input field")
+			require.NotZero(t, mutationFields, "expected to check at least one mutation-input field")
+		})
+	}
+}
+
+// checkNoDuplicateImports parses just the import block of every generated
+// file (catches syntax errors too, e.g. a bad struct tag) and fails on any
+// import path repeated within one file -- the class of bug where a template
+// hand-adds an import already emitted by a shared "import" template block.
+func checkNoDuplicateImports(t *testing.T, files map[string]string) {
+	t.Helper()
+	fset := token.NewFileSet()
+	for path, content := range files {
+		f, err := parser.ParseFile(fset, path, content, parser.ImportsOnly)
+		if err != nil {
+			t.Errorf("%s: failed to parse: %v", path, err)
+			continue
+		}
+		seen := map[string]bool{}
+		for _, imp := range f.Imports {
+			if seen[imp.Path.Value] {
+				t.Errorf("%s: duplicate import %s", path, imp.Path.Value)
+			}
+			seen[imp.Path.Value] = true
+		}
+	}
+}
+
+// findStruct returns the file and body (between "struct {" and the matching
+// top-level closing brace) of "type <name> struct" across all generated
+// files, or ok=false if no file declares it.
+func findStruct(files map[string]string, name string) (file, body string, ok bool) {
+	re := regexp.MustCompile(`(?s)type ` + regexp.QuoteMeta(name) + ` struct \{(.*?)\n\}`)
+	for path, content := range files {
+		if m := re.FindStringSubmatch(content); m != nil {
+			return path, m[1], true
+		}
+	}
+	return "", "", false
+}
+
+// hasUnmarshalGQLContext reports whether some file declares the
+// UnmarshalGQLContext method for name backed by gqlwhere.Decode, and returns
+// that file's path for failure messages.
+func hasUnmarshalGQLContext(files map[string]string, name string) (file string, ok bool) {
+	sig := fmt.Sprintf("func (i *%s) UnmarshalGQLContext(ctx context.Context, v any) error", name)
+	decode := fmt.Sprintf(`return gqlwhere.Decode(ctx, "%s", i, v)`, name)
+	for path, content := range files {
+		if strings.Contains(content, sig) && strings.Contains(content, decode) {
+			return path, true
+		}
+	}
+	return "", false
+}
+
+// checkInputStruct asserts that the generated struct backing the input object
+// def carries, for every field entgql itself put in ent.graphql, a gql tag
+// naming that field and -- when the field's leaf GraphQL type is a scalar --
+// a gqlscalar tag naming that scalar. Both are what gqlwhere.Decode resolves
+// on: the gql tag picks the struct field, the gqlscalar tag picks the coercer
+// gqlgen would have generated for that GraphQL type (which is not derivable
+// from the Go type: Duration and Int64 are both time.Duration/int64).
+//
+// It returns the number of schema fields it actually checked, so the caller
+// can assert that at least one field was checked (an all-fields-filtered-out
+// regression would otherwise report zero failures).
+func checkInputStruct(t *testing.T, schema *ast.Schema, files map[string]string, def *ast.Definition) int {
+	t.Helper()
+	file, body, ok := findStruct(files, def.Name)
+	if !ok {
+		t.Errorf("%s: no generated file declares \"type %s struct\"", def.Name, def.Name)
+		return 0
+	}
+	if _, ok := hasUnmarshalGQLContext(files, def.Name); !ok {
+		t.Errorf("%s: no generated file has UnmarshalGQLContext + gqlwhere.Decode (struct in %s)", def.Name, file)
+	}
+
+	checked := 0
+	for _, f := range def.Fields {
+		// todo.graphql hand-extends some entgql-generated inputs with extra
+		// fields resolved outside the generated struct (e.g. "extend input
+		// CreateCategoryInput { createTodos: ... }"); only fields entgql
+		// itself put in ent.graphql are backed by a generated struct field.
+		if f.Position == nil || f.Position.Src == nil || f.Position.Src.Name != "ent.graphql" {
+			continue
+		}
+		checked++
+		tag := `gql:"` + f.Name + `"`
+		line, ok := tagLine(body, tag)
+		if !ok {
+			t.Errorf("%s: field %q: missing %s tag in %s", def.Name, f.Name, tag, file)
+			continue
+		}
+		// Enums and nested input objects are decoded by their own
+		// UnmarshalGQL method or by a recursive Decode, not by a coercer, so
+		// only leaf scalars need a gqlscalar tag.
+		if leaf := schema.Types[f.Type.Name()]; leaf == nil || leaf.Kind != ast.Scalar {
+			continue
+		}
+		want := fmt.Sprintf("gqlscalar:%q", f.Type.Name())
+		if !strings.Contains(line, want) {
+			t.Errorf("%s: field %q: expected %s alongside %s in %s, got line: %s", def.Name, f.Name, want, tag, file, line)
+		}
+	}
+	return checked
+}
+
+// tagLine returns the whole struct-field line carrying tag, so a tag can be
+// asserted against the field it is actually on rather than merely existing
+// somewhere in the struct body.
+func tagLine(body, tag string) (string, bool) {
+	idx := strings.Index(body, tag)
+	if idx == -1 {
+		return "", false
+	}
+	start := strings.LastIndex(body[:idx], "\n") + 1
+	end := strings.Index(body[idx:], "\n")
+	if end == -1 {
+		end = len(body)
+	} else {
+		end += idx
+	}
+	return body[start:end], true
 }

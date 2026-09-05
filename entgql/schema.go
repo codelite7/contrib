@@ -728,12 +728,12 @@ func (e *schemaGenerator) buildWhereInput(t *gen.Type, nodeGQLType, gqlType stri
 
 		def.Fields = append(def.Fields,
 			&ast.FieldDefinition{
-				Name:        camel("has_" + e.Name),
+				Name:        whereEdgeGQLName(e),
 				Type:        namedType("Boolean", true),
 				Description: e.Name + " edge predicates",
 			},
 			&ast.FieldDefinition{
-				Name: camel("has_" + e.Name + "_with"),
+				Name: whereEdgeWithGQLName(e),
 				Type: listNamedType(names.WhereInput, true),
 			},
 		)
@@ -790,19 +790,19 @@ func (e *schemaGenerator) buildMutationInputs(t *gen.Type, ant *Annotation, gqlT
 				return nil, fmt.Errorf("%s is not supported as input for %s", f.Name, def.Name)
 			}
 			def.Fields = append(def.Fields, &ast.FieldDefinition{
-				Name:        camel(f.Name),
+				Name:        f.GQLName(),
 				Type:        namedType(scalar, f.Nullable),
 				Description: f.Comment(),
 			})
 			if f.AppendOp {
 				def.Fields = append(def.Fields, &ast.FieldDefinition{
-					Name: "append" + f.StructField(),
+					Name: f.AppendGQLName(),
 					Type: namedType(scalar, true),
 				})
 			}
 			if f.ClearOp {
 				def.Fields = append(def.Fields, &ast.FieldDefinition{
-					Name: "clear" + f.StructField(),
+					Name: f.ClearGQLName(),
 					Type: namedType("Boolean", true),
 				})
 			}
@@ -812,26 +812,26 @@ func (e *schemaGenerator) buildMutationInputs(t *gen.Type, ant *Annotation, gqlT
 			switch {
 			case e.Unique:
 				def.Fields = append(def.Fields, &ast.FieldDefinition{
-					Name: camel(e.Name) + "ID",
+					Name: edgeInputGQLName(e, i.IsCreate),
 					Type: namedType("ID", !i.IsCreate || e.Optional),
 				})
 			case i.IsCreate:
 				def.Fields = append(def.Fields, &ast.FieldDefinition{
-					Name: camel(singular(e.Name)) + "IDs",
+					Name: edgeInputGQLName(e, i.IsCreate),
 					Type: namedType("[ID!]", e.Optional),
 				})
 			default:
 				def.Fields = append(def.Fields, &ast.FieldDefinition{
-					Name: "add" + pascal(singular(e.Name)) + "IDs",
+					Name: edgeAddGQLName(e),
 					Type: namedType("[ID!]", true),
 				}, &ast.FieldDefinition{
-					Name: "remove" + pascal(singular(e.Name)) + "IDs",
+					Name: edgeRemoveGQLName(e),
 					Type: namedType("[ID!]", true),
 				})
 			}
 			if !i.IsCreate && e.Optional {
 				def.Fields = append(def.Fields, &ast.FieldDefinition{
-					Name: camel(snake(e.MutationClear())),
+					Name: edgeClearGQLName(e),
 					Type: namedType("Boolean", true),
 				})
 			}
@@ -887,10 +887,7 @@ func fieldMapping(f *gen.Field) ([]string, error) {
 
 func (e *schemaGenerator) fieldDefinitionOp(gqlType string, f *gen.Field, ant *Annotation, op gen.Op) *ast.FieldDefinition {
 	def := &ast.FieldDefinition{
-		Name: camel(f.Name + "_" + op.Name()),
-	}
-	if op == gen.EQ {
-		def.Name = camel(f.Name)
+		Name: whereFieldGQLName(f, op),
 	}
 
 	if e.scalarFunc != nil {

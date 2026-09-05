@@ -20,7 +20,10 @@ package mutationinputs
 {{- $pkg := $entityNode.Type.Package }}
 
 import (
+    "context"
+
     "entgo.io/contrib/entgql/gqlinput"
+    "entgo.io/contrib/entgql/gqlwhere"
     "{{ $.Config.Package }}/{{ $pkg }}"
 )
 
@@ -37,27 +40,27 @@ import (
     type {{ $input }} struct {
         {{- range $f := $fields }}
             {{- if $f.ClearOp }}
-                {{ print "Clear" $f.StructField }} bool `mutate:"fc:{{ $f.Name }}"`
+                {{ print "Clear" $f.StructField }} bool `mutate:"fc:{{ $f.Name }}" gql:"{{ $f.ClearGQLName }}" gqlscalar:"Boolean"`
             {{- end }}
-            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"f:{{ $f.Name }}"`
+            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"f:{{ $f.Name }}" gql:"{{ $f.GQLName }}"{{ with $s := inputScalar $n.Type $f }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- if $f.AppendOp }}
-                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"fa:{{ $f.Name }}"`
+                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `mutate:"fa:{{ $f.Name }}" gql:"{{ $f.AppendGQLName }}"{{ with $s := inputScalar $n.Type $f }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- end }}
         {{- end }}
         {{- range $e := $edges }}
             {{- if and (not $n.IsCreate) $e.Optional }}
-                {{ $e.MutationClear }} bool `mutate:"ec:{{ $e.Name }}"`
+                {{ $e.MutationClear }} bool `mutate:"ec:{{ $e.Name }}" gql:"{{ edgeClearGQLName $e }}" gqlscalar:"Boolean"`
             {{- end }}
             {{- if $e.Unique }}
                 {{- $structField := print (pascal $e.Name) "ID" }}
-                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }} `mutate:"e:{{ $e.Name }}"`
+                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }} `mutate:"e:{{ $e.Name }}" gql:"{{ edgeInputGQLName $e $n.IsCreate }}" gqlscalar:"ID"`
             {{- else }}
                 {{- if $n.IsCreate }}
                     {{- $structField := print (singular $e.Name | pascal) "IDs" }}
-                    {{ $structField }} []{{ $e.Type.ID.Type }} `mutate:"ea:{{ $e.Name }}"`
+                    {{ $structField }} []{{ $e.Type.ID.Type }} `mutate:"ea:{{ $e.Name }}" gql:"{{ edgeInputGQLName $e $n.IsCreate }}" gqlscalar:"ID"`
                 {{- else }}
-                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }} `mutate:"ea:{{ $e.Name }}"`
-                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }} `mutate:"er:{{ $e.Name }}"`
+                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }} `mutate:"ea:{{ $e.Name }}" gql:"{{ edgeAddGQLName $e }}" gqlscalar:"ID"`
+                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }} `mutate:"er:{{ $e.Name }}" gql:"{{ edgeRemoveGQLName $e }}" gqlscalar:"ID"`
                 {{- end }}
             {{- end }}
         {{- end }}
@@ -69,6 +72,12 @@ import (
     // entgo.io/contrib/entgql/gqlinput.
     func (i {{ $input }}) Mutate(m *{{ $pkg }}.{{ $n.MutationName }}) {
         gqlinput.Mutate(i, m)
+    }
+
+    // UnmarshalGQLContext decodes a GraphQL input object into the mutation input,
+    // replacing gqlgen's per-type generated unmarshaler (see gqlwhere.Decode).
+    func (i *{{ $input }}) UnmarshalGQLContext(ctx context.Context, v any) error {
+        return gqlwhere.Decode(ctx, "{{ $input }}", i, v)
     }
 
     {{- range $b := $n.Builders }}

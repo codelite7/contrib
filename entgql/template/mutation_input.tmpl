@@ -12,6 +12,7 @@
 {{ $gqlNodes := filterNodes $.Nodes (skipMode "mutation_create_input" "mutation_update_input") }}
 import (
     "entgo.io/contrib/entgql"
+    "entgo.io/contrib/entgql/gqlwhere"
     "entgo.io/ent/runtime/entbuilder"
     {{- range $n := $gqlNodes }}
         {{- template "import/types" $n }}
@@ -32,27 +33,27 @@ import (
     type {{ $input }} struct {
         {{- range $f := $fields }}
             {{- if $f.ClearOp }}
-                {{ print "Clear" $f.StructField }} bool
+                {{ print "Clear" $f.StructField }} bool `gql:"{{ $f.ClearGQLName }}" gqlscalar:"Boolean"`
             {{- end }}
-            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }}
+            {{ $f.StructField }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `gql:"{{ $f.GQLName }}"{{ with $s := inputScalar $n.Type $f }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- if $f.AppendOp }}
-                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }}
+                {{ $f.MutationAppend }} {{ if $f.IsPointer }}*{{ end }}{{ $f.Type }} `gql:"{{ $f.AppendGQLName }}"{{ with $s := inputScalar $n.Type $f }} gqlscalar:"{{ $s }}"{{ end }}`
             {{- end }}
         {{- end }}
         {{- range $e := $edges }}
             {{- if and (not $n.IsCreate) $e.Optional }}
-                {{ $e.MutationClear }} bool
+                {{ $e.MutationClear }} bool `gql:"{{ edgeClearGQLName $e }}" gqlscalar:"Boolean"`
             {{- end }}
             {{- if $e.Unique }}
                 {{- $structField := print (pascal $e.Name) "ID" }}
-                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }}
+                {{ $structField }} {{ if or (not $n.IsCreate) $e.Optional }}*{{ end }}{{ $e.Type.ID.Type }} `gql:"{{ edgeInputGQLName $e $n.IsCreate }}" gqlscalar:"ID"`
             {{- else }}
                 {{- if $n.IsCreate }}
                     {{- $structField := print (singular $e.Name | pascal) "IDs" }}
-                    {{ $structField }} []{{ $e.Type.ID.Type }}
+                    {{ $structField }} []{{ $e.Type.ID.Type }} `gql:"{{ edgeInputGQLName $e $n.IsCreate }}" gqlscalar:"ID"`
                 {{- else }}
-                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }}
-                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }}
+                    {{ $e.MutationAdd }} []{{ $e.Type.ID.Type }} `gql:"{{ edgeAddGQLName $e }}" gqlscalar:"ID"`
+                    {{ $e.MutationRemove }} []{{ $e.Type.ID.Type }} `gql:"{{ edgeRemoveGQLName $e }}" gqlscalar:"ID"`
                 {{- end }}
             {{- end }}
         {{- end }}
@@ -129,6 +130,12 @@ import (
                 {{- xtemplate $tmpl $n }}
             {{- end }}
         {{- end }}
+    }
+
+    // UnmarshalGQLContext decodes a GraphQL input object into the mutation input,
+    // replacing gqlgen's per-type generated unmarshaler (see gqlwhere.Decode).
+    func (i *{{ $input }}) UnmarshalGQLContext(ctx context.Context, v any) error {
+        return gqlwhere.Decode(ctx, "{{ $input }}", i, v)
     }
 
     {{- range $b := $n.Builders }}

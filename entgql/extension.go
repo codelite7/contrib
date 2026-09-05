@@ -347,6 +347,13 @@ func (e *Extension) genSchemaHook() gen.Hook {
 		return gen.GenerateFunc(func(g *gen.Graph) (err error) {
 			resetSafeOpsCache()
 			defer resetSafeOpsCache()
+			// Publish the per-node GraphQL scalar resolver before template
+			// rendering: the where/mutation input templates tag every field
+			// with its GraphQL type name so gqlwhere.Decode can pick the same
+			// coercer gqlgen would (see whereScalar).
+			if err = e.publishScalars(g); err != nil {
+				return err
+			}
 			// Inject max page size into graph annotations before template rendering
 			// so that pagination templates can read it via $.Annotations.
 			if e.maxPageSize > 0 {

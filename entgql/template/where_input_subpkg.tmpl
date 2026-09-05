@@ -28,6 +28,8 @@ package whereinputs
 {{ $filteredEdges := filterEdges $n.Edges (skipMode "where_input") }}
 
 import (
+    "context"
+
     "entgo.io/contrib/entgql/gqlwhere"
     "{{ $.Config.Package }}/predicate"
     "{{ $.Config.Package }}/{{ $n.Package }}"
@@ -39,20 +41,19 @@ import (
 // {{ $input }} represents a where input for filtering {{ $n.Name }} queries.
 type {{ $input }} struct {
     Predicates []predicate.{{ $n.Name }} `json:"-"`
-    Not *{{ $input }} `json:"not,omitempty"`
-    Or  []*{{ $input }} `json:"or,omitempty"`
-    And []*{{ $input }} `json:"and,omitempty"`
+    Not *{{ $input }} `json:"not,omitempty" gql:"not"`
+    Or  []*{{ $input }} `json:"or,omitempty" gql:"or"`
+    And []*{{ $input }} `json:"and,omitempty" gql:"and"`
     {{- range $f := $comparableFields }}
 
         // "{{ $f.Name }}" field predicates.
         {{- range $op := safeOps $f }}
             {{- $field := print $f.StructField $op.Name }}
-            {{- $jsonTag := print $f.Name "_" $op.Name }}
             {{- /* We name the field filter "<Field>EQ()" as "<Field>()", because it's cleaner (e.g. "name_eq" -> "name") */}}
             {{- if eq $op.Name "EQ" }}
                 {{- $field = $f.StructField }}
-                {{- $jsonTag = $f.Name }}
             {{- end }}
+            {{- $gqlName := whereFieldGQLName $f $op }}
             {{- $type := $f.Type }}
             {{- if $op.Niladic }}
                 {{- $type = "bool" }}
@@ -61,7 +62,7 @@ type {{ $input }} struct {
             {{- else if not $f.Type.RType.IsPtr }}
                 {{- $type = print "*" $type }}
             {{- end }}
-            {{ $field }} {{ $type }} `json:"{{ camel $jsonTag }},omitempty"`
+            {{ $field }} {{ $type }} `json:"{{ $gqlName }},omitempty" gql:"{{ $gqlName }}"{{ with $s := whereScalar $n $f $op }} gqlscalar:"{{ $s }}"{{ end }}`
         {{- end }}
     {{- end }}
 
@@ -69,12 +70,12 @@ type {{ $input }} struct {
 
         // "{{ $e.Name }}" edge predicates.
         {{- $field := print "Has" $e.StructField }}
-        {{- $jsonTag := print "has_" $e.Name }}
-        {{ $field }} *bool `json:"{{ camel $jsonTag }},omitempty"`
+        {{- $gqlName := whereEdgeGQLName $e }}
+        {{ $field }} *bool `json:"{{ $gqlName }},omitempty" gql:"{{ $gqlName }}" gqlscalar:"Boolean"`
         {{- $field = print $field "With" }}
-        {{- $jsonTag = print $jsonTag "_with" }}
+        {{- $gqlName = whereEdgeWithGQLName $e }}
         {{- $names := nodePaginationNames $e.Type }}
-        {{ $field }} []*{{ $names.WhereInput }} `json:"{{ camel $jsonTag }},omitempty"`
+        {{ $field }} []*{{ $names.WhereInput }} `json:"{{ $gqlName }},omitempty" gql:"{{ $gqlName }}"`
     {{- end }}
 }
 
@@ -108,5 +109,11 @@ func (i *{{ $input }}) Filter(q *{{ $n.Package }}.{{ $n.QueryName }}) (*{{ $n.Pa
 // An error is returned if the input is empty or invalid.
 func (i *{{ $input }}) P() (predicate.{{ $n.Name }}, error) {
 	return registry{{ $input }}.P(i)
+}
+
+// UnmarshalGQLContext decodes a GraphQL input object into the where input,
+// replacing gqlgen's per-type generated unmarshaler (see gqlwhere.Decode).
+func (i *{{ $input }}) UnmarshalGQLContext(ctx context.Context, v any) error {
+	return gqlwhere.Decode(ctx, "{{ $input }}", i, v)
 }
 {{ end }}
