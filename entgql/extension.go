@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 
@@ -53,6 +54,13 @@ type (
 		parallelWhereInputFiles bool   // opt-in parallel generation for where-input split files
 		importsDir              string // real target dir for imports.Process path resolution during split generation
 		maxPageSize             int    // server-side default and cap for connection pagination
+
+		// Index DDL output (see WithIndexOutput / WithIndexTableNameStrip /
+		// WithIndexSoftDeleteColumn). The writer hook is conditionally
+		// appended in NewExtension when indexOutputPath != "".
+		indexOutputPath       string
+		indexTableNameStrip   *regexp.Regexp
+		indexSoftDeleteColumn string
 	}
 
 	// ExtensionOption allows for managing the Extension configuration
@@ -307,6 +315,7 @@ func NewExtension(opts ...ExtensionOption) (*Extension, error) {
 			relaySpec:    true,
 			genMutations: true,
 		},
+		indexSoftDeleteColumn: "deleted_at",
 	}
 	for _, opt := range opts {
 		if err := opt(ex); err != nil {
