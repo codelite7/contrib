@@ -327,6 +327,25 @@ func lookup(t reflect.Type, scalar string) (c Coercer, ok, bound bool) {
 			return c, true, bound
 		}
 	}
+	if bound {
+		// The scalar is one gqlgen knows, but the application bound it to a Go
+		// type outside gqlgen's default model list for that scalar. The common
+		// case is `models: ID: model: graphql.UUID`, which makes every ID field
+		// a uuid.UUID. gqlgen resolves that through config.Models, which is not
+		// available at runtime, so fall back to the Go-type table: that is what
+		// this decoder did before coercers were keyed by scalar, and what the
+		// differential parity run against a real schema validated. An unknown
+		// scalar never reaches here -- it returns above -- so this cannot
+		// resurrect the wrong-coercer class this keying exists to catch.
+		if c, ok = goCoercers[t]; ok {
+			return c, true, bound
+		}
+		if t.PkgPath() != "" {
+			if c, ok = goCoercers[underlyingType(t)]; ok {
+				return c, true, bound
+			}
+		}
+	}
 	return nil, false, bound
 }
 
