@@ -23,6 +23,7 @@ import (
 
 	"entgo.io/contrib/entgql/internal/todo/ent/schema/durationgql"
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -150,4 +151,50 @@ func TestParity_UnknownScalarOverNonStringStillErrors(t *testing.T) {
 	}
 	err := Decode(context.Background(), "X", &dst, map[string]any{"dur": "1h"})
 	require.ErrorContains(t, err, "no coercer for GraphQL scalar UnregisteredDuration")
+}
+
+// TestParity_AppBoundIDScalar covers `models: ID: model: graphql.UUID` in
+// gqlgen.yml, which makes every ID field a uuid.UUID. gqlgen resolves that
+// through config.Models and emits UnmarshalUUID; the decoder cannot see the
+// config, so a known scalar whose Go type is not in gqlgen's default model
+// list for that scalar falls back to the Go-type table.
+func TestParity_AppBoundIDScalar(t *testing.T) {
+	type in struct {
+		ID   *uuid.UUID  `gql:"id" gqlscalar:"ID"`
+		IDIn []uuid.UUID `gql:"idIn" gqlscalar:"ID"`
+	}
+	id := uuid.New()
+	var dst in
+	require.NoError(t, Decode(context.Background(), "In", &dst, map[string]any{
+		"id":   id.String(),
+		"idIn": []any{id.String()},
+	}))
+	require.NotNil(t, dst.ID)
+	require.Equal(t, id, *dst.ID)
+	require.Equal(t, []uuid.UUID{id}, dst.IDIn)
+
+	// Same value through gqlgen's own unmarshaler, for parity.
+	want, err := graphql.UnmarshalUUID(id.String())
+	require.NoError(t, err)
+	require.Equal(t, want, *dst.ID)
+
+	// A bad value must still error, and with gqlgen's text.
+	var bad in
+	gotErr := Decode(context.Background(), "In", &bad, map[string]any{"id": 42})
+	_, wantErr := graphql.UnmarshalUUID(42)
+	require.Error(t, gotErr)
+	require.Contains(t, gotErr.Error(), wantErr.Error())
+}
+
+// TestParity_UnknownScalarStillErrorsAfterFallback pins that the fallback is
+// reachable only for a scalar gqlgen knows: an unrecognised scalar name over a
+// non-string Go type remains a loud error rather than silently coercing.
+func TestParity_UnknownScalarStillErrorsAfterFallback(t *testing.T) {
+	type in struct {
+		D *time.Duration `gql:"d" gqlscalar:"Furlongs"`
+	}
+	var dst in
+	err := Decode(context.Background(), "In", &dst, map[string]any{"d": "3600"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no coercer for GraphQL scalar Furlongs")
 }
