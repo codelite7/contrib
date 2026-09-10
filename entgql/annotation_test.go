@@ -80,3 +80,21 @@ func TestAnnotationDecode(t *testing.T) {
 	require.NotNil(t, err)
 	require.Equal(t, err.Error(), "json: cannot unmarshal string into Go value of type entgql.Annotation")
 }
+
+func TestUnionFieldAnnotationMerge(t *testing.T) {
+	base := entgql.Annotation{Implements: []string{"Entity"}}
+	merged := base.Merge(entgql.UnionField("createdBy", "Actor", "created_by", "created_by_app")).(entgql.Annotation)
+	require.Equal(t, []entgql.UnionFieldSpec{{Field: "createdBy", Type: "Actor", Edges: []string{"created_by", "created_by_app"}}}, merged.Unions)
+	require.Equal(t, []string{"Entity"}, merged.Implements)
+
+	twice := merged.Merge(entgql.UnionField("owner", "Owner", "owner_user", "owner_group")).(entgql.Annotation)
+	require.Len(t, twice.Unions, 2)
+
+	stamped := twice.Merge(entgql.Annotation{UnionMemberOf: []string{"Actor"}}).(entgql.Annotation)
+	require.Equal(t, []string{"Actor"}, stamped.UnionMemberOf)
+
+	var decoded entgql.Annotation
+	require.NoError(t, decoded.Decode(stamped))
+	require.Equal(t, stamped.Unions, decoded.Unions)
+	require.Equal(t, stamped.UnionMemberOf, decoded.UnionMemberOf)
+}

@@ -64,12 +64,26 @@ type (
 		// DeprecatedEnumValues is a list of enum values that should be marked
 		// with the `@deprecated` directive.
 		DeprecatedEnumValues []string `json:"DeprecatedEnumValues,omitempty"`
+		// Unions declares virtual union-typed fields composed of unique edges of this type.
+		Unions []UnionFieldSpec `json:"Unions,omitempty"`
+		// UnionMemberOf lists the union types this node is a member of. Stamped by
+		// the extension from every Unions declaration in the graph; never set by hand.
+		UnionMemberOf []string `json:"UnionMemberOf,omitempty"`
 	}
 
 	// Directive to apply on the field/type.
 	Directive struct {
 		Name      string          `json:"name,omitempty"`
 		Arguments []*ast.Argument `json:"arguments,omitempty"`
+	}
+
+	// UnionFieldSpec is one virtual GraphQL field whose value is one of several
+	// unique edges, exposed as a GraphQL union of the edges' target types.
+	UnionFieldSpec struct {
+		Field      string      `json:"Field,omitempty"`
+		Type       string      `json:"Type,omitempty"`
+		Edges      []string    `json:"Edges,omitempty"`
+		Directives []Directive `json:"Directives,omitempty"`
 	}
 
 	// SkipMode is a bit flag for the Skip annotation.
@@ -466,6 +480,12 @@ func DeprecatedEnumValues(values ...string) Annotation {
 	return Annotation{DeprecatedEnumValues: values}
 }
 
+// UnionField declares a virtual field named field, typed as the GraphQL union
+// unionType, whose value is whichever of the named unique edges is set.
+func UnionField(field, unionType string, edges ...string) Annotation {
+	return Annotation{Unions: []UnionFieldSpec{{Field: field, Type: unionType, Edges: edges}}}
+}
+
 // Merge implements the schema.Merger interface.
 func (a Annotation) Merge(other schema.Annotation) schema.Annotation {
 	var ant Annotation
@@ -529,6 +549,12 @@ func (a Annotation) Merge(other schema.Annotation) schema.Annotation {
 	}
 	if len(ant.DeprecatedEnumValues) > 0 {
 		a.DeprecatedEnumValues = append(a.DeprecatedEnumValues, ant.DeprecatedEnumValues...)
+	}
+	if len(ant.Unions) > 0 {
+		a.Unions = append(a.Unions, ant.Unions...)
+	}
+	if len(ant.UnionMemberOf) > 0 {
+		a.UnionMemberOf = append(a.UnionMemberOf, ant.UnionMemberOf...)
 	}
 	return a
 }
