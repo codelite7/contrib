@@ -1,6 +1,7 @@
 package entgql
 
 import (
+	"path/filepath"
 	"testing"
 
 	"entgo.io/ent/entc"
@@ -100,6 +101,29 @@ func TestCollectUnionsValidation(t *testing.T) {
 		_, err := collectUnions(graph)
 		require.ErrorContains(t, err, "must be unique")
 	})
+	t.Run("relay connection member", func(t *testing.T) {
+		graph := loadUnionGraph(t)
+		for _, e := range postNode(t, graph).Edges {
+			if e.Name == "author_bot" {
+				if e.Annotations == nil {
+					e.Annotations = gen.Annotations{}
+				}
+				e.Annotations[Annotation{}.Name()] = RelayConnection()
+			}
+		}
+		_, err := collectUnions(graph)
+		require.ErrorContains(t, err, "cannot be a relay connection")
+	})
+	t.Run("member targets a skipped type", func(t *testing.T) {
+		graph := loadUnionGraph(t)
+		for _, n := range graph.Nodes {
+			if n.Name == "Bot" {
+				withUnionAnnotation(t, n, Skip(SkipType))
+			}
+		}
+		_, err := collectUnions(graph)
+		require.ErrorContains(t, err, "which is skipped")
+	})
 }
 
 func TestStampUnionMembership(t *testing.T) {
@@ -120,4 +144,21 @@ func TestStampUnionMembership(t *testing.T) {
 			require.Empty(t, ant.UnionMemberOf)
 		}
 	}
+}
+
+func TestGenSchemaHookRejectsUnionsWithoutSplitGoFiles(t *testing.T) {
+	noop := gen.GenerateFunc(func(*gen.Graph) error { return nil })
+
+	ex, err := NewExtension(WithSchemaGenerator())
+	require.NoError(t, err)
+	err = ex.genSchemaHook()(noop).Generate(loadUnionGraph(t))
+	require.ErrorContains(t, err, "requires WithSplitGoFiles")
+
+	ex, err = NewExtension(
+		WithSchemaGenerator(),
+		WithSplitGoFiles(true),
+		WithSchemaPath(filepath.Join(t.TempDir(), "ent.graphql")),
+	)
+	require.NoError(t, err)
+	require.NoError(t, ex.genSchemaHook()(noop).Generate(loadUnionGraph(t)))
 }
