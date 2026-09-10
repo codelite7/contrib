@@ -200,14 +200,18 @@ var (
 		"inputScalar":          inputScalar,
 		"isRelayConn":          isRelayConn,
 		"isSkipMode":           isSkipMode,
+		"isUnionMember":        isUnionMember,
 		"mutationInputs":       mutationInputs,
 		"nodeImplementors":     nodeImplementors,
 		"nodeImplementorsVar":  nodeImplementorsVar,
 		"nodePaginationNames":  nodePaginationNames,
+		"nodeUnions":           nodeUnions,
+		"nonUnionEdges":        nonUnionEdges,
 		"orderFields":          orderFields,
 		"safeOps":              safeOps,
 		"skipMode":             skipModeFromString,
 		"trimPrefix":           trimPrefix,
+		"unionMemberEdges":     unionMemberEdges,
 		"whereEdgeGQLName":     whereEdgeGQLName,
 		"whereEdgeWithGQLName": whereEdgeWithGQLName,
 		"whereFieldGQLName":    whereFieldGQLName,
@@ -1133,7 +1137,7 @@ func nodeImplementors(n *gen.Type) (ifaces []string, err error) {
 	if !ant.Skip.Is(SkipType) && !slices.Contains(ant.Implements, "Node") {
 		ifaces = append(ifaces, "Node")
 	}
-	return append(ifaces, ant.Implements...), nil
+	return append(append(ifaces, ant.Implements...), ant.UnionMemberOf...), nil
 }
 
 func nodeImplementorsVar(n *gen.Type) string {
