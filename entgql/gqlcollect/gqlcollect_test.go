@@ -304,3 +304,27 @@ func TestSpecIndexAcceptsDistinctNames(t *testing.T) {
 			false, &graphql.OperationContext{}, sel(&ast.Field{Name: "name"}), nil)
 	})
 }
+
+func TestCollectUnionRunsEveryMemberAndSelectsEveryFK(t *testing.T) {
+	var calls []collectCall
+	collect := func(q *childQuery, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, field graphql.CollectedField, path []string, satisfies ...string) error {
+		calls = append(calls, collectCall{oneNode: oneNode, alias: field.Alias, path: append([]string(nil), path...), satisfies: append([]string(nil), satisfies...)})
+		return nil
+	}
+	spec := &gqlcollect.Spec{
+		IDColumn: "id",
+		Edges: []gqlcollect.Edge{gqlcollect.Union("creator",
+			gqlcollect.Unique("creator", "created_by_id", []string{"User"}, collect, withUniqueChild),
+			gqlcollect.Unique("creator", "created_by_app_id", []string{"App"}, collect, withUniqueChild),
+		)},
+		Fields: []gqlcollect.Field{{GQL: "id"}},
+		Select: func(parent any, columns []string) { parent.(*parentQuery).selected = append([]string(nil), columns...) },
+	}
+	p := run(t, spec, sel(&ast.Field{Name: "creator"}), "Parent")
+	require.Equal(t, []string{"unique:", "unique:"}, p.attached)
+	require.Len(t, calls, 2)
+	require.Equal(t, []string{"Parent", "User"}, calls[0].satisfies)
+	require.Equal(t, []string{"Parent", "App"}, calls[1].satisfies)
+	require.Equal(t, []string{"creator"}, calls[1].path)
+	require.Equal(t, []string{"id", "created_by_id", "created_by_app_id"}, p.selected)
+}
