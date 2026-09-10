@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
 	"github.com/stretchr/testify/require"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 func loadUnionGraph(t *testing.T) *gen.Graph {
@@ -161,4 +162,38 @@ func TestGenSchemaHookRejectsUnionsWithoutSplitGoFiles(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, ex.genSchemaHook()(noop).Generate(loadUnionGraph(t)))
+}
+
+func TestUnionSchemaEmission(t *testing.T) {
+	graph := loadUnionGraph(t)
+	plugin := &schemaGenerator{genSchema: true, genWhereInput: true, relaySpec: true}
+	schema, err := plugin.BuildSchema(graph)
+	require.NoError(t, err)
+
+	author := schema.Types["Author"]
+	require.NotNil(t, author)
+	require.Equal(t, ast.Union, author.Kind)
+	require.Equal(t, []string{"Person", "Bot"}, author.Types)
+
+	post := schema.Types["Post"]
+	var names []string
+	for _, f := range post.Fields {
+		names = append(names, f.Name)
+	}
+	require.Contains(t, names, "author")
+	require.Contains(t, names, "reviewer")
+	require.NotContains(t, names, "authorPerson")
+	require.NotContains(t, names, "authorBot")
+	field := post.Fields.ForName("author")
+	require.Equal(t, "Author", field.Type.Name())
+	require.False(t, field.Type.NonNull)
+
+	where := schema.Types["PostWhereInput"]
+	require.NotNil(t, where.Fields.ForName("hasAuthorPerson"))
+	require.NotNil(t, where.Fields.ForName("hasAuthorBotWith"))
+
+	split, err := plugin.BuildSplitSchema(graph)
+	require.NoError(t, err)
+	require.NotNil(t, split.Shared.Types["Author"], "union definition belongs to ent_shared.graphql")
+	require.Nil(t, split.Entities["Post"].Types["Author"])
 }

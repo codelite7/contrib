@@ -144,6 +144,20 @@ func (e *schemaGenerator) BuildSchema(g *gen.Graph) (s *ast.Schema, err error) {
 		return nil, err
 	}
 
+	if e.genSchema {
+		defs, err := collectUnions(g)
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range sortedKeys(defs) {
+			s.AddTypes(&ast.Definition{
+				Name:  name,
+				Kind:  ast.Union,
+				Types: defs[name].Members,
+			})
+		}
+	}
+
 	for _, h := range e.schemaHooks {
 		if err = h(g, s); err != nil {
 			return nil, err
@@ -300,6 +314,14 @@ func (e *schemaGenerator) splitTypeOwners(g *gen.Graph) (map[string]string, []st
 				assignSplitTypeOwner(owners, def.Name, gqlType)
 			}
 		}
+	}
+
+	defs, err := collectUnions(g)
+	if err != nil {
+		return nil, nil, err
+	}
+	for name := range defs {
+		assignSplitTypeOwner(owners, name, splitTypeOwnerShared)
 	}
 
 	return owners, entityNames, nil
@@ -525,6 +547,11 @@ func (e *schemaGenerator) buildType(t *gen.Type, ant *Annotation, gqlType, pkg s
 		if ant.Skip.Is(SkipType) {
 			continue
 		}
+		if member, err := isUnionMember(t, edge); err != nil {
+			return nil, err
+		} else if member {
+			continue
+		}
 		if ant.RelayConnection && edge.Unique {
 			return nil, fmt.Errorf("entgql: RelayConnection cannot be defined on Unique edge: %s.%s", t.Name, edge.Name)
 		}
@@ -536,6 +563,26 @@ func (e *schemaGenerator) buildType(t *gen.Type, ant *Annotation, gqlType, pkg s
 		if len(fields) > 0 {
 			def.Fields = append(def.Fields, fields...)
 		}
+	}
+
+	unions, err := nodeUnions(t)
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range unions {
+		edges, err := unionMemberEdges(t, u)
+		if err != nil {
+			return nil, err
+		}
+		nonNull := true
+		for _, e := range edges {
+			nonNull = nonNull && !e.Optional
+		}
+		def.Fields = append(def.Fields, &ast.FieldDefinition{
+			Name:       u.Field,
+			Type:       namedType(u.Type, !nonNull),
+			Directives: e.buildDirectives(u.Directives),
+		})
 	}
 
 	return def, nil
