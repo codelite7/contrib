@@ -570,17 +570,9 @@ func (e *schemaGenerator) buildType(t *gen.Type, ant *Annotation, gqlType, pkg s
 		return nil, err
 	}
 	for _, u := range unions {
-		edges, err := unionMemberEdges(t, u)
-		if err != nil {
-			return nil, err
-		}
-		nonNull := true
-		for _, e := range edges {
-			nonNull = nonNull && !e.Optional
-		}
 		def.Fields = append(def.Fields, &ast.FieldDefinition{
 			Name:       u.Field,
-			Type:       namedType(u.Type, !nonNull),
+			Type:       ast.NamedType(u.Type, nil),
 			Directives: e.buildDirectives(u.Directives),
 		})
 	}
