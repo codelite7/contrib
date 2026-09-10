@@ -1027,3 +1027,60 @@ func TestGenerateSplitWhereInputs_ParallelFlag(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+
+// loadUnionTestGraph loads the union fixture schema graph with Target set to tmpDir.
+func loadUnionTestGraph(t *testing.T, tmpDir string) *gen.Graph {
+	t.Helper()
+	s, err := gen.NewStorage("sql")
+	require.NoError(t, err)
+	graph, err := entc.LoadGraph("./internal/uniontest/ent/schema", &gen.Config{
+		Storage: s,
+		Target:  tmpDir,
+		Package: "entgo.io/contrib/entgql/internal/uniontest/ent",
+	})
+	require.NoError(t, err)
+	defs, err := collectUnions(graph)
+	require.NoError(t, err)
+	require.NoError(t, stampUnionMembership(graph, defs))
+	return graph
+}
+
+func TestGenerateSplitUnion(t *testing.T) {
+	tmpDir := t.TempDir()
+	graph := loadUnionTestGraph(t, tmpDir)
+	ex, err := NewExtension(WithSchemaGenerator(), WithWhereInputs(true), WithSplitGoFiles(true))
+	require.NoError(t, err)
+	require.NoError(t, ex.generateSplitGoFiles(graph))
+
+	read := func(rel string) string {
+		b, err := os.ReadFile(filepath.Join(tmpDir, rel))
+		require.NoError(t, err, rel)
+		return string(b)
+	}
+	runtime := read("gqledges/runtime.go")
+	require.Contains(t, runtime, "type Author interface {\n\tIsAuthor()\n}")
+
+	postEdges := read("gqledges/post.go")
+	require.Contains(t, postEdges, "func ResolvePostAuthor(")
+	require.Contains(t, postEdges, ") (Author, error)")
+	require.Contains(t, postEdges, "func ResolvePostReviewer(")
+	require.NotContains(t, postEdges, "func ResolvePostAuthorPerson(")
+	require.NotContains(t, postEdges, "func ResolvePostAuthorBot(")
+
+	rootEdges := read("gql_edge_post.go")
+	require.Regexp(t, `ResolvePostAuthor\s+= gqledges\.ResolvePostAuthor\n`, rootEdges)
+	require.NotContains(t, rootEdges, "ResolvePostAuthorPerson")
+
+	require.Contains(t, read("gql_node.go"), "type Author = gqledges.Author")
+
+	postCollect := read("gqlcollections/post.go")
+	require.Contains(t, postCollect, `gqlcollect.Union("author",`)
+	require.Contains(t, postCollect, `gqlcollect.Unique("author", "", person.Implementors, collectFieldPersonQuery, edges.WithPostAuthorPerson)`)
+	require.Contains(t, postCollect, `gqlcollect.Unique("author", "", bot.Implementors, collectFieldBotQuery, edges.WithPostAuthorBot)`)
+	require.Contains(t, postCollect, `gqlcollect.Unique("reviewer", "", person.Implementors, collectFieldPersonQuery, edges.WithPostReviewer)`)
+
+	for _, rel := range []string{"gqledges/runtime.go", "gqledges/post.go", "gql_edge_post.go", "gql_node.go", "gqlcollections/post.go"} {
+		_, err := parser.ParseFile(token.NewFileSet(), rel, read(rel), parser.AllErrors)
+		require.NoError(t, err, rel)
+	}
+}

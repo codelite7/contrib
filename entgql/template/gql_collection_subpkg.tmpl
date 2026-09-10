@@ -84,10 +84,11 @@ func init() {
 	{{- if $node.HasOneFieldID }}
 	IDColumn: {{ $nodePkg }}.{{ $node.ID.Constant }},
 	{{- end }}
-	{{- if $collects }}
+	{{- if or $collects (nodeUnions $node) }}
 	Edges: []gqlcollect.Edge{
 		{{- range $fc := $collects }}
 			{{- $e := $fc.Edge }}
+			{{- if isUnionMember $node $e }}{{ continue }}{{ end }}
 			{{- $epkg := $e.Type.Package }}
 			{{- /* An edge only owns an FK column when it is unique (gen.Edge.Field requires
 			       OwnFK), so a relay-connection arm never carries one. */}}
@@ -101,6 +102,15 @@ func init() {
 		gqlcollect.Named("{{ $name }}", {{ if $fk }}{{ $fk }}{{ else }}""{{ end }}, {{ $epkg }}.Implementors, collectField{{ $e.Type.QueryName }}, edges.WithNamed{{ $node.Name }}{{ $e.StructField }}),
 				{{- end }}
 			{{- end }}
+		{{- end }}
+		{{- range $u := nodeUnions $node }}
+		gqlcollect.Union("{{ $u.Field }}",
+			{{- range $e := unionMemberEdges $node $u }}
+				{{- $epkg := $e.Type.Package }}
+				{{- $fk := "" }}{{ with $e.Field }}{{ $fk = print $nodePkg "." .Constant }}{{ end }}
+			gqlcollect.Unique("{{ $u.Field }}", {{ if $fk }}{{ $fk }}{{ else }}""{{ end }}, {{ $epkg }}.Implementors, collectField{{ $e.Type.QueryName }}, edges.With{{ $node.Name }}{{ $e.StructField }}),
+			{{- end }}
+		),
 		{{- end }}
 	},
 	{{- end }}

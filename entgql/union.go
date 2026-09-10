@@ -151,6 +151,14 @@ func stampUnionMembership(g *gen.Graph, defs map[string]*unionDef) error {
 	return nil
 }
 
+func graphUnions(g *gen.Graph) ([]string, error) {
+	defs, err := collectUnions(g)
+	if err != nil {
+		return nil, err
+	}
+	return sortedKeys(defs), nil
+}
+
 func sortedKeys(m map[string]*unionDef) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

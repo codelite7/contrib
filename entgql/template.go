@@ -29,6 +29,7 @@ import (
 
 	"entgo.io/ent/entc/gen"
 	"entgo.io/ent/schema/field"
+	"github.com/99designs/gqlgen/codegen/templates"
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/samber/lo"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -193,6 +194,8 @@ var (
 		"filterEdges":          filterEdges,
 		"filterFields":         filterFields,
 		"filterNodes":          filterNodes,
+		"goName":               templates.ToGo,
+		"graphUnions":          graphUnions,
 		"gqlIDType":            gqlIDType,
 		"gqlMarshaler":         gqlMarshaler,
 		"gqlUnmarshaler":       gqlUnmarshaler,
@@ -897,8 +900,11 @@ func isSkipMode(antSkip interface{}, m string) (bool, error) {
 	if err != nil || antSkip == nil {
 		return false, err
 	}
-	if raw, ok := antSkip.(float64); ok {
+	switch raw := antSkip.(type) {
+	case float64:
 		return SkipMode(raw).Is(skip), nil
+	case SkipMode:
+		return raw.Is(skip), nil
 	}
 	return false, fmt.Errorf("invalid annotation skip: %v", antSkip)
 }

@@ -49,4 +49,12 @@ func MaskNotFound(err error) error {
 	return err
 }
 
+{{- range $u := graphUnions $.Graph }}
+
+// {{ $u }} is the Go type behind the GraphQL union {{ $u }}.
+type {{ $u }} interface {
+	Is{{ $u }}()
+}
+{{- end }}
+
 {{ end }}
