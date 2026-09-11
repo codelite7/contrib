@@ -4,11 +4,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"entgo.io/ent"
 	"entgo.io/ent/entc"
 	"entgo.io/ent/entc/gen"
+	"entgo.io/ent/schema/edge"
 	"github.com/stretchr/testify/require"
 	"github.com/vektah/gqlparser/v2/ast"
 )
+
+func testEdge(name string) ent.Edge { return edge.To(name, func(struct{}) {}) }
 
 func loadUnionGraph(t *testing.T) *gen.Graph {
 	t.Helper()
@@ -53,7 +57,7 @@ func TestCollectUnions(t *testing.T) {
 	require.Equal(t, map[string]*unionDef{"Author": {Type: "Author", Members: []string{"Person", "Bot"}}}, defs)
 
 	post := postNode(t, graph)
-	members, err := unionMemberEdges(post, Annotation{}.Merge(UnionField("author", "Author", "author_person", "author_bot")).(Annotation).Unions[0])
+	members, err := unionMemberEdges(post, Annotation{}.Merge(UnionField("author", "Author", testEdge("author_person"), testEdge("author_bot"))).(Annotation).Unions[0])
 	require.NoError(t, err)
 	require.Equal(t, []string{"author_person", "author_bot"}, []string{members[0].Name, members[1].Name})
 
@@ -69,9 +73,9 @@ func TestCollectUnionsValidation(t *testing.T) {
 		ant  Annotation
 		want string
 	}{
-		{"unknown edge", UnionField("author", "Author", "author_person", "missing"), `edge "missing"`},
-		{"single member", UnionField("author", "Author", "author_person"), "at least two"},
-		{"type collision", UnionField("author", "Post", "author_person", "author_bot"), `collides`},
+		{"unknown edge", UnionField("author", "Author", testEdge("author_person"), testEdge("missing")), `edge "missing"`},
+		{"single member", UnionField("author", "Author", testEdge("author_person")), "at least two"},
+		{"type collision", UnionField("author", "Post", testEdge("author_person"), testEdge("author_bot")), `collides`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -86,7 +90,7 @@ func TestCollectUnionsValidation(t *testing.T) {
 		for _, n := range graph.Nodes {
 			if n.Name == "Person" {
 				n.Edges = append(n.Edges, &gen.Edge{Name: "extra", Type: postNode(t, graph), Unique: true, Optional: true}, &gen.Edge{Name: "extra2", Type: postNode(t, graph), Unique: true, Optional: true})
-				withUnionAnnotation(t, n, UnionField("x", "Author", "extra", "extra2"))
+				withUnionAnnotation(t, n, UnionField("x", "Author", testEdge("extra"), testEdge("extra2")))
 			}
 		}
 		_, err := collectUnions(graph)

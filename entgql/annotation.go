@@ -17,6 +17,8 @@ package entgql
 import (
 	"encoding/json"
 
+	"entgo.io/ent"
+
 	"entgo.io/ent/entc/gen"
 	"entgo.io/ent/schema"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -481,8 +483,13 @@ func DeprecatedEnumValues(values ...string) Annotation {
 }
 
 // UnionField declares a virtual field named field, typed as the GraphQL union
-// unionType, whose value is whichever of the named unique edges is set.
-func UnionField(field, unionType string, edges ...string) Annotation {
+// unionType, whose value is whichever of the member edges is set. Members are
+// the same edge values the schema returns from Edges().
+func UnionField(field, unionType string, members ...ent.Edge) Annotation {
+	edges := make([]string, len(members))
+	for i, e := range members {
+		edges[i] = e.Descriptor().Name
+	}
 	return Annotation{Unions: []UnionFieldSpec{{Field: field, Type: unionType, Edges: edges}}}
 }
 

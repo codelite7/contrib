@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"entgo.io/contrib/entgql"
+	"entgo.io/ent/schema/edge"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,11 +84,11 @@ func TestAnnotationDecode(t *testing.T) {
 
 func TestUnionFieldAnnotationMerge(t *testing.T) {
 	base := entgql.Annotation{Implements: []string{"Entity"}}
-	merged := base.Merge(entgql.UnionField("createdBy", "Actor", "created_by", "created_by_app")).(entgql.Annotation)
+	merged := base.Merge(entgql.UnionField("createdBy", "Actor", edge.To("created_by", func(struct{}) {}), edge.To("created_by_app", func(struct{}) {}))).(entgql.Annotation)
 	require.Equal(t, []entgql.UnionFieldSpec{{Field: "createdBy", Type: "Actor", Edges: []string{"created_by", "created_by_app"}}}, merged.Unions)
 	require.Equal(t, []string{"Entity"}, merged.Implements)
 
-	twice := merged.Merge(entgql.UnionField("owner", "Owner", "owner_user", "owner_group")).(entgql.Annotation)
+	twice := merged.Merge(entgql.UnionField("owner", "Owner", edge.To("owner_user", func(struct{}) {}), edge.To("owner_group", func(struct{}) {}))).(entgql.Annotation)
 	require.Len(t, twice.Unions, 2)
 
 	stamped := twice.Merge(entgql.Annotation{UnionMemberOf: []string{"Actor"}}).(entgql.Annotation)
