@@ -40,12 +40,21 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/semaphore"
+	{{- with graphUnions $.Graph }}
+	"{{ $.Config.Package }}/gqledges"
+	{{- end }}
 )
 
 // Noder wraps the basic Node method.
 type Noder interface {
 	IsNode()
 }
+
+{{- range $u := graphUnions $.Graph }}
+
+// {{ $u }} aliases the GraphQL union {{ $u }} for gqlgen autobind.
+type {{ $u }} = gqledges.{{ $u }}
+{{- end }}
 
 var errNodeInvalidID = &NotFoundError{Label: "node"}
 
