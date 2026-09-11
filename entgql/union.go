@@ -87,6 +87,12 @@ func collectUnions(g *gen.Graph) (map[string]*unionDef, error) {
 				switch {
 				case !e.Unique:
 					return nil, fmt.Errorf("entgql: union %q on %s: edge %q must be unique", u.Type, n.Name, e.Name)
+				case edgeAnt.Skip.Is(SkipType):
+					return nil, fmt.Errorf("entgql: union %q on %s: edge %q is itself skipped", u.Type, n.Name, e.Name)
+				case !e.Optional:
+					// The union field resolves to null when no member is set, so a
+					// required member edge promises something the field cannot express.
+					return nil, fmt.Errorf("entgql: union %q on %s: edge %q is required, but a union field is always nullable", u.Type, n.Name, e.Name)
 				case edgeAnt.RelayConnection:
 					return nil, fmt.Errorf("entgql: union %q on %s: edge %q cannot be a relay connection", u.Type, n.Name, e.Name)
 				}

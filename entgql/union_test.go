@@ -85,7 +85,7 @@ func TestCollectUnionsValidation(t *testing.T) {
 		graph := loadUnionGraph(t)
 		for _, n := range graph.Nodes {
 			if n.Name == "Person" {
-				n.Edges = append(n.Edges, &gen.Edge{Name: "extra", Type: postNode(t, graph), Unique: true}, &gen.Edge{Name: "extra2", Type: postNode(t, graph), Unique: true})
+				n.Edges = append(n.Edges, &gen.Edge{Name: "extra", Type: postNode(t, graph), Unique: true, Optional: true}, &gen.Edge{Name: "extra2", Type: postNode(t, graph), Unique: true, Optional: true})
 				withUnionAnnotation(t, n, UnionField("x", "Author", "extra", "extra2"))
 			}
 		}
@@ -114,6 +114,29 @@ func TestCollectUnionsValidation(t *testing.T) {
 		}
 		_, err := collectUnions(graph)
 		require.ErrorContains(t, err, "cannot be a relay connection")
+	})
+	t.Run("member edge is itself skipped", func(t *testing.T) {
+		graph := loadUnionGraph(t)
+		for _, e := range postNode(t, graph).Edges {
+			if e.Name == "author_bot" {
+				if e.Annotations == nil {
+					e.Annotations = gen.Annotations{}
+				}
+				e.Annotations[Annotation{}.Name()] = Skip(SkipType)
+			}
+		}
+		_, err := collectUnions(graph)
+		require.ErrorContains(t, err, "is itself skipped")
+	})
+	t.Run("required member edge", func(t *testing.T) {
+		graph := loadUnionGraph(t)
+		for _, e := range postNode(t, graph).Edges {
+			if e.Name == "author_bot" {
+				e.Optional = false
+			}
+		}
+		_, err := collectUnions(graph)
+		require.ErrorContains(t, err, "is always nullable")
 	})
 	t.Run("member targets a skipped type", func(t *testing.T) {
 		graph := loadUnionGraph(t)
