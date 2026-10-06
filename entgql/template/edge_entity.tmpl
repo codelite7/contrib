@@ -36,8 +36,11 @@ func init() {
 
 {{- /* Var forwarders so consumer code referencing gen.Resolve<Entity><Edge> keeps resolving. */}}
 var (
-{{- range $i, $e := filterEdges $node.Edges (skipMode "type") }}
+{{- range $e := nonUnionEdges $node }}
 	Resolve{{ $node.Name }}{{ $e.StructField }} = gqledges.Resolve{{ $node.Name }}{{ $e.StructField }}
+{{- end }}
+{{- range $u := nodeUnions $node }}
+	Resolve{{ $node.Name }}{{ goName $u.Field }} = gqledges.Resolve{{ $node.Name }}{{ goName $u.Field }}
 {{- end }}
 )
 

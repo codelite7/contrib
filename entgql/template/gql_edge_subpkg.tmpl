@@ -59,6 +59,7 @@ func Register{{ $node.Name }}ClientFromCtx(fn func(context.Context) *{{ $nodePkg
 }
 
 {{ range $i, $e := filterEdges $node.Edges (skipMode "type") }}
+	{{- if isUnionMember $node $e }}{{ continue }}{{ end }}
 	{{- $epkg := $e.Type.Package }}
 	{{ if isRelayConn $e }}
 		{{- /* Inlined gql_edge/helper/paginate logic, collapsed onto gqledge.Conn. */ -}}
@@ -113,5 +114,23 @@ func Register{{ $node.Name }}ClientFromCtx(fn func(context.Context) *{{ $nodePkg
 
 	{{ end }}
 {{ end }}
+
+{{- range $u := nodeUnions $node }}
+
+// Resolve{{ $node.Name }}{{ goName $u.Field }} resolves the {{ $u.Field }} union field of a {{ $node.Name }}.
+func Resolve{{ $node.Name }}{{ goName $u.Field }}({{ $r }} *{{ $nodePkg }}.{{ $node.Name }}, ctx context.Context) ({{ $u.Type }}, error) {
+	{{- range $e := unionMemberEdges $node $u }}
+		{{- $epkg := $e.Type.Package }}
+	if v, err := gqledge.One({{ $r }}.Edges.{{ $e.StructField }}OrErr, func() (*{{ $epkg }}.{{ $e.Type.Name }}, error) {
+		return edges.Query{{ $node.Name }}{{ $e.StructField }}({{ camel $node.Name }}ClientFromCtx(ctx), {{ $r }}).Only(ctx)
+	}, IsNotLoaded, MaskNotFound); err != nil {
+		return nil, err
+	} else if v != nil {
+		return v, nil
+	}
+	{{- end }}
+	return nil, nil
+}
+{{- end }}
 
 {{ end }}

@@ -57,6 +57,10 @@ type Edge struct {
 	Implementors []string
 	// Arm runs the arm body.
 	Arm ArmFn
+	// Members, when non-empty, makes this a union arm: every member arm runs
+	// with satisfies widened by its own Implementors, and every member FK
+	// column is selected. GQL is the union field name; Arm and FKColumn are unused.
+	Members []Edge
 }
 
 // Field describes one collectable scalar field. An empty Column means the arm
@@ -128,11 +132,18 @@ func Collect(spec *Spec, parent any, ctx context.Context, oneNode bool, opCtx *g
 	for _, field := range graphql.CollectFields(opCtx, collected.Selections, satisfies) {
 		if i, ok := spec.edgeIdx[field.Name]; ok {
 			e := &spec.Edges[i]
-			if err := e.Arm(parent, ctx, oneNode, opCtx, field, append(path, field.Alias), MayAddCondition(satisfies, e.Implementors)); err != nil {
-				return err
+			arms := []Edge{*e}
+			if len(e.Members) > 0 {
+				arms = e.Members
 			}
-			if e.FKColumn != "" {
-				selectedFields = addColumn(selectedFields, fieldSeen, e.FKColumn)
+			for j := range arms {
+				a := &arms[j]
+				if err := a.Arm(parent, ctx, oneNode, opCtx, field, append(path, field.Alias), MayAddCondition(satisfies, a.Implementors)); err != nil {
+					return err
+				}
+				if a.FKColumn != "" {
+					selectedFields = addColumn(selectedFields, fieldSeen, a.FKColumn)
+				}
 			}
 			continue
 		}
@@ -194,6 +205,11 @@ func Named[P, C any](gql, fkColumn string, implementors []string, collect Collec
 // body keeps its own MayAddCondition call.
 func Custom(gql string, arm ArmFn) Edge {
 	return Edge{GQL: gql, Arm: arm}
+}
+
+// Union builds the arm of a union-typed field backed by several unique edges.
+func Union(gql string, members ...Edge) Edge {
+	return Edge{GQL: gql, Members: members}
 }
 
 // MayAddCondition appends another type condition to the satisfies list if it

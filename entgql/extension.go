@@ -362,6 +362,16 @@ func (e *Extension) genSchemaHook() gen.Hook {
 				}
 				g.Annotations[ExtensionAnnotation{}.Name()] = ExtensionAnnotation{MaxPageSize: e.maxPageSize}
 			}
+			defs, err := collectUnions(g)
+			if err != nil {
+				return err
+			}
+			if len(defs) > 0 && !e.splitGoFiles {
+				return fmt.Errorf("entgql: UnionField requires WithSplitGoFiles(true)")
+			}
+			if err := stampUnionMembership(g, defs); err != nil {
+				return err
+			}
 			if err = next.Generate(g); err != nil {
 				return err
 			}
