@@ -28,6 +28,7 @@ import (
 	"entgo.io/contrib/entgql"
 	"entgo.io/contrib/entgql/gqlcollect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/99designs/gqlgen/graphql"
 	"{{ $.Config.Package }}/{{ $nodePkg }}"
 	"{{ $.Config.Package }}/edges"
@@ -191,7 +192,7 @@ func collect{{ $node.Name }}{{ $e.StructField }}(parent any, ctx context.Context
 						Count int `sql:"count"`
 					}
 					query.Where(func(s *sql.Selector) {
-						joinT := sql.Table({{ $nodePkg }}.{{ $e.TableConstant }})
+						joinT := sqlgraph.ScopedJunction(s, sql.Table({{ $nodePkg }}.{{ $e.TableConstant }}))
 						s.Join(joinT).On(s.C({{ $edgeid }}), joinT.C({{ $nodePkg }}.{{ $e.PKConstant }}[{{ $fk1idx }}]))
 						s.Where(sql.InValues(joinT.C({{ $nodePkg }}.{{ $e.PKConstant }}[{{ $fk2idx }}]), ids...))
 						s.Select(joinT.C({{ $nodeid }}), sql.Count("*"))
