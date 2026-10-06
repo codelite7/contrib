@@ -34,6 +34,7 @@ import (
 	"sync"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 )
 
 // CollectFn is the signature of a generated per-entity collectField helper.
@@ -57,6 +58,9 @@ type Edge struct {
 	Implementors []string
 	// Arm runs the arm body.
 	Arm ArmFn
+	// unique marks an edge whose sub-query lands in one slot per edge name,
+	// so aliases of it must be merged before the arm runs.
+	unique bool
 }
 
 // Field describes one collectable scalar field. An empty Column means the arm
@@ -125,7 +129,7 @@ func Collect(spec *Spec, parent any, ctx context.Context, oneNode bool, opCtx *g
 	if spec.IDColumn != "" {
 		selectedFields = []string{spec.IDColumn}
 	}
-	for _, field := range graphql.CollectFields(opCtx, collected.Selections, satisfies) {
+	for _, field := range mergeUniqueAliases(spec, graphql.CollectFields(opCtx, collected.Selections, satisfies)) {
 		if i, ok := spec.edgeIdx[field.Name]; ok {
 			e := &spec.Edges[i]
 			if err := e.Arm(parent, ctx, oneNode, opCtx, field, append(path, field.Alias), MayAddCondition(satisfies, e.Implementors)); err != nil {
@@ -153,6 +157,31 @@ func Collect(spec *Spec, parent any, ctx context.Context, oneNode bool, opCtx *g
 	return nil
 }
 
+// mergeUniqueAliases folds every alias of a unique edge into its first
+// occurrence, whose selections become the union. The generated attach helper
+// stores one sub-query per edge name, so a second alias would overwrite the
+// first's narrowed columns.
+func mergeUniqueAliases(spec *Spec, fields []graphql.CollectedField) []graphql.CollectedField {
+	first := make(map[string]int)
+	merged := make([]graphql.CollectedField, 0, len(fields))
+	for _, field := range fields {
+		i, ok := spec.edgeIdx[field.Name]
+		if !ok || !spec.Edges[i].unique {
+			merged = append(merged, field)
+			continue
+		}
+		at, seen := first[field.Name]
+		if !seen {
+			first[field.Name] = len(merged)
+			merged = append(merged, field)
+			continue
+		}
+		union := append(ast.SelectionSet(nil), merged[at].Selections...)
+		merged[at].Selections = append(union, field.Selections...)
+	}
+	return merged
+}
+
 func addColumn(selected []string, seen map[string]struct{}, column string) []string {
 	if _, ok := seen[column]; ok {
 		return selected
@@ -165,7 +194,7 @@ func addColumn(selected []string, seen map[string]struct{}, column string) []str
 // attaches unnamed. attach is the generated edges.With<Parent><Edge> helper,
 // which builds the sub-query itself and passes it to every option.
 func Unique[P, C any](gql, fkColumn string, implementors []string, collect CollectFn[C], attach func(P, ...func(C)) P) Edge {
-	return Edge{GQL: gql, FKColumn: fkColumn, Implementors: implementors,
+	return Edge{GQL: gql, FKColumn: fkColumn, Implementors: implementors, unique: true,
 		Arm: func(parent any, ctx context.Context, oneNode bool, opCtx *graphql.OperationContext, field graphql.CollectedField, path []string, satisfies []string) error {
 			var err error
 			attach(parent.(P), func(sub C) {
